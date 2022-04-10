@@ -24,6 +24,8 @@ extern int yylineno;
 %token CHAR SHORT INT LONG FLOAT DOUBLE
 %token VOID CONSTANT
 %token LE GE EQ NE
+%token IF ELSE
+%token DO FOR WHILE
 
 %right '='
 %left EQ NE
@@ -84,6 +86,8 @@ STMT_LIST :
 STMT :
     COMPOUND_STMT
     | EXPR_STMT
+    | SELECT_STMT
+    | ITERATE_STMT
     ;
 
 TYPE_SPEC :
@@ -122,11 +126,28 @@ EXPR :
     | EXPR '%' EXPR
     | EXPR '=' EXPR
     | '-' EXPR %prec '*'
+    | EXPR '(' ARG_LIST ')'
     | IDENTIFIER
     | CONSTANT
     | '(' EXPR ')'
     ;
 
+ARG_LIST :
+    ARG_LIST ',' EXPR
+    | EXPR
+    ;
+
+SELECT_STMT :
+    IF '(' EXPR ')' STMT
+    | IF '(' EXPR ')' STMT ELSE STMT
+    ;
+
+ITERATE_STMT :
+    FOR '(' EXPR_STMT EXPR_STMT EXPR ')' STMT
+    | FOR '(' EXPR_STMT EXPR_STMT ')' STMT
+    | WHILE '(' EXPR ')' STMT
+    | DO STMT WHILE '(' EXPR ')' ';'
+    ;
 %%
 
 void yyerror(char *s){

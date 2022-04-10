@@ -15,6 +15,13 @@
 "double"	{ return DOUBLE; }
 "void"		{ return VOID; }
 
+"if"        { return IF; }
+"else"      { return ELSE; }
+"while"     { return WHILE; }
+"for"       { return FOR; }
+"do"        { return DO; }
+
+
 [a-zA-Z_][a-zA-Z0-9_]*	{ return IDENTIFIER; }
 [0-9]+			{ return CONSTANT; }
 
