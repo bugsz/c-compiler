@@ -1,5 +1,3 @@
-#include<bits/stdc++.h>
-#include "llvm/IR/LLVMContext.h"
 #include "llvm/ADT/APFloat.h"
 #include "llvm/ADT/Optional.h"
 #include "llvm/ADT/STLExtras.h"
@@ -21,55 +19,88 @@
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetOptions.h"
 
+#include<bits/stdc++.h>
+
+
 using namespace llvm;
 
 class ExprAST {
 public:
-  virtual ~ExprAST() = default;
+    virtual ~ExprAST() = default;
 
-  virtual Value *codegen() = 0;
+    virtual Value *codegen() = 0;
 };
 
 /// DoubleExprAST - Expression class for numeric literals like "1.0".
 class DoubleExprAST : public ExprAST {
-  double Val;
+    double val;
 public:
-  DoubleExprAST(double Val) : Val(Val) {}
+    DoubleExprAST(double val) : val(val) {}
 
-  Value *codegen() override;
+    Value *codegen() override;
 };
 
 /// VariableExprAST - Expression class for referencing a variable, like "a".
 class VariableExprAST : public ExprAST {
-  std::string Name;
+    std::string name;
 public:
-  VariableExprAST(const std::string &Name) : Name(Name) {}
+    VariableExprAST(const std::string &name) : name(name) {}
 
-  Value *codegen() override;
-  const std::string &getName() const { return Name; }
+    Value *codegen() override;
+
+    const std::string &getName() const { return name; }
 };
 
 
 /// UnaryExprAST - Expression class for a unary operator.
 class UnaryExprAST : public ExprAST {
-  char Opcode;
-  std::unique_ptr<ExprAST> Operand;
+    char opcode;
+    std::unique_ptr<ExprAST> operand;
 public:
-  UnaryExprAST(char Opcode, std::unique_ptr<ExprAST> Operand)
-      : Opcode(Opcode), Operand(std::move(Operand)) {}
+    UnaryExprAST(char opcode, std::unique_ptr<ExprAST> operand)
+            : opcode(opcode), operand(std::move(operand)) {}
 
-  Value *codegen() override;
+    Value *codegen() override;
 };
 
 
 /// BinaryExprAST - Expression class for a binary operator.
 class BinaryExprAST : public ExprAST {
-  char Op;
-  std::unique_ptr<ExprAST> LHS, RHS;
+    char op;
+    std::unique_ptr<ExprAST> lhs, rhs;
 public:
-  BinaryExprAST(char Op, std::unique_ptr<ExprAST> LHS,
-                std::unique_ptr<ExprAST> RHS)
-      : Op(Op), LHS(std::move(LHS)), RHS(std::move(RHS)) {}
+    BinaryExprAST(char op, std::unique_ptr<ExprAST> lhs,
+                  std::unique_ptr<ExprAST> rhs)
+            : op(op), lhs(std::move(lhs)), rhs(std::move(rhs)) {}
 
-  Value *codegen() override;
+    Value *codegen() override;
+};
+
+class IfExprAST : public ExprAST {
+    std::unique_ptr<ExprAST> cond, then_case, else_case;
+
+public:
+    IfExprAST(std::unique_ptr<ExprAST> cond,
+              std::unique_ptr<ExprAST> then_case,
+              std::unique_ptr<ExprAST> else_case)
+            : cond(std::move(cond)), then_case(std::move(then_case)), else_case(std::move(else_case)) {};
+
+    Value *codegen() override;
+};
+
+class ForExprAST : public ExprAST {
+    std::unique_ptr<ExprAST> start, end, step, body;
+    std::string var_name;
+
+public :
+    ForExprAST(
+            std::string var_name,
+            std::unique_ptr<ExprAST> start,
+            std::unique_ptr<ExprAST> end,
+            std::unique_ptr<ExprAST> step,
+            std::unique_ptr<ExprAST> body): var_name(var_name), start(std::move(start)),
+            end(std::move(end)), step(std::move(step)), body(std::move(body)) {};
+
+Value *codegen() override;
+
 };
