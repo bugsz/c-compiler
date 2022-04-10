@@ -1,0 +1,1 @@
+rm -f cc_frontend aclocal.m4 compile configure config.h config.h.in config.log config.status configure~ depcomp install-sh missing stamp-h1 ylwrap Makefile.in Makefile
