@@ -27,6 +27,9 @@ extern int yylineno;
 %token IF ELSE
 %token DO FOR WHILE
 
+%nonassoc OUTERTHEN
+%nonassoc ELSE
+
 %right '='
 %left EQ NE
 %left '>' '<' LE GE
@@ -129,7 +132,7 @@ EXPR :
     | EXPR '(' ARG_LIST ')'
     | IDENTIFIER
     | CONSTANT
-    | '(' EXPR ')'
+    | '(' EXPR ')' %prec '('
     ;
 
 ARG_LIST :
@@ -138,7 +141,7 @@ ARG_LIST :
     ;
 
 SELECT_STMT :
-    IF '(' EXPR ')' STMT
+    IF '(' EXPR ')' STMT %prec OUTERTHEN
     | IF '(' EXPR ')' STMT ELSE STMT
     ;
 
