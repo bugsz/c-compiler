@@ -1,13 +1,11 @@
 .DS_Store
 autom4te.cache
-aclocal.m4
 .deps
 .dirstamp
 config.log
 config.status
 Makefile
 configure
-config.h.in
 *~
 .vscode
 stamp-h1
