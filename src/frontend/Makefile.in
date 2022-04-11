@@ -102,8 +102,8 @@ CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
 PROGRAMS = $(noinst_PROGRAMS)
 am__dirstamp = $(am__leading_dot)dirstamp
-am_cc_frontend_OBJECTS = src/entry.$(OBJEXT) src/parser.$(OBJEXT) \
-	src/tokenizer.$(OBJEXT)
+am_cc_frontend_OBJECTS = src/ast_impl.$(OBJEXT) src/entry.$(OBJEXT) \
+	src/parser.$(OBJEXT) src/tokenizer.$(OBJEXT)
 cc_frontend_OBJECTS = $(am_cc_frontend_OBJECTS)
 cc_frontend_LDADD = $(LDADD)
 AM_V_P = $(am__v_P_@AM_V@)
@@ -121,8 +121,8 @@ am__v_at_1 =
 DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir)/include
 depcomp = $(SHELL) $(top_srcdir)/build-aux/depcomp
 am__maybe_remake_depfiles = depfiles
-am__depfiles_remade = src/$(DEPDIR)/entry.Po src/$(DEPDIR)/parser.Po \
-	src/$(DEPDIR)/tokenizer.Po
+am__depfiles_remade = src/$(DEPDIR)/ast_impl.Po src/$(DEPDIR)/entry.Po \
+	src/$(DEPDIR)/parser.Po src/$(DEPDIR)/tokenizer.Po
 am__mv = mv -f
 COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
 	$(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
@@ -314,7 +314,7 @@ top_srcdir = @top_srcdir@
 AUTOMAKE_OPTIONS = foreign
 AM_YFLAGS = -d
 AM_CPPFLAGS = -I./third_parties/argparse -I./include
-cc_frontend_SOURCES = src/entry.cpp src/parser.y src/tokenizer.l
+cc_frontend_SOURCES = src/ast_impl.c src/entry.cpp src/parser.y src/tokenizer.l
 all: all-am
 
 .SUFFIXES:
@@ -376,6 +376,8 @@ src/$(am__dirstamp):
 src/$(DEPDIR)/$(am__dirstamp):
 	@$(MKDIR_P) src/$(DEPDIR)
 	@: > src/$(DEPDIR)/$(am__dirstamp)
+src/ast_impl.$(OBJEXT): src/$(am__dirstamp) \
+	src/$(DEPDIR)/$(am__dirstamp)
 src/entry.$(OBJEXT): src/$(am__dirstamp) src/$(DEPDIR)/$(am__dirstamp)
 src/parser.h: src/parser.c
 	@if test ! -f $@; then rm -f src/parser.c; else :; fi
@@ -396,6 +398,7 @@ mostlyclean-compile:
 distclean-compile:
 	-rm -f *.tab.c
 
+@AMDEP_TRUE@@am__include@ @am__quote@src/$(DEPDIR)/ast_impl.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@src/$(DEPDIR)/entry.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@src/$(DEPDIR)/parser.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@src/$(DEPDIR)/tokenizer.Po@am__quote@ # am--include-marker
@@ -719,7 +722,8 @@ clean-am: clean-generic clean-noinstPROGRAMS mostlyclean-am
 
 distclean: distclean-am
 	-rm -f $(am__CONFIG_DISTCLEAN_FILES)
-		-rm -f src/$(DEPDIR)/entry.Po
+		-rm -f src/$(DEPDIR)/ast_impl.Po
+	-rm -f src/$(DEPDIR)/entry.Po
 	-rm -f src/$(DEPDIR)/parser.Po
 	-rm -f src/$(DEPDIR)/tokenizer.Po
 	-rm -f Makefile
@@ -769,7 +773,8 @@ installcheck-am:
 maintainer-clean: maintainer-clean-am
 	-rm -f $(am__CONFIG_DISTCLEAN_FILES)
 	-rm -rf $(top_srcdir)/autom4te.cache
-		-rm -f src/$(DEPDIR)/entry.Po
+		-rm -f src/$(DEPDIR)/ast_impl.Po
+	-rm -f src/$(DEPDIR)/entry.Po
 	-rm -f src/$(DEPDIR)/parser.Po
 	-rm -f src/$(DEPDIR)/tokenizer.Po
 	-rm -f Makefile
