@@ -52,3 +52,4 @@ _deps
 .vscode
 .cache
 .idea
+/cmake-build-debug/
