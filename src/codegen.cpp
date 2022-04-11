@@ -17,6 +17,7 @@
 #include "llvm/Support/Host.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/TargetRegistry.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetOptions.h"
 
@@ -32,7 +33,7 @@ static std::unique_ptr<IRBuilder<>> llvmBuilder;
 static void initializeModule() {
     llvmContext = std::make_unique<LLVMContext>();
     llvmModule = std::make_unique<Module>("JIT", *llvmContext);
-
+    llvmBuilder = std::make_unique<IRBuilder<>>(*llvmContext);
 }
 
 std::unique_ptr<ExprAST> logError(const char *str) {
@@ -42,14 +43,16 @@ std::unique_ptr<ExprAST> logError(const char *str) {
 
 Value *logErrorV(const char *str) {
     logError(str);
+    return nullptr;
 }
 
 Value *DoubleExprAST::codegen() {
-  return ConstantFP::get(*llvmContext, APFloat(val));
+    // std::cout << "codegen for double" << std::endl;
+    return ConstantFP::get(*llvmContext, APFloat(val));
 }
 
 Value *VariableExprAST::codegen() {
-    Value *V = NamedValues[Name];
+    Value *V = NamedValues[name];
     if (!V)
         return logErrorV("Unknown variable name");
     return V;
@@ -145,7 +148,7 @@ Value *ForExprAST::codegen() {
     endVal = llvmBuilder->CreateFCmpONE(endVal, ConstantFP::get(*llvmContext, APFloat(0.0)), "loop_end");
 
     BasicBlock *loopEndBlock = llvmBuilder->GetInsertBlock();
-    BasicBlock *afterBlock = BasicBlock::Create(*llvmContext, "after_loop", currFunction);
+    BasicBlock *afterBlock = BasicBlock::Create(*llvmContext, "after_for_loop", currFunction);
 
     llvmBuilder->CreateCondBr(endVal, loopBlock, afterBlock);
     llvmBuilder->SetInsertPoint(afterBlock);
@@ -157,9 +160,150 @@ Value *ForExprAST::codegen() {
     else NamedValues.erase(var_name);
 
     return Constant::getNullValue(Type::getDoubleTy(*llvmContext));
+}
+
+Value *WhileExprAST::codegen() {
+    // TODO
+    Value *condVal = cond->codegen();
+    if (!condVal) return nullptr;
+
+    Function *currFunction = llvmBuilder->GetInsertBlock()->getParent();
+    BasicBlock *entryBlock = BasicBlock::Create(*llvmContext, "entry", currFunction);
+    llvmBuilder->SetInsertPoint(entryBlock);
+
+    Value *endVal = llvmBuilder->CreateFCmpONE(condVal, ConstantFP::get(*llvmContext, APFloat(0.0)));
+    BasicBlock *loopBlock = BasicBlock::Create(*llvmContext, "while_loop_body", currFunction);
+    BasicBlock *endBlock = BasicBlock::Create(*llvmContext, "while_loop_end", currFunction);
+
+    llvmBuilder->CreateCondBr(endVal, loopBlock, endBlock);
+    llvmBuilder->SetInsertPoint(endBlock);
+
+    return Constant::getNullValue(Type::getDoubleTy(*llvmContext));
+}
+
+Value *CallExprAST::codegen() {
+    std::cout << callee << std::endl;
+    Function *calleeFunction = llvmModule->getFunction(callee);
+    if (!calleeFunction) return logErrorV("Unknown function");
+    if (calleeFunction->arg_size() != args.size()) logErrorV("Incorrect args");
+
+    std::vector<Value *> argsValue;
+    for (auto &arg: args) {
+        Value *argValue = arg->codegen();
+        if (!argValue) return nullptr;
+        argsValue.push_back(argValue);
+    }
+
+    return llvmBuilder->CreateCall(calleeFunction, argsValue, "calltmp");
+}
+
+Function *PrototypeAST::codegen() {
+    std::vector<Type *> data_type(args.size(), Type::getDoubleTy(*llvmContext));
+    FunctionType *ty = FunctionType::get(Type::getDoubleTy(*llvmContext), data_type, false);
+
+    Function *F = Function::Create(ty, Function::ExternalLinkage, name, llvmModule.get());
+
+//    unsigned idx = 0;
+//    for (auto &arg: F->args())
+//        arg.setName(args[idx++]);
+
+    return F;
+}
+
+Function *FunctionAST::codegen() {
+    Function *currFunction = llvmModule->getFunction(proto->getName());
+    if (!currFunction) currFunction = proto->codegen();
+    if (!currFunction) return nullptr;
+    if (!currFunction->empty()) return (Function *)logErrorV("Function cannot be redefined");
+
+    BasicBlock *BB = BasicBlock::Create(*llvmContext, "entry", currFunction);
+    llvmBuilder->SetInsertPoint(BB);
+
+    NamedValues.clear();
+    for (auto &arg: currFunction->args())
+        NamedValues[std::string(arg.getName())] = &arg;
+
+    Value *retVal = body->codegen();
+    if (retVal) {
+        llvmBuilder->CreateRet(retVal);
+        verifyFunction(*currFunction);
+
+        return currFunction;
+    }
+
+
+    // TODO: support explicit return value
+    currFunction->eraseFromParent();
+    return nullptr;
+}
+
+void compile() {
+    InitializeAllTargetInfos();
+    InitializeAllTargets();
+    InitializeAllTargetMCs();
+    InitializeAllAsmParsers();
+    InitializeAllAsmPrinters();
+
+    auto targetTriple = sys::getDefaultTargetTriple();
+
+    auto cpu = "generic";
+    auto features = "";
+
+    std::string error;
+    auto target = TargetRegistry::lookupTarget(targetTriple, error);
+
+    TargetOptions opt;
+    auto RM = Optional<Reloc::Model>();
+    auto theTargetMachine = target->createTargetMachine(targetTriple, cpu, features, opt, RM);
+
+    llvmModule->setDataLayout(theTargetMachine->createDataLayout());
+
+    auto filename = "output.o";
+    std::error_code EC;
+    raw_fd_ostream dest(filename, EC, sys::fs::OF_None);
+
+    legacy::PassManager pass;
+    auto FileType = CGFT_ObjectFile;
+
+    pass.run(*llvmModule);
+    dest.flush();
+}
+
+void testAst() {
+//    DoubleExprAST doubleExprAst(0.5);
+//    doubleExprAst.codegen();
+
+    auto astD1 = std::make_unique<DoubleExprAST>(0.5);
+    auto astD2 = std::make_unique<DoubleExprAST>(0.5);
+
+    std::string name("test"), arg1("x"), arg2("y");
+    std::vector<std::string> args({arg1, arg2});
+
+    auto astVariable1 = std::make_unique<VariableExprAST>(arg1);
+    auto astVariable2 = std::make_unique<VariableExprAST>(arg2);
+    auto astV2 = std::make_unique<BinaryExprAST>('*', std::move(astVariable1), std::move(astVariable2));
+    auto astProto1 = std::make_unique<PrototypeAST>(name, std::move(args));
+    astProto1->codegen();
+    auto astFunc1 = std::make_unique<FunctionAST>(std::move(astProto1), std::move(astV2));
+
+//    fprintf(stderr, "read function definition: \n");
+//    astFunc1->codegen()->print(errs());
+//    fprintf(stderr, "\n");
+
+
+    std::vector<std::unique_ptr<ExprAST>> doubleArgs;
+    doubleArgs.push_back(std::move(astD1));
+    doubleArgs.push_back(std::move(astD2));
+    auto astCall1 = std::make_unique<CallExprAST>(name, std::move(doubleArgs));
+
+    // fprintf(stderr, "read function definition");
+    astCall1->codegen()->print(errs());
 
 }
 
 int main() {
+    initializeModule();
+    testAst();
+    llvmModule->print(errs(), nullptr);
     return 0;
 }

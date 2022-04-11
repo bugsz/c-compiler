@@ -83,7 +83,7 @@ public:
     IfExprAST(std::unique_ptr<ExprAST> cond,
               std::unique_ptr<ExprAST> then_case,
               std::unique_ptr<ExprAST> else_case)
-            : cond(std::move(cond)), then_case(std::move(then_case)), else_case(std::move(else_case)) {};
+            : cond(std::move(cond)), then_case(std::move(then_case)), else_case(std::move(else_case)) {}
 
     Value *codegen() override;
 };
@@ -94,13 +94,58 @@ class ForExprAST : public ExprAST {
 
 public :
     ForExprAST(
-            std::string var_name,
+            const std::string &var_name,
             std::unique_ptr<ExprAST> start,
             std::unique_ptr<ExprAST> end,
             std::unique_ptr<ExprAST> step,
             std::unique_ptr<ExprAST> body): var_name(var_name), start(std::move(start)),
-            end(std::move(end)), step(std::move(step)), body(std::move(body)) {};
+            end(std::move(end)), step(std::move(step)), body(std::move(body)) {}
 
 Value *codegen() override;
+};
 
+class CallExprAST : public ExprAST {
+    std::string callee;
+    std::vector<std::unique_ptr<ExprAST>> args;
+
+public:
+    CallExprAST(const std::string &callee, std::vector<std::unique_ptr<ExprAST>> args)
+    : callee(callee), args(std::move(args)) {}
+
+    Value *codegen() override;
+};
+
+class PrototypeAST {
+    // function declaration
+    std::string name;
+    std::vector<std::string> args;
+
+public :
+    PrototypeAST(std::string &name, std::vector<std::string> args)
+    : name(name), args(std::move(args)) {}
+    std::string &getName() { return name; }
+
+Function *codegen();
+
+    // TODO: support for multiple data type
+};
+
+class FunctionAST {
+    std::unique_ptr<PrototypeAST> proto;
+    std::unique_ptr<ExprAST> body;
+
+public:
+    FunctionAST(std::unique_ptr<PrototypeAST> proto, std::unique_ptr<ExprAST> body)
+    : proto(std::move(proto)), body(std::move(body)) {}
+
+    Function *codegen();
+};
+
+class WhileExprAST : public ExprAST {
+    std::unique_ptr<ExprAST> cond, body;
+
+public:
+    WhileExprAST(std::unique_ptr<ExprAST>cond, std::unique_ptr<ExprAST>body)
+    : cond(std::move(cond)), body(std::move(body)) {}
+    Value *codegen() override;
 };
