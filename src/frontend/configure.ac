@@ -10,8 +10,17 @@ AC_PROG_CXX
 AC_PROG_CC
 AC_PROG_LEX([noyywrap])
 AC_PROG_YACC
+AC_CHECK_HEADERS([unistd.h])
+
+if [[ "$TERM" = "xterm-256color" ]]; then
+    AC_DEFINE([COLOR_TERM], [1], [Define to 1 if colorized output is enabled])
+else
+    AC_DEFINE([COLOR_TERM], [0], [Define to 1 if colorized output is enabled])
+fi
 
 CXXFLAGS="${CXXFLAGS} -std=c++17"
+
+AH_BOTTOM([#include "term_color.h"])
 
 AC_CONFIG_FILES([Makefile])
 AC_OUTPUT
