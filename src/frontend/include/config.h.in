@@ -63,4 +63,4 @@
    `char[]'. */
 #undef YYTEXT_POINTER
 
-#include "term_color.h"
+#include "_config.h"
