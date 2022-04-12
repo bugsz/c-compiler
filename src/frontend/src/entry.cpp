@@ -27,8 +27,8 @@ int main(int argc, char** argv) {
     program.add_argument("-f", "--file")
         .default_value(string(""))
         .help("input file");
-    program.add_argument("-ast-dump")
-        .default_value(string(""))
+    program.add_argument("--ast-dump")
+        .default_value(false)
         .help("print AST");
     try {
         program.parse_args(argc, argv);
@@ -41,6 +41,7 @@ int main(int argc, char** argv) {
         int* n_errs = new int;
         *n_errs = 0;
         if (yyparse(program.get("-f").c_str(), n_errs, root)) throw runtime_error(to_string(*n_errs) + " errors generated.");
+        if (program.is_used("--ast-dump")) print_ast(root);
     }
     catch (const exception& err) {
         cerr << err.what() << endl;
