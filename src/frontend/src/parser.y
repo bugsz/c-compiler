@@ -5,6 +5,7 @@
 #include "ast_impl.h"
 
 #define YYSTYPE ast_node_ptr
+
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #else
@@ -47,34 +48,57 @@ extern int yycolno;
 %left '(' ')'
 
 %% 
-TRANSLATION_UNIT : PROG { print_ast(root); }
+TRANSLATION_UNIT : PROG { 
+    postproc_after_parse(root);
+}
 
 PROG : 
     GLOBAL_DECL { 
         append_child(root, $1); 
     }
-    | PROG GLOBAL_DECL { 
-        append_child(root, $2); 
+    | GLOBAL_DECL PROG { 
+        append_child(root, $1); 
     }
     ;
 
 GLOBAL_DECL : 
-    FN_DEF {}
-    | DECL { $$ = $1; }
+    FN_DEF
+    | DECL
     ;
 
 FN_DEF :
-    TYPE_SPEC IDENTIFIER '(' PARAM_LIST ')' COMPOUND_STMT
-    | TYPE_SPEC IDENTIFIER '(' ')' COMPOUND_STMT
+    TYPE_SPEC IDENTIFIER '(' PARAM_LIST ')' COMPOUND_STMT {
+        $$ = mknode("FunctionDecl", $4, $6);
+    }
+    | TYPE_SPEC IDENTIFIER '(' ')' COMPOUND_STMT {
+        $$ = mknode("FunctionDecl", $5);
+    }
+    | TYPE_SPEC IDENTIFIER '(' PARAM_LIST ')' ';' {
+        $$ = mknode("FunctionDecl", $4);
+    }
+    | TYPE_SPEC IDENTIFIER '(' ')' ';' {
+        $$ = mknode("FunctionDecl", $5);
+    }
     ;
 
 PARAM_LIST :
-    PARAM_LIST ',' PARAM_DECL
+    PARAM_DECL PARAM_LIST_RIGHT {
+        $$ = mknode("TO_BE_MERGED", $1, $2);
+    }
     | PARAM_DECL
     ;
 
+PARAM_LIST_RIGHT :
+    ',' PARAM_DECL PARAM_LIST_RIGHT {
+        $$ = mknode("TO_BE_MERGED", $2, $3);
+    }
+    | ',' PARAM_DECL {
+        $$ = $2;
+    }
+    ;
+
 PARAM_DECL :
-    TYPE_SPEC IDENTIFIER
+    TYPE_SPEC IDENTIFIER { $$ = mknode("ParmVarDecl"); }
     ;
 
 DECL :
@@ -82,25 +106,28 @@ DECL :
     ;
 
 DECL_LIST :
-    DECL_LIST DECL
-    | DECL
+    DECL DECL_LIST { 
+        ast_node_ptr t1 = mknode("DeclStmt", $1);
+        $$ = mknode("TO_BE_MERGED", t1, $2); 
+    }
+    | DECL  { $$ = mknode("DeclStmt", $1); }
     ;
 
 DECLARATOR :
-    IDENTIFIER  {}
+    IDENTIFIER  { }
     | IDENTIFIER '=' EXPR { 
         $$ = $3;
     }
     ;
 
 STMT_LIST :
-    STMT_LIST STMT
+    STMT STMT_LIST { $$ = mknode("TO_BE_MERGED", $1, $2); }
     | STMT
     ;
 
 STMT :
     COMPOUND_STMT
-    | EXPR_STMT
+    | EXPR_STMT 
     | SELECT_STMT
     | ITERATE_STMT
     | JMP_STMT
@@ -117,40 +144,49 @@ TYPE_SPEC :
     ;
 
 COMPOUND_STMT :
-    '{' '}' {}
-    | '{' STMT_LIST '}' {}
-    | '{' DECL_LIST STMT_LIST '}' {}
-    | '{' DECL_LIST '}' {}
+    '{' '}' { $$ = mknode("CompoundStmt"); }
+    | '{' STMT_LIST '}' { $$ = mknode("CompoundStmt", $2); }
+    | '{' DECL_LIST STMT_LIST '}' { $$ = mknode("CompoundStmt", $2, $3); }
+    | '{' DECL_LIST '}' { $$ = mknode("CompoundStmt", $2); }
     ;
 
 EXPR_STMT :
     ';'
-    | EXPR ';'
+    | EXPR ';' { $$ = $1; }
     ;
 
 EXPR :
     EXPR '<' EXPR    { $$ = mknode("BinaryOperator", $1, $3); }
-    | EXPR '>' EXPR  { $$ = mknode("GT", $1, $3); }
-    | EXPR LE EXPR  { $$ = mknode("LE", $1, $3); }
-    | EXPR GE EXPR  { $$ = mknode("GE", $1, $3); }
-    | EXPR EQ EXPR  { $$ = mknode("EQ", $1, $3); }
-    | EXPR NE EXPR  { $$ = mknode("NE", $1, $3); }
-    | EXPR '+' EXPR { $$ = mknode("ADD", $1, $3); }
-    | EXPR '-' EXPR { $$ = mknode("SUB", $1, $3); }
-    | EXPR '*' EXPR { $$ = mknode("MUL", $1, $3); }
-    | EXPR '/' EXPR { $$ = mknode("DIV", $1, $3); }
-    | EXPR '%' EXPR { $$ = mknode("MOD", $1, $3); }
-    | EXPR '=' EXPR { $$ = mknode("ASSIGN", $1, $3); }
-    | '-' EXPR %prec '*'    { $$ = mknode("NEG", $2); }
-    | EXPR '(' ARG_LIST ')' { $$ = mknode("CALL", $1, $3); }
-    | IDENTIFIER     { $$ = mknode("IDENTIFIER"); }
+    | EXPR '>' EXPR  { $$ = mknode("BinaryOperator", $1, $3); }
+    | EXPR LE EXPR  { $$ = mknode("BinaryOperator", $1, $3); }
+    | EXPR GE EXPR  { $$ = mknode("BinaryOperator", $1, $3); }
+    | EXPR EQ EXPR  { $$ = mknode("BinaryOperator", $1, $3); }
+    | EXPR NE EXPR  { $$ = mknode("BinaryOperator", $1, $3); }
+    | EXPR '+' EXPR { $$ = mknode("BinaryOperator", $1, $3); }
+    | EXPR '-' EXPR { $$ = mknode("BinaryOperator", $1, $3); }
+    | EXPR '*' EXPR { $$ = mknode("BinaryOperator", $1, $3); }
+    | EXPR '/' EXPR { $$ = mknode("BinaryOperator", $1, $3); }
+    | EXPR '%' EXPR { $$ = mknode("BinaryOperator", $1, $3); }
+    | EXPR '=' EXPR { $$ = mknode("BinaryOperator", $1, $3); }
+    | '-' EXPR %prec '*'    { $$ = mknode("UnaryOperator", $2); }
+    | FUNC_NAME '(' ARG_LIST ')' { $$ = mknode("CallExpr", $1, $3); }
+    | IDENTIFIER     { $$ = mknode("DeclRefExpr"); }
     | CONSTANT     { $$ = mknode("Literal"); }
     | '(' EXPR ')' %prec '('    { $$ = $2; }
     ;
 
+FUNC_NAME :
+    IDENTIFIER  { $$ = mknode("DeclRefExpr"); }
+    ;
+
 ARG_LIST :
-    ARG_LIST ',' EXPR
-    | EXPR
+    EXPR ARG_LIST_RIGHT { $$ = mknode("TO_BE_MERGED", $1, $2); }
+    | EXPR { $$ = $1; }
+    ;
+
+ARG_LIST_RIGHT :
+    ',' EXPR ARG_LIST_RIGHT { $$ = mknode("TO_BE_MERGED", $2, $3); }
+    | ',' EXPR { $$ = $2; }
     ;
 
 SELECT_STMT :
