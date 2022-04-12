@@ -9,3 +9,11 @@
 #define COLOR_BOLD ""
 #define COLOR_GREEN ""
 #endif
+
+#if defined __GNUG__ || defined __clang__
+#define likely(x) __builtin_expect(!!(x), 1)
+#define unlikely(x) __builtin_expect(!!(x), 0)
+#else
+#define likely(x) (x)
+#define unlikely(x) (x)
+#endif
