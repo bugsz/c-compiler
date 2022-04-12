@@ -86,7 +86,7 @@ POST_INSTALL = :
 NORMAL_UNINSTALL = :
 PRE_UNINSTALL = :
 POST_UNINSTALL = :
-noinst_PROGRAMS = cc_frontend$(EXEEXT)
+noinst_PROGRAMS = zjucc$(EXEEXT)
 subdir = .
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/configure.ac
@@ -102,10 +102,10 @@ CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
 PROGRAMS = $(noinst_PROGRAMS)
 am__dirstamp = $(am__leading_dot)dirstamp
-am_cc_frontend_OBJECTS = src/ast_impl.$(OBJEXT) src/entry.$(OBJEXT) \
+am_zjucc_OBJECTS = src/ast_impl.$(OBJEXT) src/entry.$(OBJEXT) \
 	src/parser.$(OBJEXT) src/tokenizer.$(OBJEXT)
-cc_frontend_OBJECTS = $(am_cc_frontend_OBJECTS)
-cc_frontend_LDADD = $(LDADD)
+zjucc_OBJECTS = $(am_zjucc_OBJECTS)
+zjucc_LDADD = $(LDADD)
 AM_V_P = $(am__v_P_@AM_V@)
 am__v_P_ = $(am__v_P_@AM_DEFAULT_V@)
 am__v_P_0 = false
@@ -162,8 +162,8 @@ AM_V_YACC = $(am__v_YACC_@AM_V@)
 am__v_YACC_ = $(am__v_YACC_@AM_DEFAULT_V@)
 am__v_YACC_0 = @echo "  YACC    " $@;
 am__v_YACC_1 = 
-SOURCES = $(cc_frontend_SOURCES)
-DIST_SOURCES = $(cc_frontend_SOURCES)
+SOURCES = $(zjucc_SOURCES)
+DIST_SOURCES = $(zjucc_SOURCES)
 am__can_run_installinfo = \
   case $$AM_UPDATE_INFO_DIR in \
     n|no|NO) false;; \
@@ -314,7 +314,7 @@ top_srcdir = @top_srcdir@
 AUTOMAKE_OPTIONS = foreign
 AM_YFLAGS = -d
 AM_CPPFLAGS = -I./third_parties/argparse -I./include
-cc_frontend_SOURCES = src/ast_impl.c src/entry.cpp src/parser.y src/tokenizer.l
+zjucc_SOURCES = src/ast_impl.c src/entry.cpp src/parser.y src/tokenizer.l
 all: all-am
 
 .SUFFIXES:
@@ -387,9 +387,9 @@ src/parser.$(OBJEXT): src/$(am__dirstamp) \
 src/tokenizer.$(OBJEXT): src/$(am__dirstamp) \
 	src/$(DEPDIR)/$(am__dirstamp)
 
-cc_frontend$(EXEEXT): $(cc_frontend_OBJECTS) $(cc_frontend_DEPENDENCIES) $(EXTRA_cc_frontend_DEPENDENCIES) 
-	@rm -f cc_frontend$(EXEEXT)
-	$(AM_V_CXXLD)$(CXXLINK) $(cc_frontend_OBJECTS) $(cc_frontend_LDADD) $(LIBS)
+zjucc$(EXEEXT): $(zjucc_OBJECTS) $(zjucc_DEPENDENCIES) $(EXTRA_zjucc_DEPENDENCIES) 
+	@rm -f zjucc$(EXEEXT)
+	$(AM_V_CXXLD)$(CXXLINK) $(zjucc_OBJECTS) $(zjucc_LDADD) $(LIBS)
 
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
