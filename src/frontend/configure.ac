@@ -20,7 +20,7 @@ fi
 
 CXXFLAGS="${CXXFLAGS} -std=c++17"
 
-AH_BOTTOM([#include "term_color.h"])
+AH_BOTTOM([#include "_config.h"])
 
 AC_CONFIG_FILES([Makefile])
 AC_OUTPUT
