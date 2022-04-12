@@ -14,7 +14,7 @@ struct ast_node_impl {
     char token[MAX_TOKEN_LEN]; // type of node
     ast_node_ptr* child;
     ast_node_ptr parent;
-    int n_child;
+    int n_child; // only use n_child to determine leaf node or not
 
     int ln, col; // line number and column number
 
@@ -40,8 +40,9 @@ extern "C" {
 #endif
     ast_node_ptr mknode_impl(const char* token, ...);
     void append_child_impl(ast_node_ptr node, ...);
-    void print_node(ast_node_ptr node);
+    // void print_node(ast_node_ptr node);
     void print_ast(ast_node_ptr node);
-#ifdef __cplusplus
+    void postproc_after_parse(ast_node_ptr root);
+    #ifdef __cplusplus
 }
 #endif
