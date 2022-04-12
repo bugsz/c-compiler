@@ -35,7 +35,7 @@ void append_child_impl(ast_node_ptr node, ...) {
     va_start(argp, node);
     while ((temp = va_arg(argp, void*))) {
         node->n_child++;
-        if(node->n_child > _size) {
+        if(unlikely(node->n_child > _size)) {
             _size *= 2;
             node->child = realloc(node->child, sizeof(ast_node_ptr) * _size);
         }
@@ -46,7 +46,7 @@ void append_child_impl(ast_node_ptr node, ...) {
 }
 
 static void print_whitespaces(int n) {
-    if (n < 3) {
+    if (unlikely(n < 3)) {
         printf("`-");
         return;
     }
@@ -62,13 +62,13 @@ static void print_node(ast_node_ptr node) {
 }
 
 void print_ast(ast_node_ptr node) {
-    if (node == NULL)
+    if (unlikely(node == NULL))
         return;
     static int tabs = 0;
-    if (node->parent == NULL)
+    if (unlikely(node->parent == NULL))
         tabs = 0;
     print_node(node);
-    if(node->n_child > 0) {
+    if(likely(node->n_child > 0)) {
         tabs += 2;
         for (int i = 0; i < node->n_child; i++) {
             print_whitespaces(tabs);
@@ -114,7 +114,7 @@ static void insert_node_idx(ast_node_ptr node, ast_node_ptr new_node, int idx) {
 }
 
 static void merge_node(ast_node_ptr node) {
-    if (node->parent == NULL && strcmp(node->token, "TO_BE_MERGED") == 0) {
+    if (unlikely(node->parent == NULL && strcmp(node->token, "TO_BE_MERGED") == 0)) {
         printf("Internal error\n");
         exit(1);
     }
