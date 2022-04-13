@@ -5328,6 +5328,13 @@ then :
 
 fi
 
+ac_fn_c_check_header_compile "$LINENO" "unordered_map" "ac_cv_header_unordered_map" "$ac_includes_default"
+if test "x$ac_cv_header_unordered_map" = xyes
+then :
+  printf "%s\n" "#define HAVE_UNORDERED_MAP 1" >>confdefs.h
+
+fi
+
 
 if [ "$TERM" = "xterm-256color" ]; then
 
