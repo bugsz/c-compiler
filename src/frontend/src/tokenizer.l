@@ -1,7 +1,10 @@
 %{
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 #include "parser.h"
+#include "config.h"
 
 int yycolno;
 char yyline[1024] = {0};
@@ -13,13 +16,13 @@ void set_col();
 %option noyywrap
 
 %%
-"char"		{ set_col(); return CHAR; }
-"short"		{ set_col(); return SHORT; }
-"int"		{ set_col(); return INT; }
-"long"		{ set_col(); return LONG; }
-"float"		{ set_col(); return FLOAT; }
-"double"	{ set_col(); return DOUBLE; }
-"void"		{ set_col(); return VOID; }
+"char"		{ set_col(); yylval.typeid = TYPEID_CHAR; return CHAR; }
+"short"		{ set_col(); yylval.typeid = TYPEID_SHORT; return SHORT; }
+"int"		{ set_col(); yylval.typeid = TYPEID_INT; return INT; }
+"long"		{ set_col(); yylval.typeid = TYPEID_LONG; return LONG; }
+"float"		{ set_col(); yylval.typeid = TYPEID_FLOAT; return FLOAT; }
+"double"	{ set_col(); yylval.typeid = TYPEID_DOUBLE; return DOUBLE; }
+"void"		{ set_col(); yylval.typeid = TYPEID_VOID; return VOID; }
 
 "if"        { set_col(); return IF; }
 "else"      { set_col(); return ELSE; }
@@ -31,8 +34,11 @@ void set_col();
 "return"    { set_col(); return RETURN; }
 
 
-[a-zA-Z_][a-zA-Z0-9_]*	{ set_col(); return IDENTIFIER; }
-[0-9]+			{ set_col(); return CONSTANT; }
+[a-zA-Z_][a-zA-Z0-9_]*	{ set_col(); yylval.str = strdup(yytext); return IDENTIFIER; }
+[0-9]+			{ set_col(); yylval.str = strdup(yytext); return CONSTANT; }
+[0-9]+\.[0-9]+		{ set_col(); yylval.str = strdup(yytext); return CONSTANT; }
+"0x"[0-9a-fA-F]+	{ set_col(); yylval.str = strdup(yytext); return CONSTANT; }
+"0b"[01]+		{ set_col(); yylval.str = strdup(yytext); return CONSTANT; }
 
 "<=" { set_col(); return LE; }
 ">=" { set_col(); return GE; }

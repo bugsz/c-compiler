@@ -4,20 +4,20 @@
 #include <assert.h>
 
 #include "ast_impl.h"
-
-#ifdef HAVE_CONFIG_H
 #include "config.h"
-#else
-#define COLOR_RED ""
-#define COLOR_GREEN ""
-#define COLOR_NORMAL ""
-#endif
+
+static const char* typeid_deref[] = {
+    "void", "char", "short", "int", "long", "float", "double"
+};
 
 ast_node_ptr mknode_impl(const char* token, ...) {
     ast_node_ptr node = malloc(sizeof(ast_node_t)), temp;
+    memset(node->token, 0, sizeof(node->token));
+    memset(node->val, 0, sizeof(node->val));
     strncpy(node->token, token, MAX_TOKEN_LEN);
     node->n_child = 0;
     node->child = malloc(sizeof(ast_node_ptr) * INIT_CHILD_NUM);
+    memset(node->child, 0, sizeof(node->child) * INIT_CHILD_NUM);
     node->parent = NULL;
     va_list argp;
     va_start(argp, token);
@@ -58,7 +58,7 @@ static void print_whitespaces(int n) {
 }
 
 static void print_node(ast_node_ptr node) {
-    printf("%s %p\n", node->token, node);
+    printf("%s %p %s '%s'\n", node->token, node, node->val, typeid_deref[node->type_id]);
 }
 
 void print_ast(ast_node_ptr node) {
@@ -79,6 +79,7 @@ void print_ast(ast_node_ptr node) {
 }
 
 static void shrink_to_fit(ast_node_ptr node) {
+    if(node == NULL) return;
     if (node->n_child == 0) {
         free(node->child);
         node->child = NULL;
@@ -130,6 +131,7 @@ static void merge_node(ast_node_ptr node) {
 }
 
 static void merge_node_from_root(ast_node_ptr node) {
+    if (node == NULL) return;
     merge_node(node);
     for (int i = 0; i < node->n_child; i++) {
         merge_node_from_root(node->child[i]);

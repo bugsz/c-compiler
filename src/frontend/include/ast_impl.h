@@ -18,21 +18,9 @@ struct ast_node_impl {
 
     int ln, col; // line number and column number
 
-    char name[MAX_TOKEN_LEN]; // name of node
+    char val[MAX_TOKEN_LEN]; // name of node
     char attr[MAX_TOKEN_LEN];
-    union {
-        char op_type[3];
-        char char_val;
-        short short_val;
-        int int_val;
-        long long_val;
-        float float_val;
-        double double_val;
-    } literal_val;
-};
-
-struct sym_tab_impl {
-
+    int type_id;
 };
 
 #ifdef __cplusplus
@@ -40,9 +28,8 @@ extern "C" {
 #endif
     ast_node_ptr mknode_impl(const char* token, ...);
     void append_child_impl(ast_node_ptr node, ...);
-    // void print_node(ast_node_ptr node);
     void print_ast(ast_node_ptr node);
     void postproc_after_parse(ast_node_ptr root);
-    #ifdef __cplusplus
+#ifdef __cplusplus
 }
 #endif
