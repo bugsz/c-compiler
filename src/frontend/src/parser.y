@@ -1,18 +1,11 @@
 %{
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "ast_impl.h"
-
-#define YYSTYPE ast_node_ptr
-
-#ifdef HAVE_CONFIG_H
+#include "semantic.h"
 #include "config.h"
-#else
-#define COLOR_RED ""
-#define COLOR_GREEN ""
-#define COLOR_NORMAL ""
-#endif
 
 void yyerror(const char*, int*, ast_node_ptr, char* s);
 extern int yylex();
@@ -29,15 +22,28 @@ extern int yycolno;
 %parse-param {ast_node_ptr root}
 
 %start TRANSLATION_UNIT
-%token IDENTIFIER
-%token CHAR SHORT INT LONG FLOAT DOUBLE
-%token VOID CONSTANT
+
+%union {
+    int typeid;
+    char* str;
+    struct ast_node_impl* node;
+};
+
+%token <str> IDENTIFIER
+%token <typeid> CHAR SHORT INT LONG FLOAT DOUBLE VOID
+%token <str> CONSTANT
 %token LE GE EQ NE
 %token IF ELSE
-%token DO FOR WHILE BREAK CONTINUE
-%token RETURN
+%token DO FOR WHILE 
+%token RETURN BREAK CONTINUE
 
-%nonassoc OUTERTHEN
+%type <node> PROG FN_DEF PARAM_LIST PARAM_LIST_RIGHT PARAM_DECL
+%type <node> GLOBAL_DECL DECL DECL_LIST DECLARATOR
+%type <node> STMT STMT_LIST COMPOUND_STMT SELECT_STMT EXPR_STMT ITERATE_STMT JMP_STMT
+%type <node> EXPR FUNC_NAME ARG_LIST ARG_LIST_RIGHT
+%type <typeid> TYPE_SPEC
+
+%nonassoc OUTERELSE
 %nonassoc ELSE
 
 %right '='
@@ -69,15 +75,23 @@ GLOBAL_DECL :
 FN_DEF :
     TYPE_SPEC IDENTIFIER '(' PARAM_LIST ')' COMPOUND_STMT {
         $$ = mknode("FunctionDecl", $4, $6);
+        $$->type_id = $1;
+        strcpy($$->val, $2);
     }
     | TYPE_SPEC IDENTIFIER '(' ')' COMPOUND_STMT {
         $$ = mknode("FunctionDecl", $5);
+        $$->type_id = $1;
+        strcpy($$->val, $2);
     }
     | TYPE_SPEC IDENTIFIER '(' PARAM_LIST ')' ';' {
         $$ = mknode("FunctionDecl", $4);
+        $$->type_id = $1;
+        strcpy($$->val, $2);
     }
     | TYPE_SPEC IDENTIFIER '(' ')' ';' {
-        $$ = mknode("FunctionDecl", $5);
+        $$ = mknode("FunctionDecl");
+        $$->type_id = $1;
+        strcpy($$->val, $2);
     }
     ;
 
@@ -98,11 +112,19 @@ PARAM_LIST_RIGHT :
     ;
 
 PARAM_DECL :
-    TYPE_SPEC IDENTIFIER { $$ = mknode("ParmVarDecl"); }
+    TYPE_SPEC IDENTIFIER { 
+        $$ = mknode("ParmVarDecl");
+        $$->type_id = $1;
+        strcpy($$->val, $2);
+    }
     ;
 
 DECL :
-    TYPE_SPEC DECLARATOR ';' { $$ = mknode("VarDecl", $2); }
+    TYPE_SPEC IDENTIFIER DECLARATOR ';' { 
+        $$ = mknode("VarDecl", $3);
+        $$->type_id = $1;
+        strcpy($$->val, $2);
+    }
     ;
 
 DECL_LIST :
@@ -114,23 +136,23 @@ DECL_LIST :
     ;
 
 DECLARATOR :
-    IDENTIFIER  { }
-    | IDENTIFIER '=' EXPR { 
-        $$ = $3;
+        { $$ = NULL; }
+    | '=' EXPR { 
+        $$ = $2;
     }
     ;
 
 STMT_LIST :
     STMT STMT_LIST { $$ = mknode("TO_BE_MERGED", $1, $2); }
-    | STMT
+    | STMT { $$ = $1;}
     ;
 
 STMT :
-    COMPOUND_STMT
-    | EXPR_STMT 
-    | SELECT_STMT
-    | ITERATE_STMT
-    | JMP_STMT
+    COMPOUND_STMT { $$ = $1; }
+    | EXPR_STMT   { $$ = $1; }
+    | SELECT_STMT { $$ = $1; }
+    | ITERATE_STMT { $$ = $1; }
+    | JMP_STMT { $$ = $1; }
     ;
 
 TYPE_SPEC :
@@ -151,7 +173,7 @@ COMPOUND_STMT :
     ;
 
 EXPR_STMT :
-    ';'
+    ';' { $$ = mknode("NullStmt"); }
     | EXPR ';' { $$ = $1; }
     ;
 
@@ -170,18 +192,28 @@ EXPR :
     | EXPR '=' EXPR { $$ = mknode("BinaryOperator", $1, $3); }
     | '-' EXPR %prec '*'    { $$ = mknode("UnaryOperator", $2); }
     | FUNC_NAME '(' ARG_LIST ')' { $$ = mknode("CallExpr", $1, $3); }
-    | IDENTIFIER     { $$ = mknode("DeclRefExpr"); }
-    | CONSTANT     { $$ = mknode("Literal"); }
+    | IDENTIFIER     { 
+        $$ = mknode("DeclRefExpr");
+        strcpy($$->val, $1);
+    }
+    | CONSTANT     { 
+        $$ = mknode("Literal");
+        $$->type_id = get_literal_type($1);
+        strcpy($$->val, $1);
+    }
     | '(' EXPR ')' %prec '('    { $$ = $2; }
     ;
 
 FUNC_NAME :
-    IDENTIFIER  { $$ = mknode("DeclRefExpr"); }
+    IDENTIFIER  { 
+        $$ = mknode("DeclRefExpr"); 
+        strcpy($$->val, $1);
+    }
     ;
 
 ARG_LIST :
     EXPR ARG_LIST_RIGHT { $$ = mknode("TO_BE_MERGED", $1, $2); }
-    | EXPR { $$ = $1; }
+    | EXPR
     ;
 
 ARG_LIST_RIGHT :
@@ -190,22 +222,41 @@ ARG_LIST_RIGHT :
     ;
 
 SELECT_STMT :
-    IF '(' EXPR ')' STMT %prec OUTERTHEN
-    | IF '(' EXPR ')' STMT ELSE STMT
+    IF '(' EXPR ')' STMT %prec OUTERELSE {
+        $$ = mknode("IfStmt", $3, $5);
+    }
+    | IF '(' EXPR ')' STMT ELSE STMT {
+        ast_node_ptr temp = mknode("TO_BE_MERGED", $5, $7);
+        $$ = mknode("IfStmt", $3, temp);
+    }
     ;
 
 ITERATE_STMT :
-    FOR '(' EXPR_STMT EXPR_STMT EXPR ')' STMT
-    | FOR '(' EXPR_STMT EXPR_STMT ')' STMT
-    | WHILE '(' EXPR ')' STMT
-    | DO STMT WHILE '(' EXPR ')' ';'
+    FOR '(' EXPR_STMT EXPR_STMT EXPR ')' STMT {
+        ast_node_ptr delim = mknode("ForDelimiter");
+        ast_node_ptr t = mknode("TO_BE_MERGED", $3, $4);
+        ast_node_ptr t2 = mknode("TO_BE_MERGED", $5, delim, $7);
+        $$ = mknode("ForStmt", t, t2);
+    }
+    | FOR '(' EXPR_STMT EXPR_STMT ')' STMT {
+        ast_node_ptr delim = mknode("ForDelimiter");
+        ast_node_ptr t = mknode("TO_BE_MERGED", $3, $4);
+        ast_node_ptr t2 = mknode("TO_BE_MERGED", delim, $6);
+        $$ = mknode("ForStmt", t, t2);
+    }
+    | WHILE '(' EXPR ')' STMT {
+        $$ = mknode("WhileStmt", $3, $5);
+    }
+    | DO STMT WHILE '(' EXPR ')' ';' {
+        $$ = mknode("DoStmt", $2, $5);
+    }
     ;
 
 JMP_STMT :
-    BREAK ';'
-    | CONTINUE ';'
-    | RETURN ';'
-    | RETURN EXPR ';'
+    BREAK ';'   { $$ = mknode("BreakStmt"); }
+    | CONTINUE ';'  { $$ = mknode("ContinueStmt"); }
+    | RETURN ';' { $$ = mknode("ReturnStmt"); }
+    | RETURN EXPR ';'  { $$ = mknode("ReturnStmt", $2); }
     ;
 %%
 
