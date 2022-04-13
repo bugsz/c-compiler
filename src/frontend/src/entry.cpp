@@ -1,15 +1,11 @@
 #include <iostream>
 #include <cstdlib>
 #include "argparse.hpp"
+#include <sys/resource.h>
 
 #include "ast.h"
-
-#ifdef HAVE_CONFIG_H
+#include "semantic.h"
 #include "config.h"
-#else
-#define PACKAGE_NAME "c-compiler"
-#define VERSION "unknown"
-#endif
 
 extern "C" {
     extern int yyparse(const char*, int*, ast_node_ptr);
@@ -20,6 +16,11 @@ using namespace std;
 using namespace argparse;
 
 int main(int argc, char** argv) {
+    struct rlimit limit;
+    limit.rlim_cur = RLIM_INFINITY;
+    limit.rlim_max = RLIM_INFINITY;
+    setrlimit(RLIMIT_CORE, &limit);
+
     ArgumentParser program(PACKAGE_NAME, VERSION);
     program.add_argument("-o", "--output")
         .default_value(string("a.out"))
@@ -28,20 +29,31 @@ int main(int argc, char** argv) {
         .default_value(string(""))
         .help("input file");
     program.add_argument("--ast-dump")
+        .help("print AST")
         .default_value(false)
-        .help("print AST");
+        .implicit_value(true);
+    program.add_argument("--sym-dump")
+        .help("print symbol table")
+        .default_value(false)
+        .implicit_value(true);
     try {
         program.parse_args(argc, argv);
+        string filename = program.get("-f");
         program.is_used("-f") ?
-            (program.get("-f") == "" ? throw runtime_error("Need value for -f")
-                : yyin = fopen(program.get("-f").c_str(), "r"))
+            (filename == "" ? throw runtime_error("Need value for -f")
+                : yyin = fopen(filename.c_str(), "r"))
             : yyin = stdin;
         if (!yyin)  throw runtime_error("File not found");
         ast_node_ptr root = mknode("TranslationUnitDecl");
         int* n_errs = new int;
         *n_errs = 0;
-        if (yyparse(program.get("-f").c_str(), n_errs, root)) throw runtime_error(to_string(*n_errs) + " errors generated.");
-        if (program.is_used("--ast-dump")) print_ast(root);
+        parse(filename.c_str(), n_errs, root);
+        semantic_check(filename.c_str(), n_errs, root);
+        if (program["--ast-dump"] == true) print_ast(root);
+        if (program["--sym-dump"] == true) print_sym_tab();
+        if (*n_errs > 0) {
+            throw runtime_error(to_string(*n_errs) + " errors generated.");
+        }
     }
     catch (const exception& err) {
         cerr << err.what() << endl;
