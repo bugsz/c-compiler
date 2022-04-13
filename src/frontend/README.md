@@ -13,7 +13,35 @@ Optional arguments:
 --ast-dump      print AST [default: false]
 ```
 
-## AST Examples
+## Compile
+* Preresquisites
+    * GNU Autotools & Flex/Bison installed
+    * A C/C++ compiler with >=`c99` & >=`c++17` support
+
+* Build the project
+```bash
+./configure
+make
+```
+
+* Recompile the project from modified source
+```bash
+sh run-script.sh
+./configure
+make
+```
+
+* Clean up the project folder
+```bash
+make clean # remove object files
+
+## or
+
+sh clean.sh
+```
+
+## Examples
+### AST
 * The names of frontend AST nodes follow the Clang convention.
 
 C Source
@@ -73,29 +101,47 @@ TranslationUnitDecl 0x600002aa80c0
 |       `-DeclRefExpr 0x600002aa9980
 ```
 
-## Compile
-* Preresquisites
-    * GNU Autotools & Flex/Bison installed
-    * A C/C++ compiler with >=`c99` & >=`c++17` support
+### Symbol Table
 
-* Build the project
-```bash
-./configure
-make
+C Source
+```c
+int a;
+int b;
+
+int func(double t) {
+    return 2 * t;
+}
+
+int main(int a) {
+    int b = 3;
+    {
+        int b = 4;
+        int c = 2;
+    }
+    return 0;
+}
+
+int d = 2;
 ```
 
-* Recompile the project from modified source
+Symbol Table
 ```bash
-sh run-script.sh
-./configure
-make
-```
+$ ./zjucc -f test/test_sym.c --sym-dump
 
-* Clean up the project folder
-```bash
-make clean # remove object files
-
-## or
-
-sh clean.sh
+----------------------------------------
+Symbol Table of test/test_ast.c:
+----------------------------------------
+Scope: 0x16cf5b220 TranslationUnit Global
+d : int
+b : int
+a : int
+    Scope: 0x16cf5b190 func Local
+    t : double
+    Scope: 0x16cf5b190 main Local
+    b : int
+    a : int
+        Scope: 0x16cf5b100 Annonymous Local
+        c : int
+        b : int
+----------------------------------------
 ```
