@@ -11,6 +11,7 @@ AC_PROG_CC
 AC_PROG_LEX([noyywrap])
 AC_PROG_YACC
 AC_CHECK_HEADERS([unistd.h])
+AC_CHECK_HEADERS([unordered_map])
 
 if [[ "$TERM" = "xterm-256color" ]]; then
     AC_DEFINE([COLOR_TERM], [1], [Define to 1 if colorized output is enabled])
