@@ -1,4 +1,3 @@
-AC_PREREQ([2.71])
 AC_INIT([C-Compiler],[0.1.0.0410_alpha],[zy_pan@zju.edu.cn])
 AC_CONFIG_AUX_DIR([build-aux])
 AM_INIT_AUTOMAKE([subdir-objects])
