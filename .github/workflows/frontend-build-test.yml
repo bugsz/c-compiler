@@ -14,6 +14,7 @@ jobs:
     - name: configure
       run: |
         cd src/frontend
+        bash run-script.sh
         ./configure
     - name: make
       run: |
