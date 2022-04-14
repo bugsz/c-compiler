@@ -8,20 +8,18 @@ on:
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
-
     steps:
     - uses: actions/checkout@v3
     - name: configure
-      run:
+      run: |
         cd src/frontend
         ./configure
     - name: make
-      run:
+      run: |
         cd src/frontend
         make
     - name: make check
-      run: 
+      run: |
         cd src/frontend
         make check
