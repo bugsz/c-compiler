@@ -1,4 +1,4 @@
-name: Fronend Build Test CI
+name: Frontend Build & Test given cases
 
 on:
   push:
@@ -19,7 +19,7 @@ jobs:
       run: |
         cd src/frontend
         make
-    - name: make check
+    - name: case test
       run: |
         cd src/frontend
-        make check
+        bash case-test.sh

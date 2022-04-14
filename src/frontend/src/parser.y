@@ -15,7 +15,7 @@
 #include "semantic.h"
 #include "config.h"
 
-void yyerror(const char*, int*, ast_node_ptr, char* s);
+void yyerror(const char*, int*, struct ast_node_impl*, char* s);
 extern int yylex();
 
 extern char* yytext;
@@ -27,7 +27,7 @@ extern int yycolno;
 
 %parse-param {const char* filename}
 %parse-param {int* n_errs}
-%parse-param {ast_node_ptr root}
+%parse-param {struct ast_node_impl* root}
 
 %start TRANSLATION_UNIT
 
@@ -312,7 +312,7 @@ JMP_STMT :
     ;
 %%
 
-void yyerror(const char* filename, int* n_errs, ast_node_ptr node, char *s){
+void yyerror(const char* filename, int* n_errs, struct ast_node_impl* node, char *s){
     (*n_errs)++;
     fprintf(stderr, COLOR_BOLD"%s:%d:%d: "COLOR_RED"%s:"COLOR_NORMAL"\n%s\n", \
         filename, yylineno, yycolno, s, yyline);

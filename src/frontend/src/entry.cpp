@@ -2,7 +2,7 @@
  * @Author: Pan Zhiyuan
  * @Date: 2022-04-13 00:13:08
  * @LastEditors: Pan Zhiyuan
- * @FilePath: /frontend/src/entry.cpp
+ * @FilePath: /project/src/frontend/src/entry.cpp
  * @Description: 
  */
 
@@ -62,5 +62,5 @@ int main(int argc, char** argv) {
         cerr << err.what() << endl;
         exit(1);
     }
-    return 0;
+    return *n_errs;
 }
