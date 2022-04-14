@@ -1,13 +1,22 @@
+/*
+ * @Author: Pan Zhiyuan
+ * @Date: 2022-04-11 08:58:07
+ * @LastEditors: Pan Zhiyuan
+ * @FilePath: /frontend/src/ast_impl.c
+ * @Description: 
+ */
+
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
 #include <assert.h>
 
 #include "ast_impl.h"
+#include "semantic.h"
 #include "config.h"
 
 static const char* typeid_deref[] = {
-    "void", "char", "short", "int", "long", "float", "double"
+    "void", "char", "short", "int", "long", "float", "double", "string"
 };
 
 ast_node_ptr mknode_impl(const char* token, ...) {
@@ -58,10 +67,11 @@ static void print_whitespaces(int n) {
 }
 
 static void print_node(ast_node_ptr node) {
-    printf("%s %p %s '%s'\n", node->token, node, node->val, typeid_deref[node->type_id]);
+    printf("%s %p %s '%s'\n", node->token, node,
+        node->val, strcmp(node->token,"FunctionDecl") == 0 ? get_function_type(node->val) : typeid_deref[node->type_id]);
 }
 
-void print_ast(ast_node_ptr node) {
+static void print_ast_impl(ast_node_ptr node) {
     if (unlikely(node == NULL))
         return;
     static int tabs = 0;
@@ -72,10 +82,17 @@ void print_ast(ast_node_ptr node) {
         tabs += 2;
         for (int i = 0; i < node->n_child; i++) {
             print_whitespaces(tabs);
-            print_ast(node->child[i]);
+            print_ast_impl(node->child[i]);
         }
         tabs -= 2;
     }
+}
+
+void print_ast(const char* filename, ast_node_ptr root) {
+    printf("------------------------------------------\n");
+    printf("Abstract Syntax Tree of %s\n", filename);
+    printf("------------------------------------------\n");
+    print_ast_impl(root);
 }
 
 static void shrink_to_fit(ast_node_ptr node) {
