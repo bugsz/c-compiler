@@ -1,3 +1,11 @@
+/*
+ * @Author: Pan Zhiyuan
+ * @Date: 2022-04-09 23:17:45
+ * @LastEditors: Pan Zhiyuan
+ * @FilePath: /frontend/src/tokenizer.l
+ * @Description: 
+ */
+
 %{
 #include <stdio.h>
 #include <stdlib.h>
@@ -23,6 +31,7 @@ void set_col();
 "float"		{ set_col(); yylval.typeid = TYPEID_FLOAT; return FLOAT; }
 "double"	{ set_col(); yylval.typeid = TYPEID_DOUBLE; return DOUBLE; }
 "void"		{ set_col(); yylval.typeid = TYPEID_VOID; return VOID; }
+"string"    { set_col(); yylval.typeid = TYPEID_STR; return STRING; }
 
 "if"        { set_col(); return IF; }
 "else"      { set_col(); return ELSE; }
@@ -39,6 +48,7 @@ void set_col();
 [0-9]+\.[0-9]+		{ set_col(); yylval.str = strdup(yytext); return CONSTANT; }
 "0x"[0-9a-fA-F]+	{ set_col(); yylval.str = strdup(yytext); return CONSTANT; }
 "0b"[01]+		{ set_col(); yylval.str = strdup(yytext); return CONSTANT; }
+"\"".*"\""          { set_col(); yylval.str = strdup(yytext); return CONSTANT; }
 
 "<=" { set_col(); return LE; }
 ">=" { set_col(); return GE; }
