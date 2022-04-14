@@ -2,7 +2,7 @@
  * @Author: Pan Zhiyuan
  * @Date: 2022-04-13 00:13:08
  * @LastEditors: Pan Zhiyuan
- * @FilePath: /project/src/frontend/src/entry.cpp
+ * @FilePath: /frontend/src/entry.cpp
  * @Description: 
  */
 
@@ -39,6 +39,7 @@ int main(int argc, char** argv) {
         .help("print symbol table")
         .default_value(false)
         .implicit_value(true);
+    int* n_errs = new int;
     try {
         program.parse_args(argc, argv);
         string filename = program.get("-f");
@@ -48,7 +49,6 @@ int main(int argc, char** argv) {
             : yyin = stdin;
         if (!yyin)  throw runtime_error("File not found");
         ast_node_ptr root = mknode("TranslationUnitDecl");
-        int* n_errs = new int;
         *n_errs = 0;
         parse(filename.c_str(), n_errs, root);
         semantic_check(filename.c_str(), n_errs, root);
