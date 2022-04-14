@@ -1,3 +1,11 @@
+/*
+ * @Author: Pan Zhiyuan
+ * @Date: 2022-04-09 23:17:45
+ * @LastEditors: Pan Zhiyuan
+ * @FilePath: /frontend/src/parser.y
+ * @Description: 
+ */
+
 %{
 #include <stdio.h>
 #include <stdlib.h>
@@ -30,7 +38,7 @@ extern int yycolno;
 };
 
 %token <str> IDENTIFIER
-%token <typeid> CHAR SHORT INT LONG FLOAT DOUBLE VOID
+%token <typeid> CHAR SHORT INT LONG FLOAT DOUBLE VOID STRING
 %token <str> CONSTANT
 %token LE GE EQ NE
 %token IF ELSE
@@ -163,6 +171,7 @@ TYPE_SPEC :
     | FLOAT {}
     | DOUBLE {}
     | VOID {}
+    | STRING {}
     ;
 
 COMPOUND_STMT :
@@ -178,20 +187,62 @@ EXPR_STMT :
     ;
 
 EXPR :
-    EXPR '<' EXPR    { $$ = mknode("BinaryOperator", $1, $3); }
-    | EXPR '>' EXPR  { $$ = mknode("BinaryOperator", $1, $3); }
-    | EXPR LE EXPR  { $$ = mknode("BinaryOperator", $1, $3); }
-    | EXPR GE EXPR  { $$ = mknode("BinaryOperator", $1, $3); }
-    | EXPR EQ EXPR  { $$ = mknode("BinaryOperator", $1, $3); }
-    | EXPR NE EXPR  { $$ = mknode("BinaryOperator", $1, $3); }
-    | EXPR '+' EXPR { $$ = mknode("BinaryOperator", $1, $3); }
-    | EXPR '-' EXPR { $$ = mknode("BinaryOperator", $1, $3); }
-    | EXPR '*' EXPR { $$ = mknode("BinaryOperator", $1, $3); }
-    | EXPR '/' EXPR { $$ = mknode("BinaryOperator", $1, $3); }
-    | EXPR '%' EXPR { $$ = mknode("BinaryOperator", $1, $3); }
-    | EXPR '=' EXPR { $$ = mknode("BinaryOperator", $1, $3); }
-    | '-' EXPR %prec '*'    { $$ = mknode("UnaryOperator", $2); }
-    | FUNC_NAME '(' ARG_LIST ')' { $$ = mknode("CallExpr", $1, $3); }
+    EXPR '<' EXPR    { 
+        $$ = mknode("BinaryOperator", $1, $3);
+        strcpy($$->val, "<");
+
+    }
+    | EXPR '>' EXPR  { 
+        $$ = mknode("BinaryOperator", $1, $3);
+        strcpy($$->val, ">");
+    }
+    | EXPR LE EXPR  { 
+        $$ = mknode("BinaryOperator", $1, $3);
+        strcpy($$->val, "<=");
+    }
+    | EXPR GE EXPR  { 
+        $$ = mknode("BinaryOperator", $1, $3);
+        strcpy($$->val, ">=");
+    }
+    | EXPR EQ EXPR  { 
+        $$ = mknode("BinaryOperator", $1, $3);
+        strcpy($$->val, "==");
+    }
+    | EXPR NE EXPR  { 
+        $$ = mknode("BinaryOperator", $1, $3); 
+        strcpy($$->val, "!=");
+    }
+    | EXPR '+' EXPR { 
+        $$ = mknode("BinaryOperator", $1, $3);
+        strcpy($$->val, "+");
+    }
+    | EXPR '-' EXPR { 
+        $$ = mknode("BinaryOperator", $1, $3); 
+        strcpy($$->val, "-");
+    }
+    | EXPR '*' EXPR { 
+        $$ = mknode("BinaryOperator", $1, $3);
+        strcpy($$->val, "*");    
+    }
+    | EXPR '/' EXPR { 
+        $$ = mknode("BinaryOperator", $1, $3);
+        strcpy($$->val, "/");    
+    }
+    | EXPR '%' EXPR { 
+        $$ = mknode("BinaryOperator", $1, $3);
+        strcpy($$->val, "%");
+    }
+    | EXPR '=' EXPR { 
+        $$ = mknode("BinaryOperator", $1, $3);
+        strcpy($$->val, "=");
+    }
+    | '-' EXPR %prec '*'    { 
+        $$ = mknode("UnaryOperator", $2);
+        strcpy($$->val, "-");    
+    }
+    | FUNC_NAME '(' ARG_LIST ')' { 
+        $$ = mknode("CallExpr", $1, $3); 
+    }
     | IDENTIFIER     { 
         $$ = mknode("DeclRefExpr");
         strcpy($$->val, $1);
@@ -214,6 +265,7 @@ FUNC_NAME :
 ARG_LIST :
     EXPR ARG_LIST_RIGHT { $$ = mknode("TO_BE_MERGED", $1, $2); }
     | EXPR
+    | { $$ = NULL;}
     ;
 
 ARG_LIST_RIGHT :

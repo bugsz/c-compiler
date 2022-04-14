@@ -1,7 +1,14 @@
+/*
+ * @Author: Pan Zhiyuan
+ * @Date: 2022-04-13 00:13:08
+ * @LastEditors: Pan Zhiyuan
+ * @FilePath: /frontend/src/entry.cpp
+ * @Description: 
+ */
+
 #include <iostream>
 #include <cstdlib>
 #include "argparse.hpp"
-#include <sys/resource.h>
 
 #include "ast.h"
 #include "semantic.h"
@@ -16,11 +23,7 @@ using namespace std;
 using namespace argparse;
 
 int main(int argc, char** argv) {
-    struct rlimit limit;
-    limit.rlim_cur = RLIM_INFINITY;
-    limit.rlim_max = RLIM_INFINITY;
-    setrlimit(RLIMIT_CORE, &limit);
-
+    COREDUMP
     ArgumentParser program(PACKAGE_NAME, VERSION);
     program.add_argument("-o", "--output")
         .default_value(string("a.out"))
@@ -49,7 +52,7 @@ int main(int argc, char** argv) {
         *n_errs = 0;
         parse(filename.c_str(), n_errs, root);
         semantic_check(filename.c_str(), n_errs, root);
-        if (program["--ast-dump"] == true) print_ast(root);
+        if (program["--ast-dump"] == true) print_ast(filename.c_str(), root);
         if (program["--sym-dump"] == true) print_sym_tab();
         if (*n_errs > 0) {
             throw runtime_error(to_string(*n_errs) + " errors generated.");
