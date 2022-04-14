@@ -1,3 +1,11 @@
+/*
+ * @Author: Pan Zhiyuan
+ * @Date: 2022-04-10 01:51:21
+ * @LastEditors: Pan Zhiyuan
+ * @FilePath: /frontend/include/ast_impl.h
+ * @Description: 
+ */
+
 #pragma once
 #include <stdarg.h>
 
@@ -19,7 +27,6 @@ struct ast_node_impl {
     int ln, col; // line number and column number
 
     char val[MAX_TOKEN_LEN]; // name of node
-    char attr[MAX_TOKEN_LEN];
     int type_id;
 };
 
@@ -28,7 +35,7 @@ extern "C" {
 #endif
     ast_node_ptr mknode_impl(const char* token, ...);
     void append_child_impl(ast_node_ptr node, ...);
-    void print_ast(ast_node_ptr node);
+    void print_ast(const char* filename, ast_node_ptr node);
     void postproc_after_parse(ast_node_ptr root);
 #ifdef __cplusplus
 }
