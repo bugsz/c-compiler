@@ -14,9 +14,9 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - name: get inside frontend folder
-      run: cd src/frontend
+      run: cd src/frontend && pwd && ls
     - name: configure
-      run: ./configure
+      run: ls && ./configure
     - name: make
       run: make
     - name: make check
