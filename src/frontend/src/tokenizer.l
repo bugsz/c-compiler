@@ -10,14 +10,20 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <assert.h>
 
 #include "parser.h"
 #include "config.h"
 
-int yycolno;
+int yycolno = 1;
 char yyline[1024] = {0};
 
 void set_col();
+
+extern YYLTYPE yylloc;
+#define YY_USER_ACTION         \
+  yylloc.last_line = yylineno; \
+  yylloc.last_column = yycolno + 1;
 %}
 
 %option yylineno
@@ -43,12 +49,12 @@ void set_col();
 "return"    { set_col(); return RETURN; }
 
 
-[a-zA-Z_][a-zA-Z0-9_]*	{ set_col(); yylval.str = strdup(yytext); return IDENTIFIER; }
-[0-9]+			{ set_col(); yylval.str = strdup(yytext); return CONSTANT; }
-[0-9]+\.[0-9]+		{ set_col(); yylval.str = strdup(yytext); return CONSTANT; }
-"0x"[0-9a-fA-F]+	{ set_col(); yylval.str = strdup(yytext); return CONSTANT; }
-"0b"[01]+		{ set_col(); yylval.str = strdup(yytext); return CONSTANT; }
-"\"".*"\""          { set_col(); yylval.str = strdup(yytext); return CONSTANT; }
+[a-zA-Z_][a-zA-Z0-9_]*	{ set_col(); assert(yyleng < 50); yylval.str = strdup(yytext); return IDENTIFIER; }
+[0-9]+			{ set_col(); assert(yyleng < 50); yylval.str = strdup(yytext); return CONSTANT; }
+[0-9]+\.[0-9]+		{ set_col(); assert(yyleng < 50); yylval.str = strdup(yytext); return CONSTANT; }
+"0x"[0-9a-fA-F]+	{ set_col(); assert(yyleng < 50); yylval.str = strdup(yytext); return CONSTANT; }
+"0b"[01]+		{ set_col(); assert(yyleng < 50); yylval.str = strdup(yytext); return CONSTANT; }
+"\"".*"\""          { set_col(); assert(yyleng < 50); yylval.str = strdup(yytext); return CONSTANT; }
 
 "<=" { set_col(); return LE; }
 ">=" { set_col(); return GE; }
@@ -56,8 +62,9 @@ void set_col();
 "!=" { set_col(); return NE; }
 
 [;\{\},:=\(\)\.&!~\-\+\*/%<>\^\|\?\[\]]	{ set_col(); return yytext[0];}
-[ \t\r\n]+	    { set_col(); }
-"//".+\n        { set_col(); }
+[ \t]+	        { set_col(); }
+[\r\n]          { set_col(); }
+"//".*\n        { set_col(); }
 \/\*([^\*]|(\*)*[^\*/])*(\*)*\*\/ 	{ set_col(); }
 .           { set_col(); }
 
@@ -66,9 +73,9 @@ void set_col();
 void set_col() {
     if(yytext[0] == '\n') {
         memset(yyline, 0, sizeof(yyline));
-        yycolno = 0;
+        yycolno = 1;
     } else {
         strcat(yyline, yytext);
-        yycolno += yyleng;
+        yycolno = strlen(yyline);
     }
 }
