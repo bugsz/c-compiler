@@ -20,10 +20,14 @@ extern int yylex();
 
 extern char* yytext;
 extern char yyline[1024];
+
 extern int yylineno;
 extern int yycolno;
 
+#define YYLTYPE struct ast_yyltype
 %}
+
+%locations
 
 %parse-param {const char* filename}
 %parse-param {int* n_errs}
@@ -85,21 +89,25 @@ FN_DEF :
         $$ = mknode("FunctionDecl", $4, $6);
         $$->type_id = $1;
         strcpy($$->val, $2);
+        $$->pos = @2;
     }
     | TYPE_SPEC IDENTIFIER '(' ')' COMPOUND_STMT {
         $$ = mknode("FunctionDecl", $5);
         $$->type_id = $1;
         strcpy($$->val, $2);
+        $$->pos = @2;
     }
     | TYPE_SPEC IDENTIFIER '(' PARAM_LIST ')' ';' {
         $$ = mknode("FunctionDecl", $4);
         $$->type_id = $1;
         strcpy($$->val, $2);
+        $$->pos = @2;
     }
     | TYPE_SPEC IDENTIFIER '(' ')' ';' {
         $$ = mknode("FunctionDecl");
         $$->type_id = $1;
         strcpy($$->val, $2);
+        $$->pos = @2;
     }
     ;
 
@@ -124,6 +132,7 @@ PARAM_DECL :
         $$ = mknode("ParmVarDecl");
         $$->type_id = $1;
         strcpy($$->val, $2);
+        $$->pos = @2;
     }
     ;
 
@@ -131,6 +140,7 @@ DECL :
     TYPE_SPEC IDENTIFIER DECLARATOR ';' { 
         $$ = mknode("VarDecl", $3);
         $$->type_id = $1;
+        $$->pos = @2;
         strcpy($$->val, $2);
     }
     ;
@@ -190,55 +200,68 @@ EXPR :
     EXPR '<' EXPR    { 
         $$ = mknode("BinaryOperator", $1, $3);
         strcpy($$->val, "<");
+        $$->pos = @2;
 
     }
     | EXPR '>' EXPR  { 
         $$ = mknode("BinaryOperator", $1, $3);
         strcpy($$->val, ">");
+        $$->pos = @2;
     }
     | EXPR LE EXPR  { 
         $$ = mknode("BinaryOperator", $1, $3);
         strcpy($$->val, "<=");
+        $$->pos = @2;
     }
     | EXPR GE EXPR  { 
         $$ = mknode("BinaryOperator", $1, $3);
         strcpy($$->val, ">=");
+        $$->pos = @2;
     }
     | EXPR EQ EXPR  { 
         $$ = mknode("BinaryOperator", $1, $3);
         strcpy($$->val, "==");
+        $$->pos = @2;
     }
     | EXPR NE EXPR  { 
         $$ = mknode("BinaryOperator", $1, $3); 
         strcpy($$->val, "!=");
+        $$->pos = @2;
     }
     | EXPR '+' EXPR { 
         $$ = mknode("BinaryOperator", $1, $3);
         strcpy($$->val, "+");
+        $$->pos = @2;
     }
     | EXPR '-' EXPR { 
         $$ = mknode("BinaryOperator", $1, $3); 
         strcpy($$->val, "-");
+        $$->pos = @2;
     }
     | EXPR '*' EXPR { 
         $$ = mknode("BinaryOperator", $1, $3);
-        strcpy($$->val, "*");    
+        strcpy($$->val, "*");   
+        $$->pos = @2; 
     }
     | EXPR '/' EXPR { 
         $$ = mknode("BinaryOperator", $1, $3);
         strcpy($$->val, "/");    
+        $$->pos = @2;
     }
     | EXPR '%' EXPR { 
         $$ = mknode("BinaryOperator", $1, $3);
         strcpy($$->val, "%");
+        $$->pos = @2;
     }
     | EXPR '=' EXPR { 
         $$ = mknode("BinaryOperator", $1, $3);
         strcpy($$->val, "=");
+        $$->pos = @2;
     }
     | '-' EXPR %prec '*'    { 
         $$ = mknode("UnaryOperator", $2);
-        strcpy($$->val, "-");    
+        strcpy($$->val, "-");   
+        $$->pos = @1; 
     }
     | FUNC_NAME '(' ARG_LIST ')' { 
         $$ = mknode("CallExpr", $1, $3); 
@@ -246,11 +269,13 @@ EXPR :
     | IDENTIFIER     { 
         $$ = mknode("DeclRefExpr");
         strcpy($$->val, $1);
+        $$->pos = @1;
     }
     | CONSTANT     { 
         $$ = mknode("Literal");
         $$->type_id = get_literal_type($1);
         strcpy($$->val, $1);
+        $$->pos = @1;
     }
     | '(' EXPR ')' %prec '('    { $$ = $2; }
     ;
@@ -259,6 +284,7 @@ FUNC_NAME :
     IDENTIFIER  { 
         $$ = mknode("DeclRefExpr"); 
         strcpy($$->val, $1);
+        $$->pos = @1;
     }
     ;
 
