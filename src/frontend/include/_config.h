@@ -16,12 +16,14 @@
 #define COLOR_BOLD "\033[1m"
 #define COLOR_GREEN "\033[1;32m"
 #define COLOR_CYAN "\033[1;36m"
+#define COLOR_PURPLE "\033[1;35m"
 #else
 #define COLOR_RED ""
 #define COLOR_NORMAL ""
 #define COLOR_BOLD ""
 #define COLOR_GREEN ""
 #define COLOR_CYAN ""
+#define COLOR_PURPLE ""
 #endif
 
 #if defined __GNUG__ || defined __clang__
