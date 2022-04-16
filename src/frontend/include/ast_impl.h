@@ -17,6 +17,14 @@
 
 typedef struct ast_node_impl ast_node_t;
 typedef ast_node_t* ast_node_ptr;
+typedef struct ast_yyltype ast_loc_t;
+
+struct ast_yyltype {
+    int first_line;
+    int first_column;
+    int last_line;
+    int last_column;
+};
 
 struct ast_node_impl {
     char token[MAX_TOKEN_LEN]; // type of node
@@ -24,7 +32,7 @@ struct ast_node_impl {
     ast_node_ptr parent;
     int n_child; // only use n_child to determine leaf node or not
 
-    int ln, col; // line number and column number
+    ast_loc_t pos; // line number and column number
 
     char val[MAX_TOKEN_LEN]; // name of node
     int type_id;
