@@ -13,6 +13,7 @@
 #include <cassert>
 #include <algorithm>
 #include <cstring>
+#include <fstream>
 
 #include "semantic.h"
 #include "config.h"
@@ -22,6 +23,9 @@ using namespace std;
 static const char* typeid_deref[] = {
     "void", "char", "short", "int", "long", "float", "double", "string"
 };
+
+static bool warning_flag = false; // disable warning if true
+static void semantic_warning(ast_loc_t loc, const char* fmt, ...);
 
 class SymbolAttr {
     friend class SymbolTable;
@@ -35,6 +39,10 @@ public:
 
     void add_param(const int& type_id) {
         param_type_id.push_back(type_id);
+    }
+
+    int param_nums() {
+        return is_func ? param_type_id.size() : -1;
     }
 
     string get_type_name() {
@@ -109,7 +117,7 @@ public:
     }
     
     int get(const char* name) {
-        auto iter = global_sym_tab;
+        auto iter = cur_table;
         return get_impl(iter, name);
     }
     
@@ -147,11 +155,9 @@ private:
     int get_impl(_table* t, const char* name) {
         if(t->sym_tab_impl.find(name) != t->sym_tab_impl.end()) {
             return t->sym_tab_impl.find(name)->second.type_id;
-        } else if(t->child.size() > 0) {
-            for(auto child : t->child) {
-                int ret = get_impl(child, name);
-                if(ret >= 0) return ret;
-            }
+        } else if(t->parent != nullptr) {
+            int ret = get_impl(t->parent, name);
+            if(ret >= 0) return ret;
         }
         return -1;
     }
@@ -214,17 +220,76 @@ void print_sym_tab() {
     sym_tab.print();
 }
 
-static int bin_expr_type_check(int left, int right) {
-    if (left == TYPEID_VOID || right == TYPEID_VOID) {
+static int bin_expr_type_check(ast_node_ptr left, ast_node_ptr right, ast_node_ptr op) {
+    if (left->type_id == TYPEID_VOID || right->type_id == TYPEID_VOID
+        || left->type_id == TYPEID_STR || right->type_id == TYPEID_STR) {
         return -1;
-    };
-    if (left == TYPEID_STR || right == TYPEID_STR) {
+    }
+    if (get_function_type(left->val) != nullptr ||
+        get_function_type(right->val) != nullptr) { // check if the identifier is a function
         return -1;
-    };
-    return max(left, right);
+    }
+    if (string(op->val) == "=") {
+        if (left->type_id < right->type_id) {
+            semantic_warning(op->pos, "implicit conversion from '%s' to '%s' might change value",
+                typeid_deref[right->type_id], typeid_deref[left->type_id]);
+        }
+    }
+    return max(left->type_id, right->type_id);
 }
 
-void semantic_check_impl(int* n_errs, ast_node_ptr node) {
+
+static fstream& goto_line(fstream& file, unsigned int num){
+    file.seekg(ios::beg);
+    for(int i=0; i < num - 1; ++i){
+        file.ignore(numeric_limits<streamsize>::max(),'\n');
+    }
+    return file;
+}
+
+static void semantic_warning(ast_loc_t loc, const char* fmt, ...) {
+    if (warning_flag) return;
+    va_list ap;
+    va_start(ap, fmt);
+    fprintf(stderr, COLOR_BOLD "%s:%d:%d:" COLOR_PURPLE " warning: " COLOR_NORMAL COLOR_BOLD,
+        sym_tab.get_filename(), loc.last_line, loc.last_column);
+    vfprintf(stderr, fmt, ap);
+    fprintf(stderr, "\n" COLOR_NORMAL);
+    va_end(ap);
+    fstream file(sym_tab.get_filename());
+    goto_line(file, loc.last_line);
+    string err_line;
+    getline(file, err_line);
+    cerr << err_line << endl;
+    file.close();
+    for (int i = 0; i < loc.last_column - 1; i++) {
+        cerr <<  COLOR_GREEN "~";
+    }
+    cerr << "^" COLOR_NORMAL << endl;
+}
+
+static void semantic_error(int* n_errs, ast_loc_t loc, const char* fmt, ...) {
+    va_list ap;
+    va_start(ap, fmt);
+    fprintf(stderr, COLOR_BOLD "%s:%d:%d:" COLOR_RED " error: " COLOR_NORMAL COLOR_BOLD,
+        sym_tab.get_filename(), loc.last_line, loc.last_column);
+    vfprintf(stderr, fmt, ap);
+    fprintf(stderr, "\n" COLOR_NORMAL);
+    va_end(ap);
+    fstream file(sym_tab.get_filename());
+    goto_line(file, loc.last_line);
+    string err_line;
+    getline(file, err_line);
+    cerr << err_line << endl;
+    file.close();
+    for (int i = 0; i < loc.last_column - 1; i++) {
+        cerr <<  COLOR_GREEN "~";
+    }
+    cerr << "^" COLOR_NORMAL << endl;
+    (*n_errs)++;
+}
+
+static void semantic_check_impl(int* n_errs, ast_node_ptr node) {
     if (node == nullptr) {
         return;
     }
@@ -232,9 +297,7 @@ void semantic_check_impl(int* n_errs, ast_node_ptr node) {
     string token(node->token);
     if (token == "VarDecl" || token == "ParmVarDecl") {
         if (is_declared(node->val)) {
-            printf("%s:%d:%d: " COLOR_RED "error:" COLOR_NORMAL " redefinition of '%s'\n",
-                sym_tab.get_filename(), node->ln, node->col, node->val);
-            (*n_errs)++;
+            semantic_error(n_errs, node->pos, "redefinition of '%s'", node->val);
         } else {
             add_symbol(node->val, node->type_id);
             if (token == "ParmVarDecl") {
@@ -261,18 +324,23 @@ void semantic_check_impl(int* n_errs, ast_node_ptr node) {
         }
     } else if (token == "DeclRefExpr") {
         if (get_symbol_type(node->val) < 0) {
-            printf("%s:%d:%d: " COLOR_RED "error:" COLOR_NORMAL " use of undeclared identifier '%s'\n",
-                   sym_tab.get_filename(), node->ln, node->col, node->val);
-            (*n_errs)++;
+            semantic_error(n_errs, node->pos, "use of undeclared identifier '%s'", node->val);
             assert(node->parent != nullptr);
-            if (string(node->parent->token) == "CallExpr") {
+            if (string(node->parent->token) == "CallExpr" && node == node->parent->child[0]) {
                 node->parent->type_id = TYPEID_INT;
             }
         } else {
             node->type_id = get_symbol_type(node->val);
             assert(node->parent != nullptr);
-            if (string(node->parent->token) == "CallExpr") {
+            if (string(node->parent->token) == "CallExpr" && node == node->parent->child[0]) {
                 node->parent->type_id = node->type_id;
+                auto sym_attr = sym_tab.get_global_sym_tab()->sym_tab_impl.find(node->val)->second;
+                assert(sym_attr.param_nums() >= 0);
+                if (node->parent->n_child - 1 != sym_attr.param_nums()) {
+                    semantic_error(n_errs, node->pos,
+                        "invalid number of arguments to function '%s', expected %d argument(s)",
+                        node->val, sym_attr.param_nums());
+                }
             }
         }
     } else if (token == "BinaryOperator") {
@@ -281,11 +349,9 @@ void semantic_check_impl(int* n_errs, ast_node_ptr node) {
         for (int i = 0;i < node->n_child;i++) {
             semantic_check_impl(n_errs, node->child[i]);
         }
-        int type = bin_expr_type_check(node->child[0]->type_id, node->child[1]->type_id);
+        int type = bin_expr_type_check(node->child[0], node->child[1], node);
         if (type < 0) {
-            printf("%s:%d:%d: " COLOR_RED "error:" COLOR_NORMAL " incompatible types in binary expression\n",
-                   sym_tab.get_filename(), node->ln, node->col);
-            (*n_errs)++;
+            semantic_error(n_errs, node->pos, "incompatible types in binary expression");
         } else {
             node->type_id = type;
         }
@@ -298,7 +364,8 @@ void semantic_check_impl(int* n_errs, ast_node_ptr node) {
     }
 }
 
-void semantic_check(const char* filename, int* n_errs, ast_node_ptr root) {
+void semantic_check(const char* filename, int* n_errs, ast_node_ptr root, int w_flag) {
+    warning_flag = w_flag;
     sym_tab.init(filename);
     semantic_check_impl(n_errs, root);
 }
