@@ -39,6 +39,10 @@ int main(int argc, char** argv) {
         .help("print symbol table")
         .default_value(false)
         .implicit_value(true);
+    program.add_argument("-w")
+        .help("disable warnings")
+        .default_value(false)
+        .implicit_value(true);
     int* n_errs = new int;
     try {
         program.parse_args(argc, argv);
@@ -51,11 +55,11 @@ int main(int argc, char** argv) {
         ast_node_ptr root = mknode("TranslationUnitDecl");
         *n_errs = 0;
         parse(filename.c_str(), n_errs, root);
-        semantic_check(filename.c_str(), n_errs, root);
+        semantic_check(filename.c_str(), n_errs, root, program["-w"] == true);
         if (program["--ast-dump"] == true) print_ast(filename.c_str(), root);
         if (program["--sym-dump"] == true) print_sym_tab();
         if (*n_errs > 0) {
-            throw runtime_error(to_string(*n_errs) + " errors generated.");
+            throw runtime_error(to_string(*n_errs) + " error(s) generated.");
         }
     }
     catch (const exception& err) {
