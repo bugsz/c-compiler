@@ -66,9 +66,23 @@ static void print_whitespaces(int n) {
     printf("`-");
 }
 
+
 static void print_node(ast_node_ptr node) {
-    printf("%s %p %s '%s'\n", node->token, node,
-        node->val, strcmp(node->token,"FunctionDecl") == 0 ? get_function_type(node->val) : typeid_deref[node->type_id]);
+    char position[MAX_TOKEN_LEN] = { 0 }, type[MAX_TOKEN_LEN] = { 0 };
+    if (node->pos.last_line * node->pos.last_column) {
+        sprintf(position, " <%d:%d>", node->pos.last_line, node->pos.last_column);
+    }
+    if (strcmp(node->token, "TranslationUnit") == 0 ||
+        strcmp(node->token, "CompoundStmt") == 0 ||
+        strcmp(node->token, "DeclStmt") == 0 ||
+        strcmp(node->token, "ForStmt") == 0 ||
+        strcmp(node->token, "IfStmt") == 0 ||
+        strcmp(node->token, "WhileStmt") == 0 ||
+        strcmp(node->token, "DoStmt") == 0) {
+    } else {
+        sprintf(type, " '%s'", strcmp(node->token, "FunctionDecl") == 0 ? get_function_type(node->val) : typeid_deref[node->type_id]);
+    }
+    printf("%s %p%s %s%s\n", node->token, node, position, node->val, type);
 }
 
 static void print_ast_impl(ast_node_ptr node) {
