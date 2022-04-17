@@ -7,6 +7,7 @@
  */
 #include "builtin.h"
 #include <string>
+#include <cstring>
 #include <cstdlib>
 #include <assert.h>
 
