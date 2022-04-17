@@ -16,6 +16,7 @@
 #include <fstream>
 
 #include "semantic.h"
+#include "builtin.h"
 #include "config.h"
 
 using namespace std;
@@ -79,6 +80,7 @@ struct _table {
         this->name = is_global ? "TranslationUnit" : name;
     }
     unordered_map<string, SymbolAttr> sym_tab_impl;
+    unordered_map<string, string> key_value;
     string name;
     bool is_global;
     _table* parent;
@@ -112,10 +114,26 @@ public:
         cur_table = cur_table->parent;
     }
     
-    void add(const char* name, int type, bool is_func = false) {
-        cur_table->sym_tab_impl.insert({string(name), SymbolAttr(type, is_func)});
+    void add(const char* name, int type, bool is_func = false, string value = "") {
+        cur_table->sym_tab_impl.insert({ string(name), SymbolAttr(type, is_func) });
+        cur_table->key_value[string(name)] = value;
     }
-    
+
+    string get_value(const char* name) {
+        auto t = cur_table;
+        while(t->parent != nullptr) {
+            if (t->key_value.find(string(name)) != t->key_value.end()) {
+                string ret = t->key_value[string(name)];
+                if(ret.find("\"") != string::npos) {
+                    ret = ret.substr(1, ret.size() - 2);
+                }
+                return ret;
+            }
+            t = t->parent;
+        }
+        return "";
+    }
+
     int get(const char* name) {
         auto iter = cur_table;
         return get_impl(iter, name);
@@ -289,6 +307,24 @@ static void semantic_error(int* n_errs, ast_loc_t loc, const char* fmt, ...) {
     (*n_errs)++;
 }
 
+static string check_decl(ast_node_ptr node) {
+    if (node->type_id == TYPEID_VOID) {
+        return "cannot declare a void type variable";
+    }
+    if (string(node->token) == "ParmVarDecl" && node->type_id == TYPEID_STR) {
+        return "cannot declare a string type parameter";
+    }
+    if (node->type_id == TYPEID_STR && node->n_child == 0) {
+        return "cannot declare a string type variable without initializer";
+    }
+    if (node->type_id == TYPEID_STR && !(node->n_child == 1
+        && (string(node->child[0]->token) == "Literal") ||
+        (string(node->child[0]->token).find("BUILTIN_") != string::npos))) {
+        return "cannot declare a string type variable with initializer other than a string literal";
+    }
+    return "";
+}
+
 static void semantic_check_impl(int* n_errs, ast_node_ptr node) {
     if (node == nullptr) {
         return;
@@ -299,7 +335,18 @@ static void semantic_check_impl(int* n_errs, ast_node_ptr node) {
         if (is_declared(node->val)) {
             semantic_error(n_errs, node->pos, "redefinition of '%s'", node->val);
         } else {
-            add_symbol(node->val, node->type_id);
+            string validation = check_decl(node);
+            if (!validation.empty()) {
+                semantic_error(n_errs, node->pos, "%s", validation.c_str());
+            }
+            if (node->n_child == 1 && string(node->child[0]->token) == "Literal") {
+                sym_tab.add(node->val, node->type_id, false, node->child[0]->val);
+            } else if (node->n_child == 1 && string(node->child[0]->token).find("BUILTIN_") != string::npos) {
+                semantic_check_impl(n_errs, node->child[0]);
+                sym_tab.add(node->val, node->type_id, false, node->child[0]->val);
+            } else {
+                sym_tab.add(node->val, node->type_id);
+            }
             if (token == "ParmVarDecl") {
                 assert(string(node->parent->token) == "FunctionDecl");
                 assert(sym_tab.get_cur_sym_tab()->parent != nullptr);
@@ -354,6 +401,125 @@ static void semantic_check_impl(int* n_errs, ast_node_ptr node) {
             semantic_error(n_errs, node->pos, "incompatible types in binary expression");
         } else {
             node->type_id = type;
+        }
+    } else if (token.find("BUILTIN_") == 0) {
+        if (token == "BUILTIN_ITOA") {
+            assert(node->n_child == 2);
+            string temp(node->child[0]->val);
+            int n = 0;
+            if (string(node->child[0]->token) == "DeclRefExpr" &&
+                get_symbol_type(node->child[0]->val) == TYPEID_STR) {
+                n = atoi(sym_tab.get_value(node->child[0]->val).c_str());
+            } else if (string(node->child[0]->token) == "Literal" && node->child[0]->type_id == TYPEID_STR) {
+                if(temp.find("\"") == 0) {
+                    temp = temp.substr(1, temp.size() - 2);
+                }
+                n = atoi(temp.c_str());
+            } else {
+                semantic_check_impl(n_errs, node->child[0]);
+                if(string(node->child[0]->token) == "Literal" && node->child[0]->type_id == TYPEID_STR) {
+                    temp = node->child[0]->val;
+                    if(temp.find("\"") == 0) {
+                        temp = temp.substr(1, temp.size() - 2);
+                    }
+                    n = atoi(temp.c_str());
+                } else {
+                    semantic_error(n_errs, node->pos,
+                        "invalid argument to builtin function '%s', expected 'string, const int'", token.c_str());
+                }
+            }
+            if (node->child[1]->type_id != TYPEID_INT) {
+                semantic_error(n_errs, node->pos,
+                    "invalid argument to builtin function '%s', expected 'string, const int'", token.c_str());
+            }
+            int base = atoi(node->child[1]->val);
+            if (base != 2 && base != 8 && base != 10 && base != 16) {
+                semantic_error(n_errs, node->pos,
+                    "invalid base %d for itoa, expected 2, 8, 10 or 16", base);
+            } else {
+                strcpy(node->val, builtin_itoa(n, base));
+            }
+            sprintf(node->token, "Literal");
+            node->n_child = 0;
+        } else if (token == "BUILTIN_STRCAT") {
+            assert(node->n_child == 2);
+            string s1, s2, temp;
+            if (string(node->child[0]->token) == "DeclRefExpr" &&
+                get_symbol_type(node->child[0]->val) == TYPEID_STR) {
+                s1 = sym_tab.get_value(node->child[0]->val);
+            } else if (string(node->child[0]->token) == "Literal" && node->child[0]->type_id == TYPEID_STR) {
+                s1 = node->child[0]->val;
+            } else {
+                semantic_check_impl(n_errs, node->child[0]);
+                if(string(node->child[0]->token) == "Literal" && node->child[0]->type_id == TYPEID_STR) {
+                    s1 = node->child[0]->val;
+                } else {
+                    semantic_error(n_errs, node->pos,
+                        "invalid argument to builtin function '%s', expected 'string, string'", token.c_str());
+                }
+            }
+            if (string(node->child[1]->token) == "DeclRefExpr" &&
+                get_symbol_type(node->child[1]->val) == TYPEID_STR) {
+                s2 = sym_tab.get_value(node->child[1]->val);
+            } else if (string(node->child[1]->token) == "Literal" && node->child[1]->type_id == TYPEID_STR) {
+                s2 = node->child[1]->val;
+            } else {
+                semantic_check_impl(n_errs, node->child[1]);
+                if(string(node->child[1]->token) == "Literal" && node->child[1]->type_id == TYPEID_STR) {
+                    s2 = node->child[1]->val;
+                } else {
+                    semantic_error(n_errs, node->pos, "invalid argument to builtin function '%s', expected 'string, string'", token.c_str());
+                }
+            }
+            strcpy(node->val, builtin_strcat(s1.c_str(), s2.c_str()));
+            sprintf(node->token, "Literal");
+            node->n_child = 0;
+        } else if (token == "BUILTIN_STRLEN") {
+            assert(node->n_child == 1);
+            string s;
+            if (string(node->child[0]->token) == "DeclRefExpr" &&
+                get_symbol_type(node->child[0]->val) == TYPEID_STR) {
+                s = sym_tab.get_value(node->child[0]->val);
+            } else if (string(node->child[0]->token) == "Literal" && node->child[0]->type_id == TYPEID_STR) {
+                s = node->child[0]->val;
+            } else {
+                semantic_check_impl(n_errs, node->child[0]);
+                if(string(node->child[0]->token) == "Literal" && node->child[0]->type_id == TYPEID_STR) {
+                    s = node->child[0]->val;
+                } else {
+                    semantic_error(n_errs, node->pos, "invalid argument to builtin function '%s', expected 'string'", token.c_str());
+                }
+            }
+            sprintf(node->val, "%d", builtin_strlen(s.c_str()));
+            sprintf(node->token, "Literal");
+            node->n_child = 0;
+        } else if (token == "BUILTIN_STRGET") {
+            assert(node->n_child == 2);
+            string s, ret = "";
+            if (string(node->child[0]->token) == "DeclRefExpr" &&
+                get_symbol_type(node->child[0]->val) == TYPEID_STR) {
+                s = sym_tab.get_value(node->child[0]->val);
+            } else if (string(node->child[0]->token) == "Literal" && node->child[0]->type_id == TYPEID_STR) {
+                s = node->child[0]->val;
+            } else {
+                semantic_check_impl(n_errs, node->child[0]);
+                if(string(node->child[0]->token) == "Literal" && node->child[0]->type_id == TYPEID_STR) {
+                    s = node->child[0]->val;
+                } else {
+                    semantic_error(n_errs, node->pos,
+                        "invalid argument to builtin function '%s', expected 'string, const int'", token.c_str());
+                }
+            }
+            if (node->child[1]->type_id != TYPEID_INT) {
+                semantic_error(n_errs, node->pos,
+                    "invalid argument to builtin function '%s', expected 'string, const int'", token.c_str());
+            }
+            int index = atoi(node->child[1]->val);
+            printf("s = %s, index = %d\n", s.c_str(), index);
+            ret += builtin_strget(s.c_str(), index);
+            strcpy(node->val, ret.c_str());
+            sprintf(node->token, "Literal");
+            node->n_child = 0;
         }
     }
     if (already_checked) return;

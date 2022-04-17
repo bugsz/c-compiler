@@ -10,9 +10,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <assert.h>
 
 #include "ast_impl.h"
 #include "semantic.h"
+#include "builtin.h"
 #include "config.h"
 
 void yyerror(const char*, int*, struct ast_node_impl*, char* s);
@@ -48,6 +50,7 @@ extern int yycolno;
 %token IF ELSE
 %token DO FOR WHILE 
 %token RETURN BREAK CONTINUE
+%token BUILTIN_ITOA BUILTIN_STRCAT BUILTIN_STRLEN BUILTIN_STRGET
 
 %type <node> PROG FN_DEF PARAM_LIST PARAM_LIST_RIGHT PARAM_DECL
 %type <node> GLOBAL_DECL DECL DECL_LIST DECLARATOR
@@ -271,6 +274,32 @@ EXPR :
         strcpy($$->val, $1);
         $$->pos = @1;
     }
+    | BUILTIN_ITOA '(' EXPR ',' CONSTANT ')' { 
+        ast_node_ptr parm2 = mknode("c2");
+        strcpy(parm2->val, $5);
+        parm2->type_id = get_literal_type($5);
+        $$ = mknode("BUILTIN_ITOA", $3, parm2);
+        $$->type_id = TYPEID_STR;
+        $$->pos = @1;
+    }
+    | BUILTIN_STRCAT '(' EXPR ',' EXPR ')' { 
+        $$ = mknode("BUILTIN_STRCAT", $3, $5);
+        $$->type_id = TYPEID_STR;
+        $$->pos = @1;
+    }
+    | BUILTIN_STRLEN '(' EXPR ')' { 
+        $$ = mknode("BUILTIN_STRLEN", $3);
+        $$->type_id = TYPEID_INT;
+        $$->pos = @1;
+    }
+    | BUILTIN_STRGET '(' EXPR ',' CONSTANT ')' {
+        ast_node_ptr parm2 = mknode("c2");
+        strcpy(parm2->val, $5);
+        parm2->type_id = get_literal_type($5);
+        $$ = mknode("BUILTIN_STRGET", $3, parm2);
+        $$->type_id = TYPEID_CHAR;
+        $$->pos = @1;
+    }
     | CONSTANT     { 
         $$ = mknode("Literal");
         $$->type_id = get_literal_type($1);
@@ -340,7 +369,7 @@ JMP_STMT :
 
 void yyerror(const char* filename, int* n_errs, struct ast_node_impl* node, char *s){
     (*n_errs)++;
-    fprintf(stderr, COLOR_BOLD"%s:%d:%d: "COLOR_RED"%s:"COLOR_NORMAL"\n%s\n", \
+    fprintf(stderr, COLOR_BOLD"%s:%d:%d: "COLOR_RED"%s"COLOR_NORMAL"\n%s\n", \
         filename, yylineno, yycolno, s, yyline);
     for(int i = 0; i < yycolno - 1; i++)
         fprintf(stderr, COLOR_GREEN"~");

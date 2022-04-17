@@ -48,13 +48,18 @@ extern YYLTYPE yylloc;
 "continue"  { set_col(); return CONTINUE; }
 "return"    { set_col(); return RETURN; }
 
+"__builtin_itoa" { set_col(); return BUILTIN_ITOA; }
+"__builtin_strcat" { set_col(); return BUILTIN_STRCAT; }
+"__builtin_strlen" { set_col(); return BUILTIN_STRLEN; }
+"__builtin_strget" { set_col(); return BUILTIN_STRGET; }
+
 
 [a-zA-Z_][a-zA-Z0-9_]*	{ set_col(); assert(yyleng < 50); yylval.str = strdup(yytext); return IDENTIFIER; }
 [0-9]+			{ set_col(); assert(yyleng < 50); yylval.str = strdup(yytext); return CONSTANT; }
 [0-9]+\.[0-9]+		{ set_col(); assert(yyleng < 50); yylval.str = strdup(yytext); return CONSTANT; }
 "0x"[0-9a-fA-F]+	{ set_col(); assert(yyleng < 50); yylval.str = strdup(yytext); return CONSTANT; }
 "0b"[01]+		{ set_col(); assert(yyleng < 50); yylval.str = strdup(yytext); return CONSTANT; }
-"\"".*"\""          { set_col(); assert(yyleng < 50); yylval.str = strdup(yytext); return CONSTANT; }
+[a-zA-Z_]?\"(\\.|[^\\"])*\"          { set_col(); assert(yyleng < 50); yylval.str = strdup(yytext); return CONSTANT; }
 
 "<=" { set_col(); return LE; }
 ">=" { set_col(); return GE; }
