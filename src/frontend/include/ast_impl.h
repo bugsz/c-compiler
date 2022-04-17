@@ -10,7 +10,7 @@
 #include <stdarg.h>
 
 #define INIT_CHILD_NUM 10
-#define MAX_TOKEN_LEN 50
+#define MAX_TOKEN_LEN 128
 
 #define mknode(token, ...) mknode_impl(token, ##__VA_ARGS__, NULL)
 #define append_child(parent, ...) append_child_impl(parent, ##__VA_ARGS__, NULL)
