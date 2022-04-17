@@ -104,7 +104,7 @@ PROGRAMS = $(noinst_PROGRAMS)
 am__dirstamp = $(am__leading_dot)dirstamp
 am_zjucc_OBJECTS = src/ast_impl.$(OBJEXT) src/entry.$(OBJEXT) \
 	src/parser.$(OBJEXT) src/tokenizer.$(OBJEXT) \
-	src/semantic.$(OBJEXT)
+	src/semantic.$(OBJEXT) src/builtin.$(OBJEXT)
 zjucc_OBJECTS = $(am_zjucc_OBJECTS)
 zjucc_LDADD = $(LDADD)
 AM_V_P = $(am__v_P_@AM_V@)
@@ -122,7 +122,8 @@ am__v_at_1 =
 DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir)/include
 depcomp = $(SHELL) $(top_srcdir)/build-aux/depcomp
 am__maybe_remake_depfiles = depfiles
-am__depfiles_remade = src/$(DEPDIR)/ast_impl.Po src/$(DEPDIR)/entry.Po \
+am__depfiles_remade = src/$(DEPDIR)/ast_impl.Po \
+	src/$(DEPDIR)/builtin.Po src/$(DEPDIR)/entry.Po \
 	src/$(DEPDIR)/parser.Po src/$(DEPDIR)/semantic.Po \
 	src/$(DEPDIR)/tokenizer.Po
 am__mv = mv -f
@@ -316,7 +317,7 @@ top_srcdir = @top_srcdir@
 AUTOMAKE_OPTIONS = foreign
 AM_YFLAGS = -d
 AM_CPPFLAGS = -I./third_parties/argparse -I./include
-zjucc_SOURCES = include/_config.h include/ast.h src/ast_impl.c include/ast_impl.h src/entry.cpp src/parser.y src/tokenizer.l src/semantic.cpp include/semantic.h
+zjucc_SOURCES = include/_config.h include/ast.h src/ast_impl.c include/ast_impl.h src/entry.cpp src/parser.y src/tokenizer.l src/semantic.cpp include/semantic.h include/builtin.h src/builtin.cpp
 all: all-am
 
 .SUFFIXES:
@@ -390,6 +391,8 @@ src/tokenizer.$(OBJEXT): src/$(am__dirstamp) \
 	src/$(DEPDIR)/$(am__dirstamp)
 src/semantic.$(OBJEXT): src/$(am__dirstamp) \
 	src/$(DEPDIR)/$(am__dirstamp)
+src/builtin.$(OBJEXT): src/$(am__dirstamp) \
+	src/$(DEPDIR)/$(am__dirstamp)
 
 zjucc$(EXEEXT): $(zjucc_OBJECTS) $(zjucc_DEPENDENCIES) $(EXTRA_zjucc_DEPENDENCIES) 
 	@rm -f zjucc$(EXEEXT)
@@ -403,6 +406,7 @@ distclean-compile:
 	-rm -f *.tab.c
 
 @AMDEP_TRUE@@am__include@ @am__quote@src/$(DEPDIR)/ast_impl.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@src/$(DEPDIR)/builtin.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@src/$(DEPDIR)/entry.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@src/$(DEPDIR)/parser.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@src/$(DEPDIR)/semantic.Po@am__quote@ # am--include-marker
@@ -728,6 +732,7 @@ clean-am: clean-generic clean-noinstPROGRAMS mostlyclean-am
 distclean: distclean-am
 	-rm -f $(am__CONFIG_DISTCLEAN_FILES)
 		-rm -f src/$(DEPDIR)/ast_impl.Po
+	-rm -f src/$(DEPDIR)/builtin.Po
 	-rm -f src/$(DEPDIR)/entry.Po
 	-rm -f src/$(DEPDIR)/parser.Po
 	-rm -f src/$(DEPDIR)/semantic.Po
@@ -780,6 +785,7 @@ maintainer-clean: maintainer-clean-am
 	-rm -f $(am__CONFIG_DISTCLEAN_FILES)
 	-rm -rf $(top_srcdir)/autom4te.cache
 		-rm -f src/$(DEPDIR)/ast_impl.Po
+	-rm -f src/$(DEPDIR)/builtin.Po
 	-rm -f src/$(DEPDIR)/entry.Po
 	-rm -f src/$(DEPDIR)/parser.Po
 	-rm -f src/$(DEPDIR)/semantic.Po
