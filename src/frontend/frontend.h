@@ -21,6 +21,17 @@ struct ast_yyltype {
     int last_column;
 };
 
+enum TYPEID {
+    TYPEID_VOID = 0,
+    TYPEID_CHAR,
+    TYPEID_SHORT,
+    TYPEID_INT,
+    TYPEID_LONG,
+    TYPEID_FLOAT,
+    TYPEID_DOUBLE,
+    TYPEID_STR
+};
+
 struct ast_node_impl {
     char token[MAX_TOKEN_LEN]; // type of node
     ast_node_ptr* child;
