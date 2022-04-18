@@ -520,6 +520,15 @@ static void semantic_check_impl(int* n_errs, ast_node_ptr node) {
             sprintf(node->token, "Literal");
             node->n_child = 0;
         }
+    } else if (token == "ReturnStmt") {
+        assert(node->n_child <= 1);
+        already_checked = true;
+        for (int i = 0;i < node->n_child;i++) {
+            semantic_check_impl(n_errs, node->child[i]);
+        }
+        if (node->n_child > 0) {
+            node->type_id = node->child[0]->type_id;
+        }
     }
     if (already_checked) return;
     else {
