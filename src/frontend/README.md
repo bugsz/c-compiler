@@ -40,6 +40,24 @@ make clean # remove object files
 sh clean.sh
 ```
 
+## Using compiler frontend as a library
+
+Example:
+
+```cpp
+#include "frontend.h"
+
+int main(int argc, const char** argv) {
+    struct lib_frontend_ret ret = frontend_entry(argc, argv);
+}
+```
+
+Compile:
+
+```bash
+g++ example.cpp -L${PATH_TO_ZJUCC} -lzjucc
+```
+
 ## Examples
 ### AST
 * The names of frontend AST nodes follow the Clang convention.
