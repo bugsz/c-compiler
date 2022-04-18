@@ -515,7 +515,6 @@ static void semantic_check_impl(int* n_errs, ast_node_ptr node) {
                     "invalid argument to builtin function '%s', expected 'string, const int'", token.c_str());
             }
             int index = atoi(node->child[1]->val);
-            printf("s = %s, index = %d\n", s.c_str(), index);
             ret += builtin_strget(s.c_str(), index);
             strcpy(node->val, ret.c_str());
             sprintf(node->token, "Literal");
