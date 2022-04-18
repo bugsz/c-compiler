@@ -56,3 +56,15 @@ enum TYPEID {
 #else
 #define COREDUMP ;
 #endif
+
+#include "ast_impl.h"
+
+#ifdef __cplusplus
+#include <string>
+struct lib_frontend_ret {
+    int n_errs;
+    std::string input_file;
+    std::string output_file;
+    ast_node_ptr root;
+};
+#endif
