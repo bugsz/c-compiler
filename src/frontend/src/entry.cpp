@@ -10,7 +10,7 @@
 #include <cstdlib>
 #include "argparse.hpp"
 
-#include "ast.h"
+#include "ast_impl.h"
 #include "semantic.h"
 #include "config.h"
 
