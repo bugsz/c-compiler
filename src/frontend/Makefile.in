@@ -14,6 +14,7 @@
 
 @SET_MAKE@
 
+
 VPATH = @srcdir@
 am__is_gnu_make = { \
   if test -z '$(MAKELEVEL)'; then \
@@ -86,6 +87,8 @@ POST_INSTALL = :
 NORMAL_UNINSTALL = :
 PRE_UNINSTALL = :
 POST_UNINSTALL = :
+build_triplet = @build@
+host_triplet = @host@
 noinst_PROGRAMS = zjucc$(EXEEXT)
 subdir = .
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
@@ -101,10 +104,23 @@ CONFIG_HEADER = $(top_builddir)/include/config.h
 CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
 PROGRAMS = $(noinst_PROGRAMS)
+LIBRARIES = $(noinst_LIBRARIES)
+AR = ar
+ARFLAGS = cru
+AM_V_AR = $(am__v_AR_@AM_V@)
+am__v_AR_ = $(am__v_AR_@AM_DEFAULT_V@)
+am__v_AR_0 = @echo "  AR      " $@;
+am__v_AR_1 = 
+libzjucc_a_AR = $(AR) $(ARFLAGS)
+libzjucc_a_LIBADD =
 am__dirstamp = $(am__leading_dot)dirstamp
-am_zjucc_OBJECTS = src/ast_impl.$(OBJEXT) src/entry.$(OBJEXT) \
+am_libzjucc_a_OBJECTS = src/ast_impl.$(OBJEXT) src/builtin.$(OBJEXT) \
 	src/parser.$(OBJEXT) src/tokenizer.$(OBJEXT) \
-	src/semantic.$(OBJEXT) src/builtin.$(OBJEXT)
+	src/semantic.$(OBJEXT) src/lib_zjucc.$(OBJEXT)
+libzjucc_a_OBJECTS = $(am_libzjucc_a_OBJECTS)
+am_zjucc_OBJECTS = src/entry.$(OBJEXT) src/ast_impl.$(OBJEXT) \
+	src/builtin.$(OBJEXT) src/parser.$(OBJEXT) \
+	src/tokenizer.$(OBJEXT) src/semantic.$(OBJEXT)
 zjucc_OBJECTS = $(am_zjucc_OBJECTS)
 zjucc_LDADD = $(LDADD)
 AM_V_P = $(am__v_P_@AM_V@)
@@ -124,8 +140,8 @@ depcomp = $(SHELL) $(top_srcdir)/build-aux/depcomp
 am__maybe_remake_depfiles = depfiles
 am__depfiles_remade = src/$(DEPDIR)/ast_impl.Po \
 	src/$(DEPDIR)/builtin.Po src/$(DEPDIR)/entry.Po \
-	src/$(DEPDIR)/parser.Po src/$(DEPDIR)/semantic.Po \
-	src/$(DEPDIR)/tokenizer.Po
+	src/$(DEPDIR)/lib_zjucc.Po src/$(DEPDIR)/parser.Po \
+	src/$(DEPDIR)/semantic.Po src/$(DEPDIR)/tokenizer.Po
 am__mv = mv -f
 COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
 	$(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
@@ -165,8 +181,8 @@ AM_V_YACC = $(am__v_YACC_@AM_V@)
 am__v_YACC_ = $(am__v_YACC_@AM_DEFAULT_V@)
 am__v_YACC_0 = @echo "  YACC    " $@;
 am__v_YACC_1 = 
-SOURCES = $(zjucc_SOURCES)
-DIST_SOURCES = $(zjucc_SOURCES)
+SOURCES = $(libzjucc_a_SOURCES) $(zjucc_SOURCES)
+DIST_SOURCES = $(libzjucc_a_SOURCES) $(zjucc_SOURCES)
 am__can_run_installinfo = \
   case $$AM_UPDATE_INFO_DIR in \
     n|no|NO) false;; \
@@ -192,12 +208,15 @@ am__define_uniq_tagged_files = \
 AM_RECURSIVE_TARGETS = cscope
 am__DIST_COMMON = $(srcdir)/Makefile.in \
 	$(top_srcdir)/build-aux/compile \
+	$(top_srcdir)/build-aux/config.guess \
+	$(top_srcdir)/build-aux/config.sub \
 	$(top_srcdir)/build-aux/depcomp \
 	$(top_srcdir)/build-aux/install-sh \
 	$(top_srcdir)/build-aux/missing $(top_srcdir)/build-aux/ylwrap \
 	$(top_srcdir)/include/config.h.in README.md build-aux/compile \
-	build-aux/depcomp build-aux/install-sh build-aux/missing \
-	build-aux/ylwrap src/parser.c src/parser.h src/tokenizer.c
+	build-aux/config.guess build-aux/config.sub build-aux/depcomp \
+	build-aux/install-sh build-aux/missing build-aux/ylwrap \
+	src/parser.c src/parser.h src/tokenizer.c
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
 distdir = $(PACKAGE)-$(VERSION)
 top_distdir = $(distdir)
@@ -218,6 +237,7 @@ am__distuninstallcheck_listfiles = $(distuninstallcheck_listfiles) \
   | sed 's|^\./|$(prefix)/|' | grep -v '$(infodir)/dir$$'
 distcleancheck_listfiles = find . -type f -print
 ACLOCAL = @ACLOCAL@
+ALLOCA = @ALLOCA@
 AMTAR = @AMTAR@
 AM_DEFAULT_VERBOSITY = @AM_DEFAULT_VERBOSITY@
 AUTOCONF = @AUTOCONF@
@@ -264,6 +284,7 @@ PACKAGE_TARNAME = @PACKAGE_TARNAME@
 PACKAGE_URL = @PACKAGE_URL@
 PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH_SEPARATOR = @PATH_SEPARATOR@
+RANLIB = @RANLIB@
 SET_MAKE = @SET_MAKE@
 SHELL = @SHELL@
 STRIP = @STRIP@
@@ -282,14 +303,22 @@ am__quote = @am__quote@
 am__tar = @am__tar@
 am__untar = @am__untar@
 bindir = @bindir@
+build = @build@
 build_alias = @build_alias@
+build_cpu = @build_cpu@
+build_os = @build_os@
+build_vendor = @build_vendor@
 builddir = @builddir@
 datadir = @datadir@
 datarootdir = @datarootdir@
 docdir = @docdir@
 dvidir = @dvidir@
 exec_prefix = @exec_prefix@
+host = @host@
 host_alias = @host_alias@
+host_cpu = @host_cpu@
+host_os = @host_os@
+host_vendor = @host_vendor@
 htmldir = @htmldir@
 includedir = @includedir@
 infodir = @infodir@
@@ -317,7 +346,9 @@ top_srcdir = @top_srcdir@
 AUTOMAKE_OPTIONS = foreign
 AM_YFLAGS = -d
 AM_CPPFLAGS = -I./third_parties/argparse -I./include
-zjucc_SOURCES = include/_config.h include/ast.h src/ast_impl.c include/ast_impl.h src/entry.cpp src/parser.y src/tokenizer.l src/semantic.cpp include/semantic.h include/builtin.h src/builtin.cpp
+noinst_LIBRARIES = libzjucc.a
+libzjucc_a_SOURCES = src/ast_impl.c src/builtin.cpp src/parser.y src/tokenizer.l src/semantic.cpp src/lib_zjucc.cpp include/config.h include/ast_impl.h include/builtin.h include/semantic.h
+zjucc_SOURCES = src/entry.cpp src/ast_impl.c src/builtin.cpp src/parser.y src/tokenizer.l src/semantic.cpp include/config.h include/ast_impl.h include/builtin.h include/semantic.h
 all: all-am
 
 .SUFFIXES:
@@ -373,6 +404,9 @@ distclean-hdr:
 
 clean-noinstPROGRAMS:
 	-test -z "$(noinst_PROGRAMS)" || rm -f $(noinst_PROGRAMS)
+
+clean-noinstLIBRARIES:
+	-test -z "$(noinst_LIBRARIES)" || rm -f $(noinst_LIBRARIES)
 src/$(am__dirstamp):
 	@$(MKDIR_P) src
 	@: > src/$(am__dirstamp)
@@ -381,7 +415,8 @@ src/$(DEPDIR)/$(am__dirstamp):
 	@: > src/$(DEPDIR)/$(am__dirstamp)
 src/ast_impl.$(OBJEXT): src/$(am__dirstamp) \
 	src/$(DEPDIR)/$(am__dirstamp)
-src/entry.$(OBJEXT): src/$(am__dirstamp) src/$(DEPDIR)/$(am__dirstamp)
+src/builtin.$(OBJEXT): src/$(am__dirstamp) \
+	src/$(DEPDIR)/$(am__dirstamp)
 src/parser.h: src/parser.c
 	@if test ! -f $@; then rm -f src/parser.c; else :; fi
 	@if test ! -f $@; then $(MAKE) $(AM_MAKEFLAGS) src/parser.c; else :; fi
@@ -391,8 +426,14 @@ src/tokenizer.$(OBJEXT): src/$(am__dirstamp) \
 	src/$(DEPDIR)/$(am__dirstamp)
 src/semantic.$(OBJEXT): src/$(am__dirstamp) \
 	src/$(DEPDIR)/$(am__dirstamp)
-src/builtin.$(OBJEXT): src/$(am__dirstamp) \
+src/lib_zjucc.$(OBJEXT): src/$(am__dirstamp) \
 	src/$(DEPDIR)/$(am__dirstamp)
+
+libzjucc.a: $(libzjucc_a_OBJECTS) $(libzjucc_a_DEPENDENCIES) $(EXTRA_libzjucc_a_DEPENDENCIES) 
+	$(AM_V_at)-rm -f libzjucc.a
+	$(AM_V_AR)$(libzjucc_a_AR) libzjucc.a $(libzjucc_a_OBJECTS) $(libzjucc_a_LIBADD)
+	$(AM_V_at)$(RANLIB) libzjucc.a
+src/entry.$(OBJEXT): src/$(am__dirstamp) src/$(DEPDIR)/$(am__dirstamp)
 
 zjucc$(EXEEXT): $(zjucc_OBJECTS) $(zjucc_DEPENDENCIES) $(EXTRA_zjucc_DEPENDENCIES) 
 	@rm -f zjucc$(EXEEXT)
@@ -408,6 +449,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@src/$(DEPDIR)/ast_impl.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@src/$(DEPDIR)/builtin.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@src/$(DEPDIR)/entry.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@src/$(DEPDIR)/lib_zjucc.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@src/$(DEPDIR)/parser.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@src/$(DEPDIR)/semantic.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@src/$(DEPDIR)/tokenizer.Po@am__quote@ # am--include-marker
@@ -688,7 +730,7 @@ distcleancheck: distclean
 	       exit 1; } >&2
 check-am: all-am
 check: check-am
-all-am: Makefile $(PROGRAMS)
+all-am: Makefile $(PROGRAMS) $(LIBRARIES)
 installdirs:
 install: install-am
 install-exec: install-exec-am
@@ -727,13 +769,15 @@ maintainer-clean-generic:
 	-rm -f src/tokenizer.c
 clean: clean-am
 
-clean-am: clean-generic clean-noinstPROGRAMS mostlyclean-am
+clean-am: clean-generic clean-noinstLIBRARIES clean-noinstPROGRAMS \
+	mostlyclean-am
 
 distclean: distclean-am
 	-rm -f $(am__CONFIG_DISTCLEAN_FILES)
 		-rm -f src/$(DEPDIR)/ast_impl.Po
 	-rm -f src/$(DEPDIR)/builtin.Po
 	-rm -f src/$(DEPDIR)/entry.Po
+	-rm -f src/$(DEPDIR)/lib_zjucc.Po
 	-rm -f src/$(DEPDIR)/parser.Po
 	-rm -f src/$(DEPDIR)/semantic.Po
 	-rm -f src/$(DEPDIR)/tokenizer.Po
@@ -787,6 +831,7 @@ maintainer-clean: maintainer-clean-am
 		-rm -f src/$(DEPDIR)/ast_impl.Po
 	-rm -f src/$(DEPDIR)/builtin.Po
 	-rm -f src/$(DEPDIR)/entry.Po
+	-rm -f src/$(DEPDIR)/lib_zjucc.Po
 	-rm -f src/$(DEPDIR)/parser.Po
 	-rm -f src/$(DEPDIR)/semantic.Po
 	-rm -f src/$(DEPDIR)/tokenizer.Po
@@ -810,8 +855,9 @@ uninstall-am:
 .MAKE: install-am install-strip
 
 .PHONY: CTAGS GTAGS TAGS all all-am am--depfiles am--refresh check \
-	check-am clean clean-cscope clean-generic clean-noinstPROGRAMS \
-	cscope cscopelist-am ctags ctags-am dist dist-all dist-bzip2 \
+	check-am clean clean-cscope clean-generic \
+	clean-noinstLIBRARIES clean-noinstPROGRAMS cscope \
+	cscopelist-am ctags ctags-am dist dist-all dist-bzip2 \
 	dist-gzip dist-lzip dist-shar dist-tarZ dist-xz dist-zip \
 	dist-zstd distcheck distclean distclean-compile \
 	distclean-generic distclean-hdr distclean-tags distcleancheck \
