@@ -1,0 +1,1 @@
+g++ *.cpp -Iinclude -Llib -lzjucc -lfmt -std=c++17 -o serializer
