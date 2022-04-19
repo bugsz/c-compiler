@@ -28,6 +28,8 @@ static const char* typeid_deref[] = {
 static bool warning_flag = false; // disable warning if true
 static void semantic_warning(ast_loc_t loc, const char* fmt, ...);
 
+extern char global_filename[256];
+
 class SymbolAttr {
     friend class SymbolTable;
     
@@ -90,14 +92,13 @@ struct _table {
 class SymbolTable {
 public:
     SymbolTable() {
-        init("");
+        init();
     }
     ~SymbolTable() = default;
 
-    void init(string name) {
+    void init() {
         global_sym_tab = new _table(true);
         cur_table = global_sym_tab;
-        filename = name;
     }
     
     void enter_scope(string name) {
@@ -146,15 +147,15 @@ public:
     
     void print() {
         cout << "------------------------------------------" << endl;
-        cout << "Symbol Table of " << filename << ":" << endl;
+        cout << "Symbol Table of " << global_filename << ":" << endl;
         cout << "------------------------------------------" << endl;
         _table* cur = global_sym_tab;
         print_impl(cur);
         cout << "------------------------------------------" << endl;
     }
     
-    const char* get_filename() {
-        return filename.c_str();
+    char* get_filename() {
+        return global_filename;
     }
 
     _table* get_cur_sym_tab() {
@@ -166,7 +167,6 @@ public:
     }
 
 private:
-    string filename;
     _table* global_sym_tab;
     _table* cur_table;
     
@@ -538,8 +538,8 @@ static void semantic_check_impl(int* n_errs, ast_node_ptr node) {
     }
 }
 
-void semantic_check(const char* filename, int* n_errs, ast_node_ptr root, int w_flag) {
+void semantic_check(int* n_errs, ast_node_ptr root, int w_flag) {
     warning_flag = w_flag;
-    sym_tab.init(filename);
+    sym_tab.init();
     semantic_check_impl(n_errs, root);
 }

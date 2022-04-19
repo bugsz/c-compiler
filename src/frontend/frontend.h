@@ -50,7 +50,7 @@ lib_frontend_ret frontend_entry(int argc, const char** argv);
 extern "C" {
 #endif
     
-    void print_ast(const char* filename, ast_node_ptr node);
+    void print_ast(ast_node_ptr node);
     void print_sym_tab();
     
 #ifdef __cplusplus

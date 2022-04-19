@@ -29,4 +29,4 @@ extern "C" {
 }
 #endif
 
-void semantic_check(const char* filename, int* n_errs, ast_node_ptr root, int warning_flag);
+void semantic_check(int* n_errs, ast_node_ptr root, int warning_flag);

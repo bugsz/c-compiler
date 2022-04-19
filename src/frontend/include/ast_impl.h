@@ -43,7 +43,7 @@ extern "C" {
 #endif
     ast_node_ptr mknode_impl(const char* token, ...);
     void append_child_impl(ast_node_ptr node, ...);
-    void print_ast(const char* filename, ast_node_ptr node);
+    void print_ast(ast_node_ptr node);
     void postproc_after_parse(ast_node_ptr root);
 #ifdef __cplusplus
 }

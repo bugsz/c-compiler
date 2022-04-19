@@ -19,6 +19,8 @@ static const char* typeid_deref[] = {
     "void", "char", "short", "int", "long", "float", "double", "string"
 };
 
+extern char global_filename[256];
+
 ast_node_ptr mknode_impl(const char* token, ...) {
     ast_node_ptr node = malloc(sizeof(ast_node_t)), temp;
     memset(node->token, 0, sizeof(node->token));
@@ -102,9 +104,9 @@ static void print_ast_impl(ast_node_ptr node) {
     }
 }
 
-void print_ast(const char* filename, ast_node_ptr root) {
+void print_ast(ast_node_ptr root) {
     printf("------------------------------------------\n");
-    printf("Abstract Syntax Tree of %s\n", filename);
+    printf("Abstract Syntax Tree of %s\n", global_filename);
     printf("------------------------------------------\n");
     print_ast_impl(root);
 }

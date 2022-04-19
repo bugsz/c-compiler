@@ -17,11 +17,13 @@
 #include "builtin.h"
 #include "config.h"
 
-void yyerror(const char*, int*, struct ast_node_impl*, char* s);
+void yyerror(int*, struct ast_node_impl*, char* s);
 extern int yylex();
 
 extern char* yytext;
 extern char yyline[1024];
+
+extern char global_filename[256];
 
 extern int yylineno;
 extern int yycolno;
@@ -31,7 +33,6 @@ extern int yycolno;
 
 %locations
 
-%parse-param {const char* filename}
 %parse-param {int* n_errs}
 %parse-param {struct ast_node_impl* root}
 
@@ -367,10 +368,10 @@ JMP_STMT :
     ;
 %%
 
-void yyerror(const char* filename, int* n_errs, struct ast_node_impl* node, char *s){
+void yyerror(int* n_errs, struct ast_node_impl* node, char *s){
     (*n_errs)++;
     fprintf(stderr, COLOR_BOLD"%s:%d:%d: "COLOR_RED"%s"COLOR_NORMAL"\n%s\n", \
-        filename, yylineno, yycolno, s, yyline);
+        global_filename, yylineno, yycolno, s, yyline);
     for(int i = 0; i < yycolno - 1; i++)
         fprintf(stderr, COLOR_GREEN"~");
     fprintf(stderr, COLOR_GREEN"^\n"COLOR_NORMAL);
