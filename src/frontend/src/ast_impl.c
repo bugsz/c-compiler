@@ -19,13 +19,12 @@ static const char* typeid_deref[] = {
     "void", "char", "short", "int", "long", "float", "double", "string"
 };
 
-extern char global_filename[256];
-
 ast_node_ptr mknode_impl(const char* token, ...) {
     ast_node_ptr node = malloc(sizeof(ast_node_t)), temp;
     memset(node->token, 0, sizeof(node->token));
     memset(node->val, 0, sizeof(node->val));
     strncpy(node->token, token, MAX_TOKEN_LEN);
+    node->type_id = 0;
     node->n_child = 0;
     node->child = malloc(sizeof(ast_node_ptr) * INIT_CHILD_NUM);
     memset(node->child, 0, sizeof(node->child) * INIT_CHILD_NUM);
@@ -70,11 +69,11 @@ static void print_whitespaces(int n) {
 
 
 static void print_node(ast_node_ptr node) {
-    char position[MAX_TOKEN_LEN] = { 0 }, type[MAX_TOKEN_LEN] = { 0 };
+    char position[MAX_TOKEN_LEN] = { 0 }, type[MAX_TOKEN_LEN] = {0};
     if (node->pos.last_line * node->pos.last_column) {
         sprintf(position, " <%d:%d>", node->pos.last_line, node->pos.last_column);
     }
-    if (strcmp(node->token, "TranslationUnit") == 0 ||
+    if (strcmp(node->token, "TranslationUnitDecl") == 0 ||
         strcmp(node->token, "CompoundStmt") == 0 ||
         strcmp(node->token, "DeclStmt") == 0 ||
         strcmp(node->token, "ForStmt") == 0 ||
@@ -106,7 +105,7 @@ static void print_ast_impl(ast_node_ptr node) {
 
 void print_ast(ast_node_ptr root) {
     printf("------------------------------------------\n");
-    printf("Abstract Syntax Tree of %s\n", global_filename);
+    printf("Abstract Syntax Tree\n");
     printf("------------------------------------------\n");
     print_ast_impl(root);
 }

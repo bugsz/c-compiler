@@ -26,7 +26,8 @@ void set_include();
 extern YYLTYPE yylloc;
 #define YY_USER_ACTION         \
   yylloc.last_line = yylineno; \
-  yylloc.last_column = yycolno + 1;
+  yylloc.last_column = yycolno + 1; \
+  strcpy(yylloc.filename, global_filename);
 %}
 
 %option yylineno

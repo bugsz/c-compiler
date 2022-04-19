@@ -28,10 +28,9 @@ extern char global_filename[256];
 extern int yylineno;
 extern int yycolno;
 
-#define YYLTYPE struct ast_yyltype
 %}
 
-%locations
+%define api.location.type {struct ast_yyltype}
 
 %parse-param {int* n_errs}
 %parse-param {struct ast_node_impl* root}
@@ -361,10 +360,10 @@ ITERATE_STMT :
     ;
 
 JMP_STMT :
-    BREAK ';'   { $$ = mknode("BreakStmt"); }
-    | CONTINUE ';'  { $$ = mknode("ContinueStmt"); }
-    | RETURN ';' { $$ = mknode("ReturnStmt"); }
-    | RETURN EXPR ';'  { $$ = mknode("ReturnStmt", $2); }
+    BREAK ';'   { $$ = mknode("BreakStmt"); $$->pos = @1; }
+    | CONTINUE ';'  { $$ = mknode("ContinueStmt"); $$->pos = @1; }
+    | RETURN ';' { $$ = mknode("ReturnStmt"); $$->pos = @1; }
+    | RETURN EXPR ';'  { $$ = mknode("ReturnStmt", $2); $$->pos = @1; }
     ;
 %%
 

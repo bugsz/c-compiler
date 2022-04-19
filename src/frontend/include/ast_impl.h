@@ -24,6 +24,7 @@ struct ast_yyltype {
     int first_column;
     int last_line;
     int last_column;
+    char filename[MAX_TOKEN_LEN];
 };
 
 struct ast_node_impl {

@@ -28,8 +28,6 @@ static const char* typeid_deref[] = {
 static bool warning_flag = false; // disable warning if true
 static void semantic_warning(ast_loc_t loc, const char* fmt, ...);
 
-extern char global_filename[256];
-
 class SymbolAttr {
     friend class SymbolTable;
     
@@ -147,15 +145,11 @@ public:
     
     void print() {
         cout << "------------------------------------------" << endl;
-        cout << "Symbol Table of " << global_filename << ":" << endl;
+        cout << "Symbol Table" << endl;
         cout << "------------------------------------------" << endl;
         _table* cur = global_sym_tab;
         print_impl(cur);
         cout << "------------------------------------------" << endl;
-    }
-    
-    char* get_filename() {
-        return global_filename;
     }
 
     _table* get_cur_sym_tab() {
@@ -270,11 +264,11 @@ static void semantic_warning(ast_loc_t loc, const char* fmt, ...) {
     va_list ap;
     va_start(ap, fmt);
     fprintf(stderr, COLOR_BOLD "%s:%d:%d:" COLOR_PURPLE " warning: " COLOR_NORMAL COLOR_BOLD,
-        sym_tab.get_filename(), loc.last_line, loc.last_column);
+        loc.filename, loc.last_line, loc.last_column);
     vfprintf(stderr, fmt, ap);
     fprintf(stderr, "\n" COLOR_NORMAL);
     va_end(ap);
-    fstream file(sym_tab.get_filename());
+    fstream file(loc.filename);
     goto_line(file, loc.last_line);
     string err_line;
     getline(file, err_line);
@@ -290,11 +284,11 @@ static void semantic_error(int* n_errs, ast_loc_t loc, const char* fmt, ...) {
     va_list ap;
     va_start(ap, fmt);
     fprintf(stderr, COLOR_BOLD "%s:%d:%d:" COLOR_RED " error: " COLOR_NORMAL COLOR_BOLD,
-        sym_tab.get_filename(), loc.last_line, loc.last_column);
+        loc.filename, loc.last_line, loc.last_column);
     vfprintf(stderr, fmt, ap);
     fprintf(stderr, "\n" COLOR_NORMAL);
     va_end(ap);
-    fstream file(sym_tab.get_filename());
+    fstream file(loc.filename);
     goto_line(file, loc.last_line);
     string err_line;
     getline(file, err_line);
