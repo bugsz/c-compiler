@@ -63,6 +63,12 @@ lib_frontend_ret frontend_entry(int argc, const char** argv) {
         pp_filename = program["--fno-preprocess"] == false ? preprocess(filename) : filename;
         strcpy(global_filename, pp_filename.c_str());
         if (program["-E"] == true && program["--fno-preprocess"] == false) {
+            if(program["--ast-dump"] == true || program["--sym-dump"] == true) {
+                cerr << COLOR_BOLD << filename << ": "
+                    << COLOR_PURPLE "warning: "
+                    << COLOR_NORMAL COLOR_BOLD "ast-dump and sym-dump flags are useless in preprocess-only mode"
+                    << COLOR_NORMAL << endl;
+            }
             fstream bin(pp_filename, ios::in);
             assert(bin.is_open());
             while (!bin.eof()) {
