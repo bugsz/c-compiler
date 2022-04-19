@@ -116,11 +116,15 @@ libzjucc_a_LIBADD =
 am__dirstamp = $(am__leading_dot)dirstamp
 am_libzjucc_a_OBJECTS = src/ast_impl.$(OBJEXT) src/builtin.$(OBJEXT) \
 	src/parser.$(OBJEXT) src/tokenizer.$(OBJEXT) \
-	src/semantic.$(OBJEXT) src/lib_zjucc.$(OBJEXT)
+	src/semantic.$(OBJEXT) src/lib_zjucc.$(OBJEXT) \
+	third_parties/simplecpp/simplecpp.$(OBJEXT) \
+	src/preprocessor.$(OBJEXT)
 libzjucc_a_OBJECTS = $(am_libzjucc_a_OBJECTS)
 am_zjucc_OBJECTS = src/entry.$(OBJEXT) src/ast_impl.$(OBJEXT) \
 	src/builtin.$(OBJEXT) src/parser.$(OBJEXT) \
-	src/tokenizer.$(OBJEXT) src/semantic.$(OBJEXT)
+	src/tokenizer.$(OBJEXT) src/semantic.$(OBJEXT) \
+	third_parties/simplecpp/simplecpp.$(OBJEXT) \
+	src/preprocessor.$(OBJEXT)
 zjucc_OBJECTS = $(am_zjucc_OBJECTS)
 zjucc_LDADD = $(LDADD)
 AM_V_P = $(am__v_P_@AM_V@)
@@ -141,7 +145,9 @@ am__maybe_remake_depfiles = depfiles
 am__depfiles_remade = src/$(DEPDIR)/ast_impl.Po \
 	src/$(DEPDIR)/builtin.Po src/$(DEPDIR)/entry.Po \
 	src/$(DEPDIR)/lib_zjucc.Po src/$(DEPDIR)/parser.Po \
-	src/$(DEPDIR)/semantic.Po src/$(DEPDIR)/tokenizer.Po
+	src/$(DEPDIR)/preprocessor.Po src/$(DEPDIR)/semantic.Po \
+	src/$(DEPDIR)/tokenizer.Po \
+	third_parties/simplecpp/$(DEPDIR)/simplecpp.Po
 am__mv = mv -f
 COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
 	$(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
@@ -345,10 +351,10 @@ top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 AUTOMAKE_OPTIONS = foreign
 AM_YFLAGS = -d
-AM_CPPFLAGS = -I./third_parties/argparse -I./include
+AM_CPPFLAGS = -I./third_parties/argparse -I./include -I./third_parties/simplecpp
 noinst_LIBRARIES = libzjucc.a
-libzjucc_a_SOURCES = src/ast_impl.c src/builtin.cpp src/parser.y src/tokenizer.l src/semantic.cpp src/lib_zjucc.cpp include/config.h include/ast_impl.h include/builtin.h include/semantic.h
-zjucc_SOURCES = src/entry.cpp src/ast_impl.c src/builtin.cpp src/parser.y src/tokenizer.l src/semantic.cpp include/config.h include/ast_impl.h include/builtin.h include/semantic.h
+libzjucc_a_SOURCES = src/ast_impl.c src/builtin.cpp src/parser.y src/tokenizer.l src/semantic.cpp src/lib_zjucc.cpp third_parties/simplecpp/simplecpp.cpp src/preprocessor.cpp
+zjucc_SOURCES = src/entry.cpp src/ast_impl.c src/builtin.cpp src/parser.y src/tokenizer.l src/semantic.cpp third_parties/simplecpp/simplecpp.cpp src/preprocessor.cpp
 all: all-am
 
 .SUFFIXES:
@@ -428,6 +434,17 @@ src/semantic.$(OBJEXT): src/$(am__dirstamp) \
 	src/$(DEPDIR)/$(am__dirstamp)
 src/lib_zjucc.$(OBJEXT): src/$(am__dirstamp) \
 	src/$(DEPDIR)/$(am__dirstamp)
+third_parties/simplecpp/$(am__dirstamp):
+	@$(MKDIR_P) third_parties/simplecpp
+	@: > third_parties/simplecpp/$(am__dirstamp)
+third_parties/simplecpp/$(DEPDIR)/$(am__dirstamp):
+	@$(MKDIR_P) third_parties/simplecpp/$(DEPDIR)
+	@: > third_parties/simplecpp/$(DEPDIR)/$(am__dirstamp)
+third_parties/simplecpp/simplecpp.$(OBJEXT):  \
+	third_parties/simplecpp/$(am__dirstamp) \
+	third_parties/simplecpp/$(DEPDIR)/$(am__dirstamp)
+src/preprocessor.$(OBJEXT): src/$(am__dirstamp) \
+	src/$(DEPDIR)/$(am__dirstamp)
 
 libzjucc.a: $(libzjucc_a_OBJECTS) $(libzjucc_a_DEPENDENCIES) $(EXTRA_libzjucc_a_DEPENDENCIES) 
 	$(AM_V_at)-rm -f libzjucc.a
@@ -442,6 +459,7 @@ zjucc$(EXEEXT): $(zjucc_OBJECTS) $(zjucc_DEPENDENCIES) $(EXTRA_zjucc_DEPENDENCIE
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
 	-rm -f src/*.$(OBJEXT)
+	-rm -f third_parties/simplecpp/*.$(OBJEXT)
 
 distclean-compile:
 	-rm -f *.tab.c
@@ -451,8 +469,10 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@src/$(DEPDIR)/entry.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@src/$(DEPDIR)/lib_zjucc.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@src/$(DEPDIR)/parser.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@src/$(DEPDIR)/preprocessor.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@src/$(DEPDIR)/semantic.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@src/$(DEPDIR)/tokenizer.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@third_parties/simplecpp/$(DEPDIR)/simplecpp.Po@am__quote@ # am--include-marker
 
 $(am__depfiles_remade):
 	@$(MKDIR_P) $(@D)
@@ -760,6 +780,8 @@ distclean-generic:
 	-test . = "$(srcdir)" || test -z "$(CONFIG_CLEAN_VPATH_FILES)" || rm -f $(CONFIG_CLEAN_VPATH_FILES)
 	-rm -f src/$(DEPDIR)/$(am__dirstamp)
 	-rm -f src/$(am__dirstamp)
+	-rm -f third_parties/simplecpp/$(DEPDIR)/$(am__dirstamp)
+	-rm -f third_parties/simplecpp/$(am__dirstamp)
 
 maintainer-clean-generic:
 	@echo "This command is intended for maintainers to use"
@@ -779,8 +801,10 @@ distclean: distclean-am
 	-rm -f src/$(DEPDIR)/entry.Po
 	-rm -f src/$(DEPDIR)/lib_zjucc.Po
 	-rm -f src/$(DEPDIR)/parser.Po
+	-rm -f src/$(DEPDIR)/preprocessor.Po
 	-rm -f src/$(DEPDIR)/semantic.Po
 	-rm -f src/$(DEPDIR)/tokenizer.Po
+	-rm -f third_parties/simplecpp/$(DEPDIR)/simplecpp.Po
 	-rm -f Makefile
 distclean-am: clean-am distclean-compile distclean-generic \
 	distclean-hdr distclean-tags
@@ -833,8 +857,10 @@ maintainer-clean: maintainer-clean-am
 	-rm -f src/$(DEPDIR)/entry.Po
 	-rm -f src/$(DEPDIR)/lib_zjucc.Po
 	-rm -f src/$(DEPDIR)/parser.Po
+	-rm -f src/$(DEPDIR)/preprocessor.Po
 	-rm -f src/$(DEPDIR)/semantic.Po
 	-rm -f src/$(DEPDIR)/tokenizer.Po
+	-rm -f third_parties/simplecpp/$(DEPDIR)/simplecpp.Po
 	-rm -f Makefile
 maintainer-clean-am: distclean-am maintainer-clean-generic
 
