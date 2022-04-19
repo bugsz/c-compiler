@@ -48,7 +48,7 @@ int main() {
 }
 ```
 
-```json
+```bash
  ./serializer -f ../../frontend/test/function.c --ast-dump
  ------------------------------------------
 Abstract Syntax Tree of ../../frontend/test/function.c
@@ -98,7 +98,9 @@ TranslationUnitDecl 0x7fe9ddf04a00  'void'
 |     `-CallExpr 0x7fe9ddf07f70  'int'
 |       `-DeclRefExpr 0x7fe9ddf07d10 <20:9> positive 'int'
 |       `-DeclRefExpr 0x7fe9ddf07e40 <20:18> c 'int'
+```
 
+```json
 {
     "token": "TranslationUnitDecl",
     "position": "",
@@ -415,3 +417,4 @@ TranslationUnitDecl 0x7fe9ddf04a00  'void'
     }]
 }
 ```
+
