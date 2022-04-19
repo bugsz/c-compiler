@@ -9,6 +9,8 @@
 #include <iostream>
 #include <cstdlib>
 #include <fstream>
+#include <cstring>
+#include <cassert>
 #include "argparse.hpp"
 #include "preprocessor.h"
 
