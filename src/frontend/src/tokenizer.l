@@ -18,7 +18,10 @@
 int yycolno = 1;
 char yyline[1024] = {0};
 
+extern char global_filename[256];
+
 void set_col();
+void set_include();
 
 extern YYLTYPE yylloc;
 #define YY_USER_ACTION         \
@@ -53,6 +56,7 @@ extern YYLTYPE yylloc;
 "__builtin_strlen" { set_col(); return BUILTIN_STRLEN; }
 "__builtin_strget" { set_col(); return BUILTIN_STRGET; }
 
+"#line "[0-9]+" ".*\n { set_include();}
 
 [a-zA-Z_][a-zA-Z0-9_]*	{ set_col(); assert(yyleng < 50); yylval.str = strdup(yytext); return IDENTIFIER; }
 [0-9]+			{ set_col(); assert(yyleng < 50); yylval.str = strdup(yytext); return CONSTANT; }
@@ -82,5 +86,24 @@ void set_col() {
     } else {
         strcat(yyline, yytext);
         yycolno = strlen(yyline);
+    }
+}
+
+void set_include() {
+    yycolno = 1;
+    const char* delim = " \n";
+    char* s = strdup(yytext);
+    char* token = strtok(s, delim);
+    int cnt = 0;
+    while(token){
+        if(cnt == 1) {
+            yylineno = atoi(token);
+        }
+        if(cnt == 2) {
+            token[strlen(token) - 1] = '\0';
+            strcpy(global_filename, token + 1);
+        }
+        cnt++;
+        token = strtok(NULL, delim);
     }
 }
