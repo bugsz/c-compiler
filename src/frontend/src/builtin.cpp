@@ -44,7 +44,7 @@ enum radix_type {
 #define PRINTF_BYTE_TO_BINARY_INT64(i) \
     PRINTF_BYTE_TO_BINARY_INT32((i) >> 32), PRINTF_BYTE_TO_BINARY_INT32(i)
 
-const char* builtin_itoa(int n, int base) {
+char* builtin_itoa(int n, int base) {
     assert(sizeof(int) == 4);
     char* buf = new char[40];
     if (base == BIN) {
@@ -64,8 +64,8 @@ const char* builtin_itoa(int n, int base) {
     return buf;
 }
 
-int builtin_atoi(const char* str) {
-    return stoi(str);
+int builtin_atoi(const char* str, int base) {
+    return stoi(str, 0, base);
 }
 
 const char* builtin_strcat(const char* str1, const char* str2) {
