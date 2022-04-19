@@ -232,7 +232,16 @@ void print_sym_tab() {
     sym_tab.print();
 }
 
-static int bin_expr_type_check(ast_node_ptr left, ast_node_ptr right, ast_node_ptr op) {
+static int expr_type_check(ast_node_ptr uni, ast_node_ptr op) {
+    if (uni->type_id == TYPEID_VOID || uni->type_id == TYPEID_STR)
+        return -1;
+    if(get_function_type(uni->val) != nullptr){
+        return -1;
+    }
+    return uni->type_id;
+}
+
+static int expr_type_check(ast_node_ptr left, ast_node_ptr right, ast_node_ptr op) {
     if (left->type_id == TYPEID_VOID || right->type_id == TYPEID_VOID
         || left->type_id == TYPEID_STR || right->type_id == TYPEID_STR) {
         return -1;
@@ -319,7 +328,32 @@ static string check_decl(ast_node_ptr node) {
     return "";
 }
 
-static string const_fold(ast_node_ptr left, ast_node_ptr right, string op, int res_type) {
+static string const_fold(int* n_errs, ast_node_ptr num, string op) {
+    int type = num->type_id;
+    assert(num->type_id != TYPEID_VOID);
+    if (op == "-") {
+        if (num->type_id > TYPEID_LONG) {
+            return to_string(-atof(num->val));
+        } else {
+            return to_string(-atol(num->val));
+        }
+    } else if (op == "~") {
+        if (num->type_id > TYPEID_LONG) {
+            semantic_error(n_errs, num->pos, "invalid operand to unary expression");
+        } else {
+            return to_string(~atol(num->val));
+        }
+    } else if (op == "!") {
+        if (num->type_id > TYPEID_LONG) {
+            semantic_error(n_errs, num->pos, "invalid operand to unary expression");
+        } else {
+            return to_string(!atol(num->val));
+        }
+    }
+    return "";
+}
+
+static string const_fold(int* n_errs, ast_node_ptr left, ast_node_ptr right, string op, int res_type) {
     int typel = left->type_id, typer = right->type_id;
     assert(op != "=");
     if (op == "+") {
@@ -356,7 +390,7 @@ static string const_fold(ast_node_ptr left, ast_node_ptr right, string op, int r
         }
     } else if (op == "%") {
         if (typel > TYPEID_LONG || typer > TYPEID_LONG) {
-            semantic_warning(left->pos, "invalid operands to binary expression");
+            semantic_error(n_errs, left->pos, "invalid operands to binary expression");
             return "";
         }
         return to_string(atoi(left->val) % atoi(right->val));
@@ -374,14 +408,14 @@ static string const_fold(ast_node_ptr left, ast_node_ptr right, string op, int r
         return to_string(res);
     } else if (op == "&&") {
         if (typel > TYPEID_LONG || typer > TYPEID_LONG) {
-            semantic_warning(left->pos, "invalid operands to binary expression");
+            semantic_error(n_errs, left->pos, "invalid operands to binary expression");
             return "";
         }
         int res = atoi(left->val) && atoi(right->val);
         return to_string(res);
     } else if (op == "||") {
         if (typel > TYPEID_LONG || typer > TYPEID_LONG) {
-            semantic_warning(left->pos, "invalid operands to binary expression");
+            semantic_error(n_errs, left->pos, "invalid operands to binary expression");
             return "";
         }
         int res = atoi(left->val) || atoi(right->val);
@@ -461,13 +495,31 @@ static void semantic_check_impl(int* n_errs, ast_node_ptr node) {
         for (int i = 0;i < node->n_child;i++) {
             semantic_check_impl(n_errs, node->child[i]);
         }
-        int type = bin_expr_type_check(node->child[0], node->child[1], node);
+        int type = expr_type_check(node->child[0], node->child[1], node);
         if (type < 0) {
             semantic_error(n_errs, node->pos, "incompatible types in binary expression");
         } else {
             node->type_id = type;
             if(string(node->child[0]->token)== "Literal" && string(node->child[1]->token) == "Literal") {
-                string res = const_fold(node->child[0], node->child[1], node->val, type);
+                string res = const_fold(n_errs, node->child[0], node->child[1], node->val, type);
+                if (!res.empty()) {
+                    strcpy(node->val, res.c_str());
+                    strcpy(node->token, "Literal");
+                    node->n_child = 0;
+                }
+            }
+        }
+    } else if (token == "UnaryOperator") {
+        already_checked = true;
+        assert(node->n_child == 1);
+        semantic_check_impl(n_errs, node->child[0]);
+        int type = expr_type_check(node->child[0], node);
+        if (type < 0) {
+            semantic_error(n_errs, node->pos, "incompatible types in unary expression");
+        } else {
+            node->type_id = type;
+            if(string(node->child[0]->token)== "Literal") {
+                string res = const_fold(n_errs, node->child[0], node->val);
                 if (!res.empty()) {
                     strcpy(node->val, res.c_str());
                     strcpy(node->token, "Literal");

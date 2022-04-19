@@ -66,6 +66,7 @@ extern int yycolno;
 %left '>' '<' LE GE
 %left '+' '-'
 %left '*' '/' '%'
+%right '!' '~'
 %left '(' ')'
 
 %% 
@@ -265,6 +266,16 @@ EXPR :
         $$ = mknode("UnaryOperator", $2);
         strcpy($$->val, "-");   
         $$->pos = @1; 
+    }
+    | '!' EXPR {
+        $$ = mknode("UnaryOperator", $2);
+        strcpy($$->val, "!");
+        $$->pos = @1;
+    }
+    | '~' EXPR {
+        $$ = mknode("UnaryOperator", $2);
+        strcpy($$->val, "~");
+        $$->pos = @1;
     }
     | FUNC_NAME '(' ARG_LIST ')' { 
         $$ = mknode("CallExpr", $1, $3); 

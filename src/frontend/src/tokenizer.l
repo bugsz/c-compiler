@@ -14,6 +14,7 @@
 
 #include "parser.h"
 #include "config.h"
+#include "builtin.h"
 
 int yycolno = 1;
 char yyline[1024] = {0};
@@ -22,6 +23,8 @@ extern char global_filename[256];
 
 void set_col();
 void set_include();
+
+char* to_int(char* s, int base);
 
 extern YYLTYPE yylloc;
 #define YY_USER_ACTION         \
@@ -60,10 +63,11 @@ extern YYLTYPE yylloc;
 "#line "[0-9]+" ".*\n { set_include();}
 
 [a-zA-Z_][a-zA-Z0-9_]*	{ set_col(); assert(yyleng < 50); yylval.str = strdup(yytext); return IDENTIFIER; }
-[0-9]+			{ set_col(); assert(yyleng < 50); yylval.str = strdup(yytext); return CONSTANT; }
-[0-9]+\.[0-9]+		{ set_col(); assert(yyleng < 50); yylval.str = strdup(yytext); return CONSTANT; }
-"0x"[0-9a-fA-F]+	{ set_col(); assert(yyleng < 50); yylval.str = strdup(yytext); return CONSTANT; }
-"0b"[01]+		{ set_col(); assert(yyleng < 50); yylval.str = strdup(yytext); return CONSTANT; }
+("0"|[1-9]+[0-9]*)			{ set_col(); assert(yyleng < 50); yylval.str = strdup(yytext); return CONSTANT; }
+("0"|[1-9]+[0-9]*)\.[0-9]+		{ set_col(); assert(yyleng < 50); yylval.str = strdup(yytext); return CONSTANT; }
+"0x"[0-9a-fA-F]+	{ set_col(); assert(yyleng < 50); yylval.str = to_int(yytext, 16); return CONSTANT; }
+"0"[0-7]*       { set_col(); assert(yyleng < 50); yylval.str = to_int(yytext, 8); return CONSTANT; }
+"0b"[01]+		{ set_col(); assert(yyleng < 50); yylval.str = to_int(yytext, 2); return CONSTANT; }
 [a-zA-Z_]?\"(\\.|[^\\"])*\"          { set_col(); assert(yyleng < 50); yylval.str = strdup(yytext); return CONSTANT; }
 
 "<=" { set_col(); return LE; }
@@ -107,4 +111,11 @@ void set_include() {
         cnt++;
         token = strtok(NULL, delim);
     }
+}
+
+char* to_int(char* s, int base){
+    int res = (base == 8) ? builtin_atoi(s + 1, base) : builtin_atoi(s + 2, base);
+    char* ret = builtin_itoa(res, 10);
+    ret[strlen(ret) - 1] = '\0';
+    return ret + 1;
 }
