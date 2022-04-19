@@ -325,6 +325,77 @@ static string check_decl(ast_node_ptr node) {
     return "";
 }
 
+static string const_fold(ast_node_ptr left, ast_node_ptr right, string op, int res_type) {
+    int typel = left->type_id, typer = right->type_id;
+    assert(op != "=");
+    if (op == "+") {
+        if(res_type == TYPEID_LONG) {
+            return to_string(atol(left->val) + atol(right->val));;
+        } else if(res_type > TYPEID_LONG){
+            return to_string(atof(left->val) + atof(right->val));
+        } else if(res_type < TYPEID_LONG){
+            return to_string(atoi(left->val) + atoi(right->val));
+        }
+    } else if (op == "-") {
+        if(res_type == TYPEID_LONG) {
+            return to_string(atol(left->val) - atol(right->val));;
+        } else if(res_type > TYPEID_LONG){
+            return to_string(atof(left->val) - atof(right->val));
+        } else if(res_type < TYPEID_LONG){
+            return to_string(atoi(left->val) - atoi(right->val));
+        }
+    } else if (op == "*") {
+        if(res_type == TYPEID_LONG) {
+            return to_string(atol(left->val) * atol(right->val));;
+        } else if(res_type > TYPEID_LONG){
+            return to_string(atof(left->val) * atof(right->val));
+        } else if(res_type < TYPEID_LONG){
+            return to_string(atoi(left->val) * atoi(right->val));
+        }
+    } else if (op == "/") {
+        if(res_type == TYPEID_LONG) {
+            return to_string(atol(left->val) / atol(right->val));;
+        } else if(res_type > TYPEID_LONG){
+            return to_string(atof(left->val) / atof(right->val));
+        } else if(res_type < TYPEID_LONG){
+            return to_string(atoi(left->val) / atoi(right->val));
+        }
+    } else if (op == "%") {
+        if (typel > TYPEID_LONG || typer > TYPEID_LONG) {
+            semantic_warning(left->pos, "invalid operands to binary expression");
+            return "";
+        }
+        return to_string(atoi(left->val) % atoi(right->val));
+    } else if (op == "<") {
+        int res = atof(left->val) < atof(right->val);
+        return to_string(res);
+    } else if (op == ">") {
+        int res = atof(left->val) > atof(right->val);
+        return to_string(res);
+    } else if (op == "<=") {
+        int res = atof(left->val) <= atof(right->val);
+        return to_string(res);
+    } else if (op == ">=") {
+        int res = atof(left->val) >= atof(right->val);
+        return to_string(res);
+    } else if (op == "&&") {
+        if (typel > TYPEID_LONG || typer > TYPEID_LONG) {
+            semantic_warning(left->pos, "invalid operands to binary expression");
+            return "";
+        }
+        int res = atoi(left->val) && atoi(right->val);
+        return to_string(res);
+    } else if (op == "||") {
+        if (typel > TYPEID_LONG || typer > TYPEID_LONG) {
+            semantic_warning(left->pos, "invalid operands to binary expression");
+            return "";
+        }
+        int res = atoi(left->val) || atoi(right->val);
+        return to_string(res);
+    }
+    return "";
+}
+
 static void semantic_check_impl(int* n_errs, ast_node_ptr node) {
     if (node == nullptr) {
         return;
@@ -401,6 +472,14 @@ static void semantic_check_impl(int* n_errs, ast_node_ptr node) {
             semantic_error(n_errs, node->pos, "incompatible types in binary expression");
         } else {
             node->type_id = type;
+            if(string(node->child[0]->token)== "Literal" && string(node->child[1]->token) == "Literal") {
+                string res = const_fold(node->child[0], node->child[1], node->val, type);
+                if (!res.empty()) {
+                    strcpy(node->val, res.c_str());
+                    strcpy(node->token, "Literal");
+                    node->n_child = 0;
+                }
+            }
         }
     } else if (token.find("BUILTIN_") == 0) {
         if (token == "BUILTIN_ITOA") {
