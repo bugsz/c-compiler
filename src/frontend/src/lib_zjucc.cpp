@@ -70,17 +70,15 @@ lib_frontend_ret frontend_entry(int argc, const char** argv) {
         output_file = program.get("-o");
         if (program["-stdin"] == true) {
             input_file = "stdin";
-            pp_filename = "stdin";
+            pp_filename = "stdin.tmp";
             pp_res = program["--fno-preprocess"] == false ? preprocess() : "";
             if (!pp_res.empty()) {
-                int fd[2];
-                pipe(fd);
-                write(fd[1], pp_res.data(), pp_res.size());
-                close(fd[1]);
-                dup2(fd[0], STDIN_FILENO);
-                close(fd[0]);
+                ofstream fout(pp_filename);
+                fout.write(pp_res.c_str(), pp_res.size());
+                yyin = fopen(pp_filename.c_str(), "r");
+            } else {
+                yyin = stdin;
             }
-            yyin = stdin;
         } else {
             input_file = program.get("-f");
             if(input_file.find(".c") == string::npos)
@@ -102,17 +100,25 @@ lib_frontend_ret frontend_entry(int argc, const char** argv) {
                     << COLOR_NORMAL << endl;
             }
             cout << pp_res << endl;
+            remove(pp_filename.c_str());
             exit(0);
         }
         root = mknode("TranslationUnitDecl");
         *n_errs = 0;
         parse(n_errs, root);
         fclose(yyin);
+        if (*n_errs > 0) {
+            remove(pp_filename.c_str());
+            throw parse_error(to_string(*n_errs) + " error(s) generated.");
+        }
         semantic_check(n_errs, root, program["-w"] == true);
-        if (*n_errs > 0)  throw parse_error(to_string(*n_errs) + " error(s) generated.");
+        if (*n_errs > 0) {
+            remove(pp_filename.c_str());
+            throw parse_error(to_string(*n_errs) + " error(s) generated.");
+        }
         if (program["--ast-dump"] == true) print_ast(root);
         if (program["--sym-dump"] == true) print_sym_tab();
-        program["-stdin"] == false ? remove(pp_filename.c_str()) : 0;
+        remove(pp_filename.c_str());
     }
     catch (const parse_error& err) {
         cerr << err.what() << endl;
