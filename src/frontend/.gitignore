@@ -13,3 +13,5 @@ cc_frontend
 src/parser.c
 src/tokenizer.c
 src/parser.h
+include/config.h
+zjucc

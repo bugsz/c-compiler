@@ -19,6 +19,7 @@ struct ast_yyltype {
     int first_column;
     int last_line;
     int last_column;
+    char filename[MAX_TOKEN_LEN];
 };
 
 enum TYPEID {
@@ -50,7 +51,7 @@ lib_frontend_ret frontend_entry(int argc, const char** argv);
 extern "C" {
 #endif
     
-    void print_ast(const char* filename, ast_node_ptr node);
+    void print_ast(ast_node_ptr node);
     void print_sym_tab();
     
 #ifdef __cplusplus
