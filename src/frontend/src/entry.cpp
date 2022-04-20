@@ -65,7 +65,15 @@ int main(int argc, const char** argv) {
         program.parse_args(argc, argv);
         parse_defines(argc, argv);
         string filename = program.get("-f"), pp_filename;
-        pp_filename = program["--fno-preprocess"] == false ? preprocess(filename) : filename;
+        program["--fno-preprocess"] == false ? ({
+            if(filename.find(".c") == string::npos)
+                pp_filename = filename + ".pp.c";
+            else {
+                pp_filename = filename;
+                pp_filename.replace(pp_filename.find_last_of(".c"), 4, "pp.c");
+            }
+            preprocess(filename);
+        }) : filename;
         strcpy(global_filename, pp_filename.c_str());
         if (program["-E"] == true && program["--fno-preprocess"] == false) {
             if(program["--ast-dump"] == true || program["--sym-dump"] == true) {
@@ -85,7 +93,7 @@ int main(int argc, const char** argv) {
             exit(0);
         }
         yyin = fopen(pp_filename.c_str(), "r");
-        if (!yyin)  throw parse_error("No such file or directory.");
+        if (!yyin)  throw parse_error("No such file or directory: " + pp_filename);
         ast_node_ptr root = mknode("TranslationUnitDecl");
         *n_errs = 0;
         parse(n_errs, root);
