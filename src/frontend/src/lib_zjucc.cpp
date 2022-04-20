@@ -63,6 +63,9 @@ lib_frontend_ret frontend_entry(int argc, const char** argv) {
     try {
         program.parse_args(argc, argv);
         parse_defines(argc, argv);
+        if (!program.is_used("-f") && !program.is_used("-stdin")) {
+            throw runtime_error("-f or -stdin required.");
+        }
         string pp_filename(""), pp_res;
         output_file = program.get("-o");
         if (program["-stdin"] == true) {
