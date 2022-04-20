@@ -12,7 +12,7 @@ Zhiyuan Pan, Zhejiang University
 * Preresquisites
     * GNU Autotools(automake, autoconf)
     * flex & bison
-      * Note: The program is passed test with flex version >= 2.6.4 & bison version >= 3.7.5. Lower version of bison may result in compilation failure. 
+      * Note: The program passed tests with flex version >= 2.6.4 & bison version >= 3.7.5. Lower version of bison may result in compilation failure. 
       * For macOS, you need to install the latest version of bison through Homebrew or other sources. Then, you need to modify the generated Makefile by replacing `bison`（in Makefile, just search for `YACC = bison -y`） with the newer vesion's path, for example, `/opt/homebrew/opt/bison/bin/bison`.
     * A C/C++ compiler with >=`c99` & >=`c++17` support
 
