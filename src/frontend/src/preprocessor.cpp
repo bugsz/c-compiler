@@ -48,6 +48,32 @@ static const char* err_msg[] = {
     "explicit include not found: "
 };
 
+// read input from stdin
+string preprocess() {
+    OutputList outputList;
+    vector<string> files;
+    TokenList rawtokens(cin, files, "stdin", &outputList);
+    rawtokens.removeComments();
+    map<string, TokenList*> included = load(rawtokens, files, dui, &outputList);
+    for (pair<string, TokenList *> i : included)
+        i.second->removeComments();
+    TokenList outputTokens(files);
+    simplecpp::preprocess(outputTokens, rawtokens, files, included, dui, &outputList);
+    stringstream err;
+    for (const Output& output : outputList) {
+        err << COLOR_BOLD << output.location.file() << ':' << output.location.line << ": "
+            << COLOR_NORMAL COLOR_RED << err_msg[output.type]
+            << COLOR_NORMAL << output.msg;
+    }
+    if (err.str().size() > 0) {
+        cleanup(included);
+        throw parse_error(err.str());
+    }
+    string s = outputTokens.stringify();
+    cleanup(included);
+    return s;
+}
+
 string preprocess(string filename) {
     OutputList outputList;
     vector<string> files;
@@ -79,5 +105,5 @@ string preprocess(string filename) {
     f.close();
     out.close();
     cleanup(included);
-    return filename;
+    return s;
 }
