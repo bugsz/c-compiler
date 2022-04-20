@@ -98,9 +98,15 @@ int main(int argc, const char** argv) {
         *n_errs = 0;
         parse(n_errs, root);
         fclose(yyin);
-        if (*n_errs > 0)  throw parse_error(to_string(*n_errs) + " error(s) generated.");
+        if (*n_errs > 0) {
+            remove(pp_filename.c_str());
+            throw parse_error(to_string(*n_errs) + " error(s) generated.");
+        }
         semantic_check(n_errs, root, program["-w"] == true);
-        if (*n_errs > 0)  throw parse_error(to_string(*n_errs) + " error(s) generated.");
+        if (*n_errs > 0) {
+            remove(pp_filename.c_str());
+            throw parse_error(to_string(*n_errs) + " error(s) generated.");
+        }
         if (program["--ast-dump"] == true) print_ast(root);
         if (program["--sym-dump"] == true) print_sym_tab();
         remove(pp_filename.c_str());
