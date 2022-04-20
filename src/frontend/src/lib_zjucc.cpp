@@ -69,12 +69,14 @@ lib_frontend_ret frontend_entry(int argc, const char** argv) {
             input_file = "stdin";
             pp_filename = "stdin";
             pp_res = program["--fno-preprocess"] == false ? preprocess() : "";
-            int fd[2];
-            pipe(fd);
-            write(fd[1], pp_res.data(), pp_res.size());
-            close(fd[1]);
-            dup2(fd[0], STDIN_FILENO);
-            close(fd[0]);
+            if (!pp_res.empty()) {
+                int fd[2];
+                pipe(fd);
+                write(fd[1], pp_res.data(), pp_res.size());
+                close(fd[1]);
+                dup2(fd[0], STDIN_FILENO);
+                close(fd[0]);
+            }
             yyin = stdin;
         } else {
             input_file = program.get("-f");
