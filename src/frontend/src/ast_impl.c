@@ -23,6 +23,7 @@ ast_node_ptr mknode_impl(const char* token, ...) {
     ast_node_ptr node = malloc(sizeof(ast_node_t)), temp;
     memset(node->token, 0, sizeof(node->token));
     memset(node->val, 0, sizeof(node->val));
+    memset(&(node->pos), 0, sizeof(node->pos));
     strncpy(node->token, token, MAX_TOKEN_LEN);
     node->type_id = 0;
     node->n_child = 0;
@@ -46,7 +47,7 @@ void append_child_impl(ast_node_ptr node, ...) {
     while ((temp = va_arg(argp, void*))) {
         node->n_child++;
         if(unlikely(node->n_child > _size)) {
-            _size *= 2;
+            _size *= 5;
             ast_node_ptr* new_node = realloc(node->child, sizeof(ast_node_ptr) * _size);
             node->child = new_node;
         }
