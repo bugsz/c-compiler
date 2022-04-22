@@ -39,7 +39,7 @@ ast_node_ptr mknode_impl(const char* token, ...) {
 }
 
 void append_child_impl(ast_node_ptr node, ...) {
-    unsigned int _size = sizeof(node->child) / sizeof(ast_node_ptr);
+    unsigned int _size = INIT_CHILD_NUM;
     ast_node_ptr temp;
     va_list argp;
     va_start(argp, node);
@@ -47,7 +47,8 @@ void append_child_impl(ast_node_ptr node, ...) {
         node->n_child++;
         if(unlikely(node->n_child > _size)) {
             _size *= 2;
-            node->child = realloc(node->child, sizeof(ast_node_ptr) * _size);
+            ast_node_ptr* new_node = realloc(node->child, sizeof(ast_node_ptr) * _size);
+            node->child = new_node;
         }
         node->child[node->n_child - 1] = temp;
         temp->parent = node;
@@ -179,7 +180,7 @@ static void reverse_array(ast_node_ptr* array, int n) {
 }
 
 void postproc_after_parse(ast_node_ptr root) {
-    shrink_ast_to_fit(root);
+    // shrink_ast_to_fit(root);
     merge_node_from_root(root);
     reverse_array(root->child, root->n_child);
 }
