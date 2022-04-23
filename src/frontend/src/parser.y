@@ -50,7 +50,7 @@ extern int yycolno;
 %token IF ELSE
 %token DO FOR WHILE 
 %token RETURN BREAK CONTINUE
-%token BUILTIN_ITOA BUILTIN_STRCAT BUILTIN_STRLEN BUILTIN_STRGET
+%token SIZEOF BUILTIN_ITOA BUILTIN_STRCAT BUILTIN_STRLEN BUILTIN_STRGET
 
 %type <node> PROG FN_DEF PARAM_LIST PARAM_LIST_RIGHT PARAM_DECL
 %type <node> GLOBAL_DECL DECL DECL_LIST DECLARATOR
@@ -66,7 +66,7 @@ extern int yycolno;
 %left '>' '<' LE GE
 %left '+' '-'
 %left '*' '/' '%'
-%right '!' '~'
+%right '!' '~' SIZEOF
 %left '(' ')'
 
 %% 
@@ -284,6 +284,16 @@ EXPR :
         $$ = mknode("DeclRefExpr");
         strcpy($$->val, $1);
         $$->pos = @1;
+    }
+    | SIZEOF '(' TYPE_SPEC ')' {
+        $$ = mknode("Literal");
+        $$->type_id = TYPEID_INT;
+        $$->pos = @1;
+        int temp = get_type_size($3);
+        if(temp < 0) yyerror(n_errs, root, "invalid type name to operator 'sizeof'");
+        char s[2]={0};
+        s[0] = temp + '0';
+        strcpy($$->val, s);
     }
     | BUILTIN_ITOA '(' EXPR ',' CONSTANT ')' { 
         ast_node_ptr parm2 = mknode("c2");

@@ -21,6 +21,7 @@ extern "C" {
     
     void add_symbol(const char* name, int type);
     int get_symbol_type(const char* name);
+    int get_type_size(int type_id);
     const char* get_function_type(const char* name);
     int is_declared(const char* name);
     void print_sym_tab();
