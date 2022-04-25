@@ -73,7 +73,7 @@ lib_frontend_ret frontend_entry(int argc, const char** argv) {
         int fd = mkstemp(tmp_file);
         if (program["-stdin"] == true) {
             input_file = "stdin";
-            pp_filename = tmp_file;
+            pp_filename = program["--fno-preprocess"] == false ? tmp_file : "stdin";
             pp_res = program["--fno-preprocess"] == false ? preprocess() : "";
             if (!pp_res.empty()) {
                 ofstream fout(pp_filename);
@@ -84,8 +84,7 @@ lib_frontend_ret frontend_entry(int argc, const char** argv) {
             }
         } else {
             input_file = program.get("-f");
-            pp_filename = tmp_file;
-            // cout << pp_filename << endl;
+            pp_filename = program["--fno-preprocess"] == false ? tmp_file : input_file;
             pp_res = program["--fno-preprocess"] == false ? preprocess(input_file, pp_filename) : "";
             yyin = fopen(pp_filename.c_str(), "r");
             if (!yyin)  throw parse_error("No such file or directory: " + pp_filename);
@@ -99,7 +98,6 @@ lib_frontend_ret frontend_entry(int argc, const char** argv) {
                     << COLOR_NORMAL << endl;
             }
             cout << pp_res << endl;
-            // remove(pp_filename.c_str());
             unlink(tmp_file);
             exit(0);
         }
@@ -116,7 +114,6 @@ lib_frontend_ret frontend_entry(int argc, const char** argv) {
         }
         if (program["--ast-dump"] == true) print_ast(root);
         if (program["--sym-dump"] == true) print_sym_tab();
-        // remove(pp_filename.c_str());
         unlink(tmp_file);
     }
     catch (const parse_error& err) {
