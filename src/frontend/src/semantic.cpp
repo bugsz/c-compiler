@@ -203,12 +203,6 @@ int get_literal_type(const char* literal) {
     } else if (test.find("\"") != string::npos) {
         return TYPEID_STR;
     } else {
-        if (to_string(atoi(literal)) != string(literal)) {
-            if (to_string(atol(literal)) != string(literal)) {
-                return -1;
-            }
-            return TYPEID_LONG;
-        }
         return TYPEID_INT;
     } 
 }
@@ -453,22 +447,8 @@ static void semantic_check_impl(int* n_errs, ast_node_ptr node) {
     if (node == nullptr) {
         return;
     }
-    // bool already_checked = false;
-    // if (already_checked) return;
-    // else {
+    bool already_checked = false;
     string token(node->token);
-    if ((token == "CompoundStmt" && string(node->parent->token) != "FunctionDecl")
-        || token == "FunctionDecl") {
-        sym_tab.enter_scope(node->val);
-    }
-    for (int i = 0;i < node->n_child;i++) {
-        semantic_check_impl(n_errs, node->child[i]);
-    }
-    if ((token == "CompoundStmt" && string(node->parent->token) != "FunctionDecl")
-        || token == "FunctionDecl") {
-        sym_tab.exit_scope();
-    }
-    // }
     if (token == "VarDecl" || token == "ParmVarDecl") {
         if (is_declared(node->val)) {
             semantic_error(n_errs, node->pos, "redefinition of '%s'", node->val);
@@ -496,17 +476,17 @@ static void semantic_check_impl(int* n_errs, ast_node_ptr node) {
             assert(sym_tab.get_cur_sym_tab()->parent == nullptr);
             sym_tab.add(node->val, node->type_id, true);
         }
-        // already_checked = true;
-        // if (token == "CompoundStmt" && string(node->parent->token) == "FunctionDecl") {
-        //     already_checked = false;
-        // }
-        // if (already_checked) {
-        //     sym_tab.enter_scope(node->val);
-        //     for(int i=0;i<node->n_child;i++) {
-        //         semantic_check_impl(n_errs, node->child[i]);
-        //     }
-        //     sym_tab.exit_scope();
-        // }
+        already_checked = true;
+        if (token == "CompoundStmt" && string(node->parent->token) == "FunctionDecl") {
+            already_checked = false;
+        }
+        if (already_checked) {
+            sym_tab.enter_scope(node->val);
+            for(int i=0;i<node->n_child;i++) {
+                semantic_check_impl(n_errs, node->child[i]);
+            }
+            sym_tab.exit_scope();
+        }
     } else if (token == "DeclRefExpr") {
         if (get_symbol_type(node->val) < 0) {
             semantic_error(n_errs, node->pos, "use of undeclared identifier '%s'", node->val);
@@ -529,11 +509,11 @@ static void semantic_check_impl(int* n_errs, ast_node_ptr node) {
             }
         }
     } else if (token == "BinaryOperator") {
-        // already_checked = true;
+        already_checked = true;
         assert(node->n_child == 2);
-        // for (int i = 0;i < node->n_child;i++) {
-        //     semantic_check_impl(n_errs, node->child[i]);
-        // }
+        for (int i = 0;i < node->n_child;i++) {
+            semantic_check_impl(n_errs, node->child[i]);
+        }
         int type = expr_type_check(node->child[0], node->child[1], node);
         if (type < 0) {
             semantic_error(n_errs, node->pos, "incompatible types in binary expression");
@@ -549,9 +529,9 @@ static void semantic_check_impl(int* n_errs, ast_node_ptr node) {
             }
         }
     } else if (token == "UnaryOperator") {
-        // already_checked = true;
+        already_checked = true;
         assert(node->n_child == 1);
-        // semantic_check_impl(n_errs, node->child[0]);
+        semantic_check_impl(n_errs, node->child[0]);
         int type = expr_type_check(node->child[0], node);
         if (type < 0) {
             semantic_error(n_errs, node->pos, "incompatible types in unary expression");
@@ -580,7 +560,7 @@ static void semantic_check_impl(int* n_errs, ast_node_ptr node) {
                 }
                 n = atoi(temp.c_str());
             } else {
-                // semantic_check_impl(n_errs, node->child[0]);
+                semantic_check_impl(n_errs, node->child[0]);
                 if(string(node->child[0]->token) == "Literal" && node->child[0]->type_id == TYPEID_STR) {
                     temp = node->child[0]->val;
                     if(temp.find("\"") == 0) {
@@ -614,7 +594,7 @@ static void semantic_check_impl(int* n_errs, ast_node_ptr node) {
             } else if (string(node->child[0]->token) == "Literal" && node->child[0]->type_id == TYPEID_STR) {
                 s1 = node->child[0]->val;
             } else {
-                // semantic_check_impl(n_errs, node->child[0]);
+                semantic_check_impl(n_errs, node->child[0]);
                 if(string(node->child[0]->token) == "Literal" && node->child[0]->type_id == TYPEID_STR) {
                     s1 = node->child[0]->val;
                 } else {
@@ -628,7 +608,7 @@ static void semantic_check_impl(int* n_errs, ast_node_ptr node) {
             } else if (string(node->child[1]->token) == "Literal" && node->child[1]->type_id == TYPEID_STR) {
                 s2 = node->child[1]->val;
             } else {
-                // semantic_check_impl(n_errs, node->child[1]);
+                semantic_check_impl(n_errs, node->child[1]);
                 if(string(node->child[1]->token) == "Literal" && node->child[1]->type_id == TYPEID_STR) {
                     s2 = node->child[1]->val;
                 } else {
@@ -647,7 +627,7 @@ static void semantic_check_impl(int* n_errs, ast_node_ptr node) {
             } else if (string(node->child[0]->token) == "Literal" && node->child[0]->type_id == TYPEID_STR) {
                 s = node->child[0]->val;
             } else {
-                // semantic_check_impl(n_errs, node->child[0]);
+                semantic_check_impl(n_errs, node->child[0]);
                 if(string(node->child[0]->token) == "Literal" && node->child[0]->type_id == TYPEID_STR) {
                     s = node->child[0]->val;
                 } else {
@@ -666,7 +646,7 @@ static void semantic_check_impl(int* n_errs, ast_node_ptr node) {
             } else if (string(node->child[0]->token) == "Literal" && node->child[0]->type_id == TYPEID_STR) {
                 s = node->child[0]->val;
             } else {
-                // semantic_check_impl(n_errs, node->child[0]);
+                semantic_check_impl(n_errs, node->child[0]);
                 if(string(node->child[0]->token) == "Literal" && node->child[0]->type_id == TYPEID_STR) {
                     s = node->child[0]->val;
                 } else {
@@ -686,17 +666,18 @@ static void semantic_check_impl(int* n_errs, ast_node_ptr node) {
         }
     } else if (token == "ReturnStmt") {
         assert(node->n_child <= 1);
-        // already_checked = true;
-        // for (int i = 0;i < node->n_child;i++) {
-        //     semantic_check_impl(n_errs, node->child[i]);
-        // }
+        already_checked = true;
+        for (int i = 0;i < node->n_child;i++) {
+            semantic_check_impl(n_errs, node->child[i]);
+        }
         if (node->n_child > 0) {
             node->type_id = node->child[0]->type_id;
         }
-    } else if (token == "Literal") {
-        if (node->type_id < 0) {
-            semantic_error(n_errs, node->pos, "integer constant is too large");
-            node->type_id = TYPEID_LONG;
+    }
+    if (already_checked) return;
+    else {
+        for (int i = 0;i < node->n_child;i++) {
+            semantic_check_impl(n_errs, node->child[i]);
         }
     }
 }
