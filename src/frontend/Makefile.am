@@ -3,5 +3,3 @@ AM_YFLAGS = -d
 AM_CPPFLAGS = -I./third_parties/argparse -I./include -I./third_parties/simplecpp
 noinst_LIBRARIES = libzjucc.a
 libzjucc_a_SOURCES = src/ast_impl.c src/builtin.cpp src/parser.y src/tokenizer.l src/semantic.cpp src/lib_zjucc.cpp third_parties/simplecpp/simplecpp.cpp src/preprocessor.cpp
-noinst_PROGRAMS = zjucc
-zjucc_SOURCES = src/entry.cpp src/ast_impl.c src/builtin.cpp src/parser.y src/tokenizer.l src/semantic.cpp third_parties/simplecpp/simplecpp.cpp src/preprocessor.cpp
