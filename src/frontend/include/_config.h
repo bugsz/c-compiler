@@ -8,6 +8,10 @@
 
 #pragma once
 
+#if !HAVE_UNISTD_H
+#error Incompatible operating system. <unistd.h> required
+#endif
+
 #define parse yyparse
 
 #if COLOR_TERM == 1
