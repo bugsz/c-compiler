@@ -488,7 +488,7 @@ static void semantic_check_impl(int* n_errs, ast_node_ptr node) {
             sym_tab.exit_scope();
         }
     } else if (token == "DeclRefExpr") {
-        if (get_symbol_type(node->val) < 0) {
+        if (get_symbol_type(node->val) < 0 && string(node->val).find("__builtin_") != 0) {
             semantic_error(n_errs, node->pos, "use of undeclared identifier '%s'", node->val);
             assert(node->parent != nullptr);
             if (string(node->parent->token) == "CallExpr" && node == node->parent->child[0]) {
@@ -496,15 +496,18 @@ static void semantic_check_impl(int* n_errs, ast_node_ptr node) {
             }
         } else {
             node->type_id = get_symbol_type(node->val);
+            node->type_id < 0 ? node->type_id = TYPEID_INT : 0;
             assert(node->parent != nullptr);
             if (string(node->parent->token) == "CallExpr" && node == node->parent->child[0]) {
                 node->parent->type_id = node->type_id;
-                auto sym_attr = sym_tab.get_global_sym_tab()->sym_tab_impl.find(node->val)->second;
-                assert(sym_attr.param_nums() >= 0);
-                if (node->parent->n_child - 1 != sym_attr.param_nums()) {
-                    semantic_error(n_errs, node->pos,
-                        "invalid number of arguments to function '%s', expected %d argument(s)",
-                        node->val, sym_attr.param_nums());
+                if (string(node->val).find("__builtin_") != 0) {
+                    auto sym_attr = sym_tab.get_global_sym_tab()->sym_tab_impl.find(node->val)->second;
+                    assert(sym_attr.param_nums() >= 0);
+                    if (node->parent->n_child - 1 != sym_attr.param_nums()) {
+                        semantic_error(n_errs, node->pos,
+                            "invalid number of arguments to function '%s', expected %d argument(s)",
+                            node->val, sym_attr.param_nums());
+                    }   
                 }
             }
         }
