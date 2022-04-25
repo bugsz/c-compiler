@@ -117,6 +117,44 @@ bool isValidBinaryOperand(Value *value) {
     return (value->getType()->isDoubleTy() || value->getType()->isIntegerTy(INTEGER_BITWIDTH));
 }
 
+Function *getPrintfFunction(Module *mod) {
+    const char *func_name = "printf";
+    Function *func = mod->getFunction(func_name);
+    if(func) logErrorF("Cannot use `printf`, as it is a built-in function");
+
+    
+    FunctionType *funcType = FunctionType::get(
+        Type::getInt32Ty(mod->getContext()), 
+        {Type::getInt8PtrTy(mod->getContext())},
+         true); 
+    // Function *func = static_cast<Function>(llvmModule->getOrInsertFunction(func_name, funcType));
+    func = Function::Create(funcType, Function::ExternalLinkage, func_name, mod);
+
+    return func;
+    // return nullptr;
+}
+
+Value *getBuiltinFunction(std::string callee, std::vector<std::unique_ptr<ExprAST>> &args) {
+    if(callee == "printf") {
+        // return nullptr;
+        print("Using builtin function `printf`");
+
+        std::vector<Value *> varArgs;
+        auto formatArgs = llvmBuilder->CreateGlobalString(
+            (static_cast<LiteralExprAST *>(args[0].get()))->getValue()
+        );
+        varArgs.push_back(formatArgs);
+        for (int i=1;i<args.size();i++) {
+            auto arg = args[i]->codegen();
+            varArgs.push_back(arg);
+        }
+        auto func_printf = getPrintfFunction(llvmModule.get());
+        Value *val = llvmBuilder->getInt32(114514);
+        return llvmBuilder->CreateCall(func_printf, varArgs);
+
+    }
+    return nullptr;
+}
 
 
 std::unique_ptr<ExprAST> generateBackendASTNode(ast_node_ptr root) {
@@ -155,13 +193,8 @@ std::unique_ptr<ExprAST> generateBackendASTNode(ast_node_ptr root) {
             
             int param_end = root->n_child;
             std::unique_ptr<ExprAST> returnStmt, compoundStmt;
-            // if(isEqual(root->child[param_end-1]->val, "ReturnStmt")) {
-            //     returnStmt = generateBackendASTNode(root->child[root->n_child-1]);
-            //     param_end -= 1;
-            // }   
-            // else returnStmt = nullptr;
-            // print(root->child[param_end-1]->token);
-            if(isEqual(root->child[param_end-1]->token, "CompoundStmt")) {
+
+            if(param_end && isEqual(root->child[param_end-1]->token, "CompoundStmt")) {
                 compoundStmt = generateBackendASTNode(root->child[param_end - 1]);
                 param_end -= 1;
             } 
@@ -206,7 +239,7 @@ std::unique_ptr<ExprAST> generateBackendASTNode(ast_node_ptr root) {
             auto rhs = 
                 root->n_child ? generateBackendASTNode(root->child[0])
                               : nullptr;
-            auto var = std::make_unique<VarExprAST>(varName, type, std::move(rhs));
+            auto var = std::make_unique<VarExprAST>(varName, type, rhs ? std::move(rhs) : nullptr);
 
             return var;
         }
@@ -300,6 +333,26 @@ static void initializeModule() {
     llvmBuilder = std::make_unique<IRBuilder<>>(*llvmContext);
 }
 
+static void initializeBuiltinFunction() {
+    // 初始化内置函数
+    // 内置函数的定义在builtin.h中
+
+    // for (auto &func : builtin_function) {
+    //     auto func_ptr = (void (*)(void))func.second;
+    //     auto func_type = FunctionType::get(Type::getVoidTy(*llvmContext), {}, false);
+    //     auto func_value = Function::Create(func_type, Function::ExternalLinkage, func.first, *llvmModule);
+    //     func_value->setCallingConv(CallingConv::C);
+    //     func_value->addFnAttr(Attribute::NoUnwind);
+    //     func_value->addFnAttr(Attribute::UWTable);
+    //     func_value->setDoesNotThrow();
+    //     func_value->setAlignment(4);
+    //     auto func_ptr_value = ConstantExpr::getIntToPtr(ConstantInt::get(Type::getInt64Ty(*llvmContext), (uint64_t)func_ptr), func_type->getPointerTo());
+    //     func_value->setLinkage(GlobalValue::ExternalLinkage);
+    //     func_value->setExternallyInitialized(true);
+    //     func_value->setInitializer(func_ptr_value);
+    // }
+}
+
 
 Type *getVarType(LLVMContext &C, int type_id) {
     std::cout << "Get var type: " << type_id << std::endl;
@@ -310,6 +363,8 @@ Type *getVarType(LLVMContext &C, int type_id) {
             else return Type::getInt64Ty(C);
         case TYPEID_DOUBLE:
             return Type::getDoubleTy(C);
+        case TYPEID_VOID:
+            return Type::getVoidTy(C);
         default:
             return nullptr;
     }
@@ -661,6 +716,11 @@ Value *ForExprAST::codegen() {
 
 Value *CallExprAST::codegen() {
     std::cout << callee << std::endl;
+
+    auto builtin_ret = getBuiltinFunction(callee, args);
+    if(builtin_ret) return builtin_ret;
+    
+
     Function *calleeFunction = llvmModule->getFunction(callee);
     if (!calleeFunction) return logErrorV("Unknown function");
     if (calleeFunction->arg_size() != args.size()) logErrorV("Incorrect args");

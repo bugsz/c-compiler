@@ -489,10 +489,15 @@ static void semantic_check_impl(int* n_errs, ast_node_ptr node) {
         }
     } else if (token == "DeclRefExpr") {
         if (get_symbol_type(node->val) < 0) {
-            semantic_error(n_errs, node->pos, "use of undeclared identifier '%s'", node->val);
-            assert(node->parent != nullptr);
-            if (string(node->parent->token) == "CallExpr" && node == node->parent->child[0]) {
-                node->parent->type_id = TYPEID_INT;
+            std::cout << node->val << endl;
+            if(std::string(node->val) != "printf") 
+            {
+                std::cout << node->val << endl;
+                semantic_error(n_errs, node->pos, "use of undeclared identifier '%s'", node->val);
+                assert(node->parent != nullptr);
+                if (string(node->parent->token) == "CallExpr" && node == node->parent->child[0]) {
+                    node->parent->type_id = TYPEID_INT;
+            }
             }
         } else {
             node->type_id = get_symbol_type(node->val);

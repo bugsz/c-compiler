@@ -86,18 +86,24 @@ class LiteralExprAST: public ExprAST {
 
 public:
     LiteralExprAST(int type, std::string &value)
-    : type(type), value(value) {}
+    : type(type), value(value) {
+        this->type = type;
+        if(type == TYPEID_STR) {
+            std::cout << "  asdf" << value << std::endl;
+            this->value = value.substr(1, value.size() - 2);
+        }
+    }
     Value *codegen() override;
 
     void setType(int type) { this->type = type; }
     int getType() { return this->type; }
+    std::string &getValue() { return this->value; }
 };
 
 class VarExprAST: public ExprAST {
     
     int type;
     
-
 public:
     std::string name;
     std::unique_ptr<ExprAST> init;

@@ -30,3 +30,12 @@ int test_do_while() {
     }while(i < 0);
     return a;
 }
+
+void test_printf() {
+    printf("%d", 1);
+}
+
+int main() {
+    test_printf();
+    return 0;
+}
