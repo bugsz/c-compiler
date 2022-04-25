@@ -11,13 +11,14 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#include <unistd.h>
 
 #include "ast_impl.h"
 #include "semantic.h"
 #include "builtin.h"
 #include "config.h"
 
-void yyerror(int*, struct ast_node_impl*, char* s);
+void yyerror(int*, struct ast_node_impl*, char* s, char* tmp_file);
 extern int yylex();
 
 extern char* yytext;
@@ -34,6 +35,7 @@ extern int yycolno;
 
 %parse-param {int* n_errs}
 %parse-param {struct ast_node_impl* root}
+%parse-param {char* tmp_file}
 
 %start TRANSLATION_UNIT
 
@@ -290,7 +292,7 @@ EXPR :
         $$->type_id = TYPEID_INT;
         $$->pos = @1;
         int temp = get_type_size($3);
-        if(temp < 0) yyerror(n_errs, root, "invalid type name to operator 'sizeof'");
+        if(temp < 0) yyerror(n_errs, root, tmp_file, "invalid type name to operator 'sizeof'");
         char s[2]={0};
         s[0] = temp + '0';
         strcpy($$->val, s);
@@ -388,11 +390,12 @@ JMP_STMT :
     ;
 %%
 
-void yyerror(int* n_errs, struct ast_node_impl* node, char *s){
+void yyerror(int* n_errs, struct ast_node_impl* node, char* tmp_file, char *s){
     (*n_errs)++;
     fprintf(stderr, COLOR_BOLD"%s:%d:%d: "COLOR_RED"%s"COLOR_NORMAL"\n%s\n", \
         global_filename, yylineno, yycolno, s, yyline);
     for(int i = 0; i < yycolno - 1; i++)
         fprintf(stderr, COLOR_GREEN"~");
     fprintf(stderr, COLOR_GREEN"^\n"COLOR_NORMAL);
+    unlink(tmp_file);
 }

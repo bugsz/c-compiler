@@ -72,7 +72,7 @@ int main(int argc, const char** argv) {
                 pp_filename = filename;
                 pp_filename.replace(pp_filename.find_last_of(".c"), 4, "pp.c");
             }
-            preprocess(filename);
+            preprocess(filename, pp_filename);
         }) : filename;
         strcpy(global_filename, pp_filename.c_str());
         if (program["-E"] == true && program["--fno-preprocess"] == false) {

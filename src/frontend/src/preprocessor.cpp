@@ -74,7 +74,7 @@ string preprocess() {
     return s;
 }
 
-string preprocess(string filename) {
+string preprocess(string filename, string outfile) {
     OutputList outputList;
     vector<string> files;
     ifstream f(filename);
@@ -95,11 +95,7 @@ string preprocess(string filename) {
         cleanup(included);
         throw parse_error(err.str());
     }
-    if(filename.find(".c") == string::npos)
-        filename += ".pp.c";
-    else
-        filename.replace(filename.find_last_of(".c"), 4, "pp.c");
-    fstream out(filename, ios::out);
+    fstream out(outfile, ios::out);
     string s = outputTokens.stringify();
     out.write(s.c_str(), s.size());
     f.close();

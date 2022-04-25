@@ -1,5 +1,6 @@
 #include <iostream>
 #include <cstdlib>
+#include <cstdio>
 #include <fstream>
 #include <cstring>
 #include <cassert>
@@ -13,7 +14,7 @@
 #include "config.h"
 
 extern "C" {
-    extern int yyparse(int*, ast_node_ptr);
+    extern int yyparse(int*, ast_node_ptr, char* tmp_file);
     extern FILE* yyin;
 }
 
@@ -60,6 +61,7 @@ lib_frontend_ret frontend_entry(int argc, const char** argv) {
     int* n_errs = new int;
     string input_file, output_file;
     ast_node_ptr root;
+    char tmp_file[] = "tmp_XXXXXX";
     try {
         program.parse_args(argc, argv);
         parse_defines(argc, argv);
@@ -68,9 +70,10 @@ lib_frontend_ret frontend_entry(int argc, const char** argv) {
         }
         string pp_filename(""), pp_res;
         output_file = program.get("-o");
+        int fd = mkstemp(tmp_file);
         if (program["-stdin"] == true) {
             input_file = "stdin";
-            pp_filename = "stdin.tmp";
+            pp_filename = tmp_file;
             pp_res = program["--fno-preprocess"] == false ? preprocess() : "";
             if (!pp_res.empty()) {
                 ofstream fout(pp_filename);
@@ -81,13 +84,9 @@ lib_frontend_ret frontend_entry(int argc, const char** argv) {
             }
         } else {
             input_file = program.get("-f");
-            if(input_file.find(".c") == string::npos)
-                pp_filename = input_file + ".pp.c";
-            else {
-                pp_filename = input_file;
-                pp_filename.replace(pp_filename.find_last_of(".c"), 4, "pp.c");
-            }
-            pp_res = program["--fno-preprocess"] == false ? preprocess(input_file) : "";
+            pp_filename = tmp_file;
+            // cout << pp_filename << endl;
+            pp_res = program["--fno-preprocess"] == false ? preprocess(input_file, pp_filename) : "";
             yyin = fopen(pp_filename.c_str(), "r");
             if (!yyin)  throw parse_error("No such file or directory: " + pp_filename);
         }
@@ -100,32 +99,34 @@ lib_frontend_ret frontend_entry(int argc, const char** argv) {
                     << COLOR_NORMAL << endl;
             }
             cout << pp_res << endl;
-            remove(pp_filename.c_str());
+            // remove(pp_filename.c_str());
+            unlink(tmp_file);
             exit(0);
         }
         root = mknode("TranslationUnitDecl");
         *n_errs = 0;
-        parse(n_errs, root);
+        parse(n_errs, root, tmp_file);
         fclose(yyin);
         if (*n_errs > 0) {
-            remove(pp_filename.c_str());
             throw parse_error(to_string(*n_errs) + " error(s) generated.");
         }
         semantic_check(n_errs, root, program["-w"] == true);
         if (*n_errs > 0) {
-            remove(pp_filename.c_str());
             throw parse_error(to_string(*n_errs) + " error(s) generated.");
         }
         if (program["--ast-dump"] == true) print_ast(root);
         if (program["--sym-dump"] == true) print_sym_tab();
-        remove(pp_filename.c_str());
+        // remove(pp_filename.c_str());
+        unlink(tmp_file);
     }
     catch (const parse_error& err) {
         cerr << err.what() << endl;
+        unlink(tmp_file);
         exit(1);
     } catch (const exception& err) {
         cerr << err.what() << endl;
         cerr << program;
+        unlink(tmp_file);
         exit(1);
     }
     return { *n_errs, input_file, output_file, root };
