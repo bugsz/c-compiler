@@ -20,7 +20,7 @@ jobs:
       run: |
         cd src/frontend
         make
-    - name: case test
-      run: |
-        cd src/frontend
-        bash case-test.sh
+#     - name: case test
+#       run: |
+#         cd src/frontend
+#         bash case-test.sh
