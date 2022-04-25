@@ -25,6 +25,7 @@ void set_col();
 void set_include();
 
 char* to_int(char* s, int base);
+char* char_to_int(char* s);
 
 extern YYLTYPE yylloc;
 #define YY_USER_ACTION         \
@@ -66,6 +67,7 @@ extern YYLTYPE yylloc;
 [a-zA-Z_][a-zA-Z0-9_]*	{ set_col(); assert(yyleng < 50); yylval.str = strdup(yytext); return IDENTIFIER; }
 ("0"|[1-9]+[0-9]*)			{ set_col(); assert(yyleng < 50); yylval.str = strdup(yytext); return CONSTANT; }
 ("0"|[1-9]+[0-9]*)\.[0-9]+		{ set_col(); assert(yyleng < 50); yylval.str = strdup(yytext); return CONSTANT; }
+"'"."'"         { set_col(); yylval.str = char_to_int(yytext); return CONSTANT;}
 "0x"[0-9a-fA-F]+	{ set_col(); assert(yyleng < 50); yylval.str = to_int(yytext, 16); return CONSTANT; }
 "0"[0-7]*       { set_col(); assert(yyleng < 50); yylval.str = to_int(yytext, 8); return CONSTANT; }
 "0b"[01]+		{ set_col(); assert(yyleng < 50); yylval.str = to_int(yytext, 2); return CONSTANT; }
@@ -117,6 +119,14 @@ void set_include() {
 char* to_int(char* s, int base){
     int res = (base == 8) ? builtin_atoi(s + 1, base) : builtin_atoi(s + 2, base);
     char* ret = builtin_itoa(res, 10);
+    ret[strlen(ret) - 1] = '\0';
+    return ret + 1;
+}
+
+char* char_to_int(char* s) {
+    assert(strlen(s) == 3);
+    char ch = s[1];
+    char* ret = builtin_itoa(ch, 10);
     ret[strlen(ret) - 1] = '\0';
     return ret + 1;
 }
