@@ -8,19 +8,37 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_C_COMPILER clang)
 set(CMAKE_CXX_COMPILER clang++)
 
+set(PROJECT_NAME zjucc_backend)
+set(FRONTEND_INCLUDE "./src/frontend/frontend.h")
+
+
+
 find_package(LLVM REQUIRED CONFIG)
 message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}")
 message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
+message(STATUS "Using LLVM path ${LLVM_INCLUDE_DIRS}")
+
 
 include_directories(${LLVM_INCLUDE_DIRS})
 separate_arguments(LLVM_DEFINITIONS_LIST NATIVE_COMMAND ${LLVM_DEFINITIONS})
 add_definitions(${LLVM_DEFINITIONS_LIST})
 
-aux_source_directory(./src SRC_LIST)
+find_library(ZJUCC_LIB libzjucc.a ./src/frontend)
 
-add_executable(codegen ${SRC_LIST})
+# aux_source_directory(./src/backend SRC_LIST)
 
+
+set(SRC_LIST ./src/backend/src/llvm_ast.cpp)
+message(STATUS "SRC_LIST: ${SRC_LIST}")
+# aux_source_directory(./src/backend/src SRC_LIST)
+
+include_directories(./src/backend/include)
+# include_directories(./src/frontend/frontend.h)
+add_executable(${PROJECT_NAME} ${SRC_LIST})
 message(${LLVM_TARGETS_TO_BUILD})
 # llvm_map_components_to_libnames(llvm_libs support core irreader executionEngine target native)
 llvm_map_components_to_libnames(llvm_libs ${LLVM_TARGETS_TO_BUILD} support core irreader codegen mc mcparser option)
-target_link_libraries(codegen ${llvm_libs})
+
+# SET(CMAKE_EXE_LINKER_FLAGS "-Wl,-znodelete")
+target_link_libraries(${PROJECT_NAME} ${llvm_libs})
+target_link_libraries(${PROJECT_NAME} ${ZJUCC_LIB})
