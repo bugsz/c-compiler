@@ -55,6 +55,7 @@ extern YYLTYPE yylloc;
 "continue"  { set_col(); return CONTINUE; }
 "return"    { set_col(); return RETURN; }
 
+"sizeof"    { set_col(); return SIZEOF; }
 "__builtin_itoa" { set_col(); return BUILTIN_ITOA; }
 "__builtin_strcat" { set_col(); return BUILTIN_STRCAT; }
 "__builtin_strlen" { set_col(); return BUILTIN_STRLEN; }

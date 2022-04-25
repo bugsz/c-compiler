@@ -224,6 +224,25 @@ const char* get_function_type(const char* name) {
     }
 }
 
+int get_type_size(int type_id){
+    switch (type_id) {
+    case TYPEID_CHAR:
+        return sizeof(char);
+    case TYPEID_SHORT:
+        return sizeof(short);
+    case TYPEID_INT:
+        return sizeof(int);
+    case TYPEID_LONG:
+        return sizeof(long);
+    case TYPEID_FLOAT:
+        return sizeof(float);
+    case TYPEID_DOUBLE:
+        return sizeof(double);
+    default: 
+        return -1;
+    }
+}
+
 int is_declared(const char* name) {
     return sym_tab.is_redef(name);
 }

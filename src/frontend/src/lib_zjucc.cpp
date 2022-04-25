@@ -1,18 +1,20 @@
 #include <iostream>
 #include <cstdlib>
+#include <cstdio>
 #include <fstream>
 #include <cstring>
 #include <cassert>
+#include <unistd.h>
 #include "argparse.hpp"
-
 #include "preprocessor.h"
+
 #include "exception.h"
 #include "ast_impl.h"
 #include "semantic.h"
 #include "config.h"
 
 extern "C" {
-    extern int yyparse(int*, ast_node_ptr);
+    extern int yyparse(int*, ast_node_ptr, char* tmp_file);
     extern FILE* yyin;
 }
 
@@ -30,7 +32,7 @@ lib_frontend_ret frontend_entry(int argc, const char** argv) {
         .default_value(string("a.out"))
         .help("specify output file name");
     program.add_argument("-f", "--file")
-        .required()
+        .default_value(string(""))
         .help("specify source file name");
     program.add_argument("-E")
         .default_value(false)
@@ -52,52 +54,80 @@ lib_frontend_ret frontend_entry(int argc, const char** argv) {
         .help("disable preprocessing")
         .default_value(false)
         .implicit_value(true);
+    program.add_argument("-stdin", "--stdin")
+        .help("use input from stdin")
+        .default_value(false)
+        .implicit_value(true);
     int* n_errs = new int;
-    string filename;
+    string input_file, output_file;
     ast_node_ptr root;
+    char tmp_file[] = "tmp_XXXXXX";
     try {
         program.parse_args(argc, argv);
         parse_defines(argc, argv);
-        filename = program.get("-f");
-        string pp_filename;
-        pp_filename = program["--fno-preprocess"] == false ? preprocess(filename) : filename;
+        if (!program.is_used("-f") && !program.is_used("-stdin")) {
+            throw runtime_error("-f or -stdin required.");
+        }
+        string pp_filename(""), pp_res;
+        output_file = program.get("-o");
+        int fd = mkstemp(tmp_file);
+        if (program["-stdin"] == true) {
+            input_file = "stdin";
+            pp_filename = tmp_file;
+            pp_res = program["--fno-preprocess"] == false ? preprocess() : "";
+            if (!pp_res.empty()) {
+                ofstream fout(pp_filename);
+                fout.write(pp_res.c_str(), pp_res.size());
+                yyin = fopen(pp_filename.c_str(), "r");
+            } else {
+                yyin = stdin;
+            }
+        } else {
+            input_file = program.get("-f");
+            pp_filename = tmp_file;
+            // cout << pp_filename << endl;
+            pp_res = program["--fno-preprocess"] == false ? preprocess(input_file, pp_filename) : "";
+            yyin = fopen(pp_filename.c_str(), "r");
+            if (!yyin)  throw parse_error("No such file or directory: " + pp_filename);
+        }
         strcpy(global_filename, pp_filename.c_str());
         if (program["-E"] == true && program["--fno-preprocess"] == false) {
             if(program["--ast-dump"] == true || program["--sym-dump"] == true) {
-                cerr << COLOR_BOLD << filename << ": "
+                cerr << COLOR_BOLD << input_file << ": "
                     << COLOR_PURPLE "warning: "
                     << COLOR_NORMAL COLOR_BOLD "ast-dump and sym-dump flags are useless in preprocess-only mode"
                     << COLOR_NORMAL << endl;
             }
-            fstream bin(pp_filename, ios::in);
-            assert(bin.is_open());
-            while (!bin.eof()) {
-                string line;
-                getline(bin, line);
-                cout << line << endl;
-            }
-            bin.close();
+            cout << pp_res << endl;
+            // remove(pp_filename.c_str());
+            unlink(tmp_file);
             exit(0);
         }
-        yyin = fopen(pp_filename.c_str(), "r");
-        if (!yyin)  throw parse_error("No such file or directory.");
         root = mknode("TranslationUnitDecl");
         *n_errs = 0;
-        parse(n_errs, root);
+        parse(n_errs, root, tmp_file);
         fclose(yyin);
+        if (*n_errs > 0) {
+            throw parse_error(to_string(*n_errs) + " error(s) generated.");
+        }
         semantic_check(n_errs, root, program["-w"] == true);
-        if (*n_errs > 0)  throw parse_error(to_string(*n_errs) + " error(s) generated.");
+        if (*n_errs > 0) {
+            throw parse_error(to_string(*n_errs) + " error(s) generated.");
+        }
         if (program["--ast-dump"] == true) print_ast(root);
         if (program["--sym-dump"] == true) print_sym_tab();
-        remove(pp_filename.c_str());
+        // remove(pp_filename.c_str());
+        unlink(tmp_file);
     }
     catch (const parse_error& err) {
         cerr << err.what() << endl;
+        unlink(tmp_file);
         exit(1);
     } catch (const exception& err) {
         cerr << err.what() << endl;
         cerr << program;
+        unlink(tmp_file);
         exit(1);
     }
-    return { *n_errs, filename, program.get("-o"), root };
+    return { *n_errs, input_file, output_file, root };
 }

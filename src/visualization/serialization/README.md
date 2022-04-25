@@ -107,314 +107,381 @@ TranslationUnitDecl 0x7fe9ddf04a00  'void'
     "val": "",
     "type": "void",
     "children": [
-    {
-        "token": "VarDecl",
-        "position": " <1:5>",
-        "val": "a",
-        "type": "int",
-        "children": []
-    },
-    {
-        "token": "VarDecl",
-        "position": " <2:5>",
-        "val": "d",
-        "type": "int",
-        "children": [
         {
-            "token": "Literal",
-            "position": " <2:9>",
-            "val": "3",
+            "token": "VarDecl",
+            "position": "<1:5>",
+            "val": "a",
             "type": "int",
-            "children": []
-        }]
-    },
-    {
-        "token": "FunctionDecl",
-        "position": " <4:5>",
-        "val": "positive",
-        "type": "int",
-        "children": [
-        {
-            "token": "ParmVarDecl",
-            "position": " <4:18>",
-            "val": "x",
-            "type": "int",
-            "children": []
+            "children": [
+
+            ]
         },
         {
-            "token": "CompoundStmt",
-            "position": "",
-            "val": "",
-            "type": "",
+            "token": "VarDecl",
+            "position": "<2:5>",
+            "val": "d",
+            "type": "int",
             "children": [
-            {
-                "token": "DeclStmt",
-                "position": "",
-                "val": "",
-                "type": "",
-                "children": [
-                {
-                    "token": "VarDecl",
-                    "position": " <5:9>",
-                    "val": "res",
-                    "type": "int",
-                    "children": []
-                }]
-            },
-            {
-                "token": "IfStmt",
-                "position": "",
-                "val": "",
-                "type": "",
-                "children": [
-                {
-                    "token": "BinaryOperator",
-                    "position": " <6:11>",
-                    "val": ">",
-                    "type": "int",
-                    "children": [
-                    {
-                        "token": "DeclRefExpr",
-                        "position": " <6:9>",
-                        "val": "x",
-                        "type": "int",
-                        "children": []
-                    },
-                    {
-                        "token": "Literal",
-                        "position": " <6:13>",
-                        "val": "0",
-                        "type": "int",
-                        "children": []
-                    }]
-                },
-                {
-                    "token": "CompoundStmt",
-                    "position": "",
-                    "val": "",
-                    "type": "",
-                    "children": [
-                    {
-                        "token": "BinaryOperator",
-                        "position": " <7:13>",
-                        "val": "=",
-                        "type": "int",
-                        "children": [
-                        {
-                            "token": "DeclRefExpr",
-                            "position": " <7:9>",
-                            "val": "res",
-                            "type": "int",
-                            "children": []
-                        },
-                        {
-                            "token": "Literal",
-                            "position": " <7:15>",
-                            "val": "1",
-                            "type": "int",
-                            "children": []
-                        }]
-                    }]
-                },
-                {
-                    "token": "CompoundStmt",
-                    "position": "",
-                    "val": "",
-                    "type": "",
-                    "children": [
-                    {
-                        "token": "BinaryOperator",
-                        "position": " <9:13>",
-                        "val": "=",
-                        "type": "int",
-                        "children": [
-                        {
-                            "token": "DeclRefExpr",
-                            "position": " <9:9>",
-                            "val": "res",
-                            "type": "int",
-                            "children": []
-                        },
-                        {
-                            "token": "Literal",
-                            "position": " <9:15>",
-                            "val": "0",
-                            "type": "int",
-                            "children": []
-                        }]
-                    }]
-                }]
-            },
-            {
-                "token": "ReturnStmt",
-                "position": "",
-                "val": "",
-                "type": "int",
-                "children": [
-                {
-                    "token": "DeclRefExpr",
-                    "position": " <11:12>",
-                    "val": "res",
-                    "type": "int",
-                    "children": []
-                }]
-            }]
-        }]
-    },
-    {
-        "token": "FunctionDecl",
-        "position": " <14:5>",
-        "val": "main",
-        "type": "int",
-        "children": [
-        {
-            "token": "CompoundStmt",
-            "position": "",
-            "val": "",
-            "type": "",
-            "children": [
-            {
-                "token": "DeclStmt",
-                "position": "",
-                "val": "",
-                "type": "",
-                "children": [
-                {
-                    "token": "VarDecl",
-                    "position": " <15:9>",
-                    "val": "a",
-                    "type": "int",
-                    "children": []
-                }]
-            },
-            {
-                "token": "DeclStmt",
-                "position": "",
-                "val": "",
-                "type": "",
-                "children": [
-                {
-                    "token": "VarDecl",
-                    "position": " <16:9>",
-                    "val": "b",
-                    "type": "int",
-                    "children": [
-                    {
-                        "token": "Literal",
-                        "position": " <16:13>",
-                        "val": "5",
-                        "type": "int",
-                        "children": []
-                    }]
-                }]
-            },
-            {
-                "token": "DeclStmt",
-                "position": "",
-                "val": "",
-                "type": "",
-                "children": [
-                {
-                    "token": "VarDecl",
-                    "position": " <17:9>",
-                    "val": "c",
-                    "type": "int",
-                    "children": []
-                }]
-            },
-            {
-                "token": "BinaryOperator",
-                "position": " <18:7>",
-                "val": "=",
-                "type": "int",
-                "children": [
-                {
-                    "token": "DeclRefExpr",
-                    "position": " <18:5>",
-                    "val": "a",
-                    "type": "int",
-                    "children": []
-                },
                 {
                     "token": "Literal",
-                    "position": " <18:9>",
+                    "position": "<2:9>",
                     "val": "3",
                     "type": "int",
-                    "children": []
-                }]
-            },
-            {
-                "token": "BinaryOperator",
-                "position": " <19:7>",
-                "val": "=",
-                "type": "int",
-                "children": [
+                    "children": [
+
+                    ]
+                }
+            ]
+        },
+        {
+            "token": "FunctionDecl",
+            "position": "<4:5>",
+            "val": "positive",
+            "type": "int",
+            "children": [
                 {
-                    "token": "DeclRefExpr",
-                    "position": " <19:5>",
-                    "val": "c",
-                    "type": "int",
-                    "children": []
-                },
-                {
-                    "token": "BinaryOperator",
-                    "position": " <19:11>",
-                    "val": "+",
+                    "token": "ParmVarDecl",
+                    "position": "<4:20>",
+                    "val": "x",
                     "type": "int",
                     "children": [
-                    {
-                        "token": "DeclRefExpr",
-                        "position": " <19:9>",
-                        "val": "a",
-                        "type": "int",
-                        "children": []
-                    },
-                    {
-                        "token": "DeclRefExpr",
-                        "position": " <19:13>",
-                        "val": "b",
-                        "type": "int",
-                        "children": []
-                    }]
-                }]
-            },
-            {
-                "token": "BinaryOperator",
-                "position": " <20:7>",
-                "val": "=",
-                "type": "int",
-                "children": [
-                {
-                    "token": "DeclRefExpr",
-                    "position": " <20:5>",
-                    "val": "b",
-                    "type": "int",
-                    "children": []
+
+                    ]
                 },
                 {
-                    "token": "CallExpr",
+                    "token": "CompoundStmt",
                     "position": "",
                     "val": "",
-                    "type": "int",
+                    "type": "",
                     "children": [
-                    {
-                        "token": "DeclRefExpr",
-                        "position": " <20:9>",
-                        "val": "positive",
-                        "type": "int",
-                        "children": []
-                    },
-                    {
-                        "token": "DeclRefExpr",
-                        "position": " <20:18>",
-                        "val": "c",
-                        "type": "int",
-                        "children": []
-                    }]
-                }]
-            }]
-        }]
-    }]
+                        {
+                            "token": "DeclStmt",
+                            "position": "",
+                            "val": "",
+                            "type": "",
+                            "children": [
+                                {
+                                    "token": "VarDecl",
+                                    "position": "<5:5>",
+                                    "val": "res",
+                                    "type": "int",
+                                    "children": [
+
+                                    ]
+                                }
+                            ]
+                        },
+                        {
+                            "token": "IfStmt",
+                            "position": "",
+                            "val": "",
+                            "type": "",
+                            "children": [
+                                {
+                                    "token": "BinaryOperator",
+                                    "position": "<6:8>",
+                                    "val": ">",
+                                    "type": "int",
+                                    "children": [
+                                        {
+                                            "token": "DeclRefExpr",
+                                            "position": "<6:6>",
+                                            "val": "x",
+                                            "type": "int",
+                                            "children": [
+
+                                            ]
+                                        },
+                                        {
+                                            "token": "Literal",
+                                            "position": "<6:10>",
+                                            "val": "0",
+                                            "type": "int",
+                                            "children": [
+
+                                            ]
+                                        }
+                                    ]
+                                },
+                                {
+                                    "token": "CompoundStmt",
+                                    "position": "",
+                                    "val": "",
+                                    "type": "",
+                                    "children": [
+                                        {
+                                            "token": "BinaryOperator",
+                                            "position": "<7:5>",
+                                            "val": "=",
+                                            "type": "int",
+                                            "children": [
+                                                {
+                                                    "token": "DeclRefExpr",
+                                                    "position": "<7:2>",
+                                                    "val": "res",
+                                                    "type": "int",
+                                                    "children": [
+
+                                                    ]
+                                                },
+                                                {
+                                                    "token": "Literal",
+                                                    "position": "<7:7>",
+                                                    "val": "1",
+                                                    "type": "int",
+                                                    "children": [
+
+                                                    ]
+                                                }
+                                            ]
+                                        }
+                                    ]
+                                },
+                                {
+                                    "token": "CompoundStmt",
+                                    "position": "",
+                                    "val": "",
+                                    "type": "",
+                                    "children": [
+                                        {
+                                            "token": "BinaryOperator",
+                                            "position": "<9:5>",
+                                            "val": "=",
+                                            "type": "int",
+                                            "children": [
+                                                {
+                                                    "token": "DeclRefExpr",
+                                                    "position": "<9:2>",
+                                                    "val": "res",
+                                                    "type": "int",
+                                                    "children": [
+
+                                                    ]
+                                                },
+                                                {
+                                                    "token": "Literal",
+                                                    "position": "<9:7>",
+                                                    "val": "0",
+                                                    "type": "int",
+                                                    "children": [
+
+                                                    ]
+                                                }
+                                            ]
+                                        }
+                                    ]
+                                }
+                            ]
+                        },
+                        {
+                            "token": "ReturnStmt",
+                            "position": "<11:2>",
+                            "val": "",
+                            "type": "int",
+                            "children": [
+                                {
+                                    "token": "DeclRefExpr",
+                                    "position": "<11:8>",
+                                    "val": "res",
+                                    "type": "int",
+                                    "children": [
+
+                                    ]
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "token": "FunctionDecl",
+            "position": "<14:5>",
+            "val": "main",
+            "type": "int",
+            "children": [
+                {
+                    "token": "CompoundStmt",
+                    "position": "",
+                    "val": "",
+                    "type": "",
+                    "children": [
+                        {
+                            "token": "DeclStmt",
+                            "position": "",
+                            "val": "",
+                            "type": "",
+                            "children": [
+                                {
+                                    "token": "VarDecl",
+                                    "position": "<15:5>",
+                                    "val": "a",
+                                    "type": "int",
+                                    "children": [
+
+                                    ]
+                                }
+                            ]
+                        },
+                        {
+                            "token": "DeclStmt",
+                            "position": "",
+                            "val": "",
+                            "type": "",
+                            "children": [
+                                {
+                                    "token": "VarDecl",
+                                    "position": "<16:5>",
+                                    "val": "b",
+                                    "type": "int",
+                                    "children": [
+                                        {
+                                            "token": "Literal",
+                                            "position": "<16:9>",
+                                            "val": "5",
+                                            "type": "int",
+                                            "children": [
+
+                                            ]
+                                        }
+                                    ]
+                                }
+                            ]
+                        },
+                        {
+                            "token": "DeclStmt",
+                            "position": "",
+                            "val": "",
+                            "type": "",
+                            "children": [
+                                {
+                                    "token": "VarDecl",
+                                    "position": "<17:5>",
+                                    "val": "c",
+                                    "type": "int",
+                                    "children": [
+
+                                    ]
+                                }
+                            ]
+                        },
+                        {
+                            "token": "BinaryOperator",
+                            "position": "<18:3>",
+                            "val": "=",
+                            "type": "int",
+                            "children": [
+                                {
+                                    "token": "DeclRefExpr",
+                                    "position": "<18:2>",
+                                    "val": "a",
+                                    "type": "int",
+                                    "children": [
+
+                                    ]
+                                },
+                                {
+                                    "token": "Literal",
+                                    "position": "<18:5>",
+                                    "val": "3",
+                                    "type": "int",
+                                    "children": [
+
+                                    ]
+                                }
+                            ]
+                        },
+                        {
+                            "token": "BinaryOperator",
+                            "position": "<19:3>",
+                            "val": "=",
+                            "type": "int",
+                            "children": [
+                                {
+                                    "token": "DeclRefExpr",
+                                    "position": "<19:2>",
+                                    "val": "c",
+                                    "type": "int",
+                                    "children": [
+
+                                    ]
+                                },
+                                {
+                                    "token": "BinaryOperator",
+                                    "position": "<19:7>",
+                                    "val": "+",
+                                    "type": "int",
+                                    "children": [
+                                        {
+                                            "token": "DeclRefExpr",
+                                            "position": "<19:5>",
+                                            "val": "a",
+                                            "type": "int",
+                                            "children": [
+
+                                            ]
+                                        },
+                                        {
+                                            "token": "DeclRefExpr",
+                                            "position": "<19:9>",
+                                            "val": "b",
+                                            "type": "int",
+                                            "children": [
+
+                                            ]
+                                        }
+                                    ]
+                                }
+                            ]
+                        },
+                        {
+                            "token": "BinaryOperator",
+                            "position": "<20:3>",
+                            "val": "=",
+                            "type": "int",
+                            "children": [
+                                {
+                                    "token": "DeclRefExpr",
+                                    "position": "<20:2>",
+                                    "val": "b",
+                                    "type": "int",
+                                    "children": [
+
+                                    ]
+                                },
+                                {
+                                    "token": "CallExpr",
+                                    "position": "",
+                                    "val": "",
+                                    "type": "int",
+                                    "children": [
+                                        {
+                                            "token": "DeclRefExpr",
+                                            "position": "<20:5>",
+                                            "val": "positive",
+                                            "type": "int",
+                                            "children": [
+
+                                            ]
+                                        },
+                                        {
+                                            "token": "DeclRefExpr",
+                                            "position": "<20:16>",
+                                            "val": "c",
+                                            "type": "int",
+                                            "children": [
+
+                                            ]
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
 }
 ```
 

@@ -65,7 +65,15 @@ int main(int argc, const char** argv) {
         program.parse_args(argc, argv);
         parse_defines(argc, argv);
         string filename = program.get("-f"), pp_filename;
-        pp_filename = program["--fno-preprocess"] == false ? preprocess(filename) : filename;
+        program["--fno-preprocess"] == false ? ({
+            if(filename.find(".c") == string::npos)
+                pp_filename = filename + ".pp.c";
+            else {
+                pp_filename = filename;
+                pp_filename.replace(pp_filename.find_last_of(".c"), 4, "pp.c");
+            }
+            preprocess(filename, pp_filename);
+        }) : filename;
         strcpy(global_filename, pp_filename.c_str());
         if (program["-E"] == true && program["--fno-preprocess"] == false) {
             if(program["--ast-dump"] == true || program["--sym-dump"] == true) {
@@ -85,13 +93,20 @@ int main(int argc, const char** argv) {
             exit(0);
         }
         yyin = fopen(pp_filename.c_str(), "r");
-        if (!yyin)  throw parse_error("No such file or directory.");
+        if (!yyin)  throw parse_error("No such file or directory: " + pp_filename);
         ast_node_ptr root = mknode("TranslationUnitDecl");
         *n_errs = 0;
         parse(n_errs, root);
         fclose(yyin);
+        if (*n_errs > 0) {
+            remove(pp_filename.c_str());
+            throw parse_error(to_string(*n_errs) + " error(s) generated.");
+        }
         semantic_check(n_errs, root, program["-w"] == true);
-        if (*n_errs > 0)  throw parse_error(to_string(*n_errs) + " error(s) generated.");
+        if (*n_errs > 0) {
+            remove(pp_filename.c_str());
+            throw parse_error(to_string(*n_errs) + " error(s) generated.");
+        }
         if (program["--ast-dump"] == true) print_ast(root);
         if (program["--sym-dump"] == true) print_sym_tab();
         remove(pp_filename.c_str());

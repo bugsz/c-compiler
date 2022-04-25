@@ -9,7 +9,7 @@
 #pragma once
 #include <stdarg.h>
 
-#define INIT_CHILD_NUM 10
+#define INIT_CHILD_NUM 50
 #define MAX_TOKEN_LEN 128
 
 #define mknode(token, ...) mknode_impl(token, ##__VA_ARGS__, NULL)

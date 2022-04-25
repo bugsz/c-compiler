@@ -14,7 +14,7 @@ static string print_node(ast_node_ptr node) {
         return "";
     char position[MAX_TOKEN_LEN] = { 0 }, type[MAX_TOKEN_LEN] = { 0 };
     if (node->pos.last_line * node->pos.last_column) {
-        sprintf(position, " <%d:%d>", node->pos.last_line, node->pos.last_column);
+        sprintf(position, "<%d:%d>", node->pos.last_line, node->pos.last_column);
     }
     if (strcmp(node->token, "TranslationUnit") == 0 ||
         strcmp(node->token, "CompoundStmt") == 0 ||
@@ -27,26 +27,26 @@ static string print_node(ast_node_ptr node) {
         sprintf(type, "%s", typeid_deref[node->type_id]);
     }
     string children = "";
-    tabs += 1;
+    tabs += 2;
     for(int i = 0; i < node->n_child; i++){
-        children += (i > 0 ? "," : "") + print_node(node->child[i]);
+        children += (i > 0 ? ",\n" : "") + print_node(node->child[i]);
     }
-    tabs -= 1;
+    tabs -= 2;
     string whitespace(4*tabs, ' ');
     string whitespaceplus(4*tabs+4, ' ');
-    return fmt::format("\n{}{{ \
+    return fmt::format("{}{{ \
                         \n{}\"token\": \"{}\", \
                         \n{}\"position\": \"{}\", \
                         \n{}\"val\": \"{}\",  \
                         \n{}\"type\": \"{}\", \
-                        \n{}\"children\": [{}] \
+                        \n{}\"children\": [\n{}{}\n{}] \
                         \n{}}}", 
                         whitespace,
                         whitespaceplus, node->token, 
                         whitespaceplus, position, 
                         whitespaceplus, node->val, 
                         whitespaceplus, type, 
-                        whitespaceplus, children,
+                        whitespaceplus, children, whitespaceplus, whitespaceplus,
                         whitespace
                         );
 }
