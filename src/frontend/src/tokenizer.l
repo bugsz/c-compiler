@@ -67,7 +67,7 @@ extern YYLTYPE yylloc;
 [a-zA-Z_][a-zA-Z0-9_]*	{ set_col(); assert(yyleng < 50); yylval.str = strdup(yytext); return IDENTIFIER; }
 ("0"|[1-9]+[0-9]*)			{ set_col(); assert(yyleng < 50); yylval.str = strdup(yytext); return CONSTANT; }
 ("0"|[1-9]+[0-9]*)\.[0-9]+		{ set_col(); assert(yyleng < 50); yylval.str = strdup(yytext); return CONSTANT; }
-"'"."'"         { set_col(); yylval.str = char_to_int(yytext); return CONSTANT;}
+"'"(.|\\.)"'"         { set_col(); yylval.str = char_to_int(yytext); return CONSTANT;}
 "0x"[0-9a-fA-F]+	{ set_col(); assert(yyleng < 50); yylval.str = to_int(yytext, 16); return CONSTANT; }
 "0"[0-7]*       { set_col(); assert(yyleng < 50); yylval.str = to_int(yytext, 8); return CONSTANT; }
 "0b"[01]+		{ set_col(); assert(yyleng < 50); yylval.str = to_int(yytext, 2); return CONSTANT; }
@@ -124,8 +124,26 @@ char* to_int(char* s, int base){
 }
 
 char* char_to_int(char* s) {
-    assert(strlen(s) == 3);
-    char ch = s[1];
+    char ch;
+    if(strlen(s) == 4){
+        assert(s[1] == '\\');
+        switch(s[2]){
+            case 'a': ch=7;break;
+            case 'b': ch=8;break;
+            case 'f': ch=12;break;
+            case 'n': ch=10;break;
+            case 'r': ch=13;break;
+            case 't': ch=9;break;
+            case 'v': ch=11;break;
+            case '\\':ch=92;break;
+            case '?': ch=63;break;
+            case '\'':ch=39;break;
+            case '\"':ch=34;break;
+            case '0': ch=0;break;
+        }
+    } else {
+        ch = s[1];
+    }
     char* ret = builtin_itoa(ch, 10);
     ret[strlen(ret) - 1] = '\0';
     return ret + 1;
