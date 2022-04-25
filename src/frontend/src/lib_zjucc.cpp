@@ -58,6 +58,8 @@ lib_frontend_ret frontend_entry(int argc, const char** argv) {
         .help("use input from stdin")
         .default_value(false)
         .implicit_value(true);
+    program.add_argument("-I", "-i", "-U", "-D")
+        .help("preprocessor flags, space must be used to separate flag and parameter");
     int* n_errs = new int;
     string input_file, output_file;
     ast_node_ptr root;
