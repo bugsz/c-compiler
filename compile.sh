@@ -1,1 +1,0 @@
-clang++ -g -O3 src/codegen.cpp `llvm-config-12 --cxxflags --ldflags --system-libs --libs all` -o codegen
