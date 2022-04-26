@@ -8,6 +8,7 @@
 #include <vector>
 #include <cstring>
 #include <unistd.h>
+#include <wait.h>
 #include <iostream>
 
 // frontend header is here
@@ -15,6 +16,7 @@
 
 // include backend header here in the future
 // ......
+void backend_entry(lib_frontend_ret ret);
 
 using namespace std;
 
@@ -49,13 +51,16 @@ public:
     
     void exec() {
         set_link_library(); // link libc by default
-        char** __argv = new char* [ld_args.size()];
-        for (int i = 0;i < ld_args.size();i++) {
-            __argv[i] = strdup(ld_args[i].c_str());
-            puts(__argv[i]);
+        char** __argv = new char* [ld_args.size() + 1];
+        for (int i = 0;i < ld_args.size() + 1;i++) {
+            __argv[i] = (i == ld_args.size()) ? NULL : strdup(ld_args[i].c_str());
         }
-        ::execvp(linker_path.c_str(), __argv);
-        printf("failed\n");
+        if (fork() == 0) {   
+            int ret = ::execvp(linker_path.c_str(), __argv);
+            if(ret < 0) printf("failed\n");
+        } else {
+            wait(NULL);
+        }
     }
 private:
     string linker_path;
@@ -66,17 +71,18 @@ private:
 // After backend generates object code, the function then calls
 // system linker (e.g., GNU ld) to link runtime libraries to
 // obtain final executable files
-int main(int argc, char** argv) {
+int main(int argc, const char** argv) {
     // frontend API call is here
-    // lib_frontend_ret p = frontend_entry(argc, argv);
+    lib_frontend_ret ret = frontend_entry(argc, argv);
     // backend API call is here
     // *TODO*: complete this part with backend public APIs in the future...
     // ......
+    backend_entry(ret);
 
     // wrapper is here
     Linker ld = Linker();
     ld.add_object("output.o"); // *TODO*: use filename from backend output in the future ...
-    ld.set_target("a.out"); // *TODO*: use filename from frontend output in the future ...
+    ld.set_target(ret.output_file); // *TODO*: use filename from frontend output in the future ...
 
     ld.exec();
     return 0;
