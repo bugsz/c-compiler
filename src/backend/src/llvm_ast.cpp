@@ -29,6 +29,7 @@
 #include <iostream>
 #include <llvm-12/llvm/ADT/APInt.h>
 #include <llvm-12/llvm/ADT/StringRef.h>
+#include <memory>
 
 using namespace llvm;
 
@@ -98,6 +99,13 @@ bool isEqual(char *a, std::string b) {
     return aa == bb;
 }
 
+std::string filterString(std::string str){
+    int pos;
+    str = std::regex_replace(str, std::regex(R"(\\n)"), "\n");
+    str = std::regex_replace(str, std::regex(R"(\\t)"), "\t");
+    return str;
+}
+
 Constant *getInitVal(Type *type) {
     if(type->isDoubleTy()) return ConstantFP::get(llvmBuilder->getDoubleTy(), 0);
     else if(type->isIntegerTy(INTEGER_BITWIDTH)) {
@@ -108,6 +116,13 @@ Constant *getInitVal(Type *type) {
     std::string error_msg("In func `getInitVal`: unknown type");
     fprintf(stderr, "Error: %s\n", error_msg.c_str());
     return nullptr;
+}
+
+GlobalVariable *createGlob(Type *type, std::string name) {
+    llvmModule->getOrInsertGlobal(name, type);
+    GlobalVariable *gv = llvmModule->getNamedGlobal(name);
+    gv->setConstant(false);
+    return gv;
 }
 
 
@@ -122,7 +137,8 @@ bool isValidBinaryOperand(Value *value) {
 Function *getPrintfFunction(Module *mod) {
     const char *func_name = "printf";
     Function *func = mod->getFunction(func_name);
-    if(func) logErrorF("Cannot use `printf`, as it is a built-in function");
+    // if(func) logErrorF("Cannot use `printf`, as it is a built-in function");
+    if (func) return func;
 
     
     FunctionType *funcType = FunctionType::get(
@@ -131,6 +147,7 @@ Function *getPrintfFunction(Module *mod) {
          true); 
     func = Function::Create(funcType, Function::ExternalLinkage, func_name, mod);
     func->setCallingConv(CallingConv::C);
+    
     return func;
     // return nullptr;
 }
@@ -141,13 +158,14 @@ Value *getBuiltinFunction(std::string callee, std::vector<std::unique_ptr<ExprAS
         print("Using builtin function `printf`");
 
         std::vector<Value *> varArgs;
-        auto formatArgs = llvmBuilder->CreateGlobalString(
+        auto formatArgs = llvmBuilder->CreateGlobalStringPtr(
             (static_cast<LiteralExprAST *>(args[0].get()))->getValue()
         );
+
+        std::cout << static_cast<LiteralExprAST *>(args[0].get())->getValue() << std::endl;
         varArgs.push_back(formatArgs);
         for (int i=1;i<args.size();i++) {
             auto arg = args[i]->codegen();
-
             varArgs.push_back(arg);
         }
         
@@ -172,11 +190,12 @@ std::unique_ptr<ExprAST> generateBackendASTNode(ast_node_ptr root) {
             std::vector<std::unique_ptr<ExprAST>> exprList;
             std::vector<std::unique_ptr<ExprAST>> globalVarList;
             for (int i = 0; i < root->n_child; i++) {
-                // print("\n\n");
-                // print(root->child[i]->val);
-                // print(root->child[i]->token);
                 if(isEqual(root->child[i]->token, "VarDecl")) {
-                    globalVarList.push_back(generateBackendASTNode(root->child[i]));
+                    auto varDecl = generateBackendASTNode(root->child[i]);
+                    std::unique_ptr<VarExprAST> var(static_cast<VarExprAST *>(varDecl.release()));
+
+                    auto globalVarDecl = std::make_unique<GlobalVarExprAST>(std::move(var));
+                    globalVarList.push_back(std::move(globalVarDecl));
                 }
                 else{
                     exprList.push_back(generateBackendASTNode(root->child[i]));
@@ -380,6 +399,23 @@ Function *getFunction(std::string name) {
     return nullptr;
 }
 
+Value *getVariable(std::string name, int &isGlobal) {
+    if (auto *V = NamedValues[name]) {
+        return V;
+    }
+
+    auto key = llvmModule->getGlobalVariable(name);
+    // auto key = llvmModule->getNamedGlobal(name);
+    // auto key = llvmBuilder->CreateLoad(name);
+    if (key) {
+        isGlobal = 1;
+        // auto load = llvmBuilder->CreateLoad(key);
+        return key;
+    }
+    std::string msg = "Unknown variable name: " + name;
+    return logErrorV(msg.c_str());
+}
+
 /// CreateEntryBlockAlloca - Create an alloca instruction in the entry block of
 /// the function.  This is used for mutable variables etc.
 static AllocaInst *CreateEntryBlockAlloca(Function *TheFunction,
@@ -431,15 +467,21 @@ Value *TranslationUnitExprAST::codegen() {
     print("TranslationUnit");
 
     FunctionType *initFuncType = FunctionType::get(llvmBuilder->getVoidTy(), false);
-    Function *initFunc = Function::Create(initFuncType, Function::ExternalLinkage, "init", llvmModule.get());
+    Function *initFunc = Function::Create(initFuncType, Function::ExternalLinkage, "__global_var_init", llvmModule.get());
     llvmBuilder->SetInsertPoint(BasicBlock::Create(*llvmContext, "entry", initFunc));
+
+    // auto theBB = BasicBlock::Create(*llvmContext, "entry", llvmBuilder->GetInsertBlock()->getParent());
+    // llvmBuilder->SetInsertPoint(theBB);
 
     int globalVar_len = globalVarList.size();
     int expr_len = exprList.size();
     print(std::to_string(globalVar_len) + " " + std::to_string(expr_len));
-    
+
     for (int i=0;i<globalVar_len;i++) globalVarList[i]->codegen();
     llvmBuilder->CreateRetVoid();
+    verifyFunction(*initFunc, &llvm::errs());
+
+    // llvmBuilder->CreateCall(getFunction("__global_var_init"));
 
     for (int i=0;i<expr_len;i++) exprList[i]->codegen();
 
@@ -475,13 +517,48 @@ Value *VarExprAST::codegen() {
 
 Value *VarRefExprAST::codegen() {
     print("VarRefExpr");
-    AllocaInst *V = NamedValues[name];
-    if (!V) {
-        std::string msg = "Unknown variable name: " + name;
-        return logErrorV(msg.c_str());
+    int isGlobal = 0;
+    auto V = getVariable(name, isGlobal);
+    if (!V) return V;
+    if(isGlobal) {
+        std::cout << "Find global var: " << name << std::endl;
+        return llvmBuilder->CreateLoad(V);
+        // return V;
     }
+
     
     return llvmBuilder->CreateLoad(getVarType(*llvmContext, this->type), V, name.c_str());
+}
+
+Value *GlobalVarExprAST::codegen() {
+    print("GlobalVarExpr, typeid: " + std::to_string(type));
+    Function *currFunction = llvmBuilder->GetInsertBlock()->getParent();
+
+    auto varType = getVarType(*llvmContext, this->type);
+
+    Value *initVal;
+
+    if(init->init) {
+        initVal = init->init->codegen();
+        std::cout << getTypeString(initVal->getType()) << " " << getTypeString(varType) << " " << getLLVMTypeStr(initVal) << std::endl;
+        initVal = createCast(initVal, varType);
+
+        if(!initVal) return nullptr;
+    }
+    else {
+        std::cout << "No init val, using default" << std::endl;
+        initVal = getInitVal(varType);
+    }
+
+    auto globalVar = createGlob(getVarType(*llvmContext, type), name);
+    auto iVal = getInitVal(varType);
+    globalVar->setInitializer(iVal);
+    // llvmBuilder->CreateStore(initVal, globalVar);
+    // TODO 目前不支持初始化成某个数
+
+    return iVal;
+
+    // return initVal;
 }
 
 
@@ -551,8 +628,14 @@ Value *BinaryExprAST::codegen() {
         VarRefExprAST *lhse = static_cast<VarRefExprAST *>(lhs.get());
         Value *val = rhs->codegen();
         if (!val) return nullptr;
-        Value *variable = NamedValues[lhse->getName()];
+        // Value *variable = NamedValues[lhse->getName()];
 
+        int isGlobal = 0;
+        auto variable = getVariable(lhse->getName(), isGlobal);
+        if (!variable) return variable;
+
+
+        std::cout << getLLVMTypeStr(val) << std::endl;
         llvmBuilder->CreateStore(val, variable);
         return val;
     }
@@ -953,6 +1036,6 @@ int main(int argc, const char **argv) {
     run_lib_backend(argc, argv);
     llvmModule->print(errs(), nullptr);
     int status_code = compile();
-    std::cout << status_code << std::endl;
+    std::cout << "Compile end with status code: " << status_code << std::endl << std::endl;
     return 0;
 }

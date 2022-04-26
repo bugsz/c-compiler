@@ -1,3 +1,4 @@
+int tmp = 123;
 int loop(int a) {
     int i;
     for (i = 0; i < 10; i = i + 1) {
@@ -32,10 +33,37 @@ int test_do_while() {
 }
 
 void test_printf() {
-    __builtin_printf("hello %d %s", 1, "world");
+    __builtin_printf("hello %d\n", 1);
+}
+
+void test_sum() {
+    int i;
+    tmp = 0;
+    for(i=0;i<10;i=i+1) tmp = tmp + i;
+
+    __builtin_printf("sum: %d\n", tmp);
+}
+
+int test_global() {
+    int a=1;
+    tmp = 2;
+    __builtin_printf("Global tmp: %d, a: %d\n", tmp, a);
+    return 1;
+}
+
+int test_fib(int n) {
+    if (n == 0) return 1;
+    if (n == 1) return 1;
+    return test_fib(n-1) + test_fib(n-2);
 }
 
 int main() {
-    test_printf();
+    tmp = 2;
+    test_sum();
+    __builtin_printf("fib: %d\n", test_fib(10));
+    
+    // test_printf();
+    // string ss = "test global";
+    // __builtin_printf("test global: %d", test_global());
     return 0;
 }

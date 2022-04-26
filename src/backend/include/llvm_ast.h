@@ -61,6 +61,8 @@ enum BinaryOpType {
 ASTNodeType getNodeType(std::string token);
 int getBinaryOpType(std::string binaryOp);
 
+std::string filterString(std::string str);
+
 class ExprAST {
 public:
     // int type = UNKNOWN;
@@ -89,8 +91,9 @@ public:
     : type(type), value(value) {
         this->type = type;
         if(type == TYPEID_STR) {
-            std::cout << "  asdf" << value << std::endl;
+            // std::cout << "  asdf" << value << std::endl;
             this->value = value.substr(1, value.size() - 2);
+            this->value = filterString(this->value);
         }
     }
     Value *codegen() override;
@@ -101,9 +104,7 @@ public:
 };
 
 class VarExprAST: public ExprAST {
-    
     int type;
-    
 public:
     std::string name;
     std::unique_ptr<ExprAST> init;
@@ -113,10 +114,25 @@ public:
 
     void setType(int type) { this->type = type; }
     int getType() { return this->type; }
+    std::string &getName() { return this->name; }
+};
+
+class GlobalVarExprAST: public ExprAST {
+    int type;
+    std::string name;
+    std::unique_ptr<VarExprAST> init;
+public:
+    GlobalVarExprAST(std::unique_ptr<VarExprAST> init)
+    : init(std::move(init)) { 
+        std::cout << "global var" << std::endl;
+        type = this->init->getType(); 
+        name = this->init->getName();
+        std::cout << type << " " << name << std::endl; 
+    }
+    Value *codegen() override;
 };
 
 class VarRefExprAST: public ExprAST{
-    
     int type;
 
 public:
