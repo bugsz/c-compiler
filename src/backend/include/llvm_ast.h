@@ -56,6 +56,7 @@ enum BinaryOpType {
     DIV,
     EQ,
     LT,
+    ASSIGN,
 };
 
 ASTNodeType getNodeType(std::string token);
@@ -212,9 +213,11 @@ public:
 };
 
 class CompoundStmtExprAST: public ExprAST {
-    std::vector<std::unique_ptr<ExprAST>> exprList;
+    
 public:
-    CompoundStmtExprAST(std::vector<std::unique_ptr<ExprAST>> exprList): exprList(std::move(exprList)) {}
+    std::vector<std::unique_ptr<ExprAST>> exprList;
+    std::vector<bool> isReturnStmt;
+    CompoundStmtExprAST(std::vector<std::unique_ptr<ExprAST>> exprList, std::vector<bool> isReturnStmt): exprList(std::move(exprList)), isReturnStmt(isReturnStmt) {}
     Value *codegen() override;
 };
 

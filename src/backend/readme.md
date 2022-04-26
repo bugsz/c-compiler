@@ -3,16 +3,18 @@
 
 
 ## Examples
-
-+ TO be done
++ Please refer to `project-root/test/test.c`
 
 
 
 ## Features
 
-+ Number data type: integer and double
++ Number data type: integer(32-bit) and double
++ String data type, **but only limited to constant**
++ Global variable support
 + Basic control flow: for, if, while, do-while
-+ Function definition and execution
++ Function definition and execution, and also recursion
++ built-in function like `printf`
 + ...
 
 
@@ -45,32 +47,9 @@
   ./zjucc_backend -f ../test/loop.c --ast-dump
   ```
 
-+ For more information, please refer to `frontend/readme.md`
+  For more information, please refer to `frontend/readme.md`
 
-+ Since we don’t support print function currently, you could check the output value using the following method:
-
-  ```shell
-  clang++ test-link.cpp output.o -o test-link
-  ```
-
-  ```cpp
-  // test-link.cpp
-  #include<bits/stdc++.h>
-  
-  extern "C" {
-      int loop(int a);
-      int new_loop();
-      int test_while();
-      int test_do_while();
-  }
-  
-  using namespace std;
-  int main() {
-      cout << "Start testing" << endl;
-      int a = test_do_while();
-      cout << a << endl;
-  }
-  ```
++ Two files will be generated: `output.ll` and `output.o`. Either use `clang++ output.ll -o ./main` or `clang++ output.o -o ./main` to generate executable file.
 
   
 
