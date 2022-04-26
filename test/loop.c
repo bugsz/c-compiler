@@ -32,7 +32,7 @@ int test_do_while() {
 }
 
 void test_printf() {
-    printf("%d", 1);
+    __builtin_printf("hello %d %s", 1, "world");
 }
 
 int main() {

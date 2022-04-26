@@ -26,7 +26,9 @@
 // #include "type_utils.h"
 #include "frontend.h"
 #include <bits/stdc++.h>
+#include <iostream>
 #include <llvm-12/llvm/ADT/APInt.h>
+#include <llvm-12/llvm/ADT/StringRef.h>
 
 using namespace llvm;
 
@@ -127,15 +129,14 @@ Function *getPrintfFunction(Module *mod) {
         Type::getInt32Ty(mod->getContext()), 
         {Type::getInt8PtrTy(mod->getContext())},
          true); 
-    // Function *func = static_cast<Function>(llvmModule->getOrInsertFunction(func_name, funcType));
     func = Function::Create(funcType, Function::ExternalLinkage, func_name, mod);
-
+    func->setCallingConv(CallingConv::C);
     return func;
     // return nullptr;
 }
 
 Value *getBuiltinFunction(std::string callee, std::vector<std::unique_ptr<ExprAST>> &args) {
-    if(callee == "printf") {
+    if(callee == "__builtin_printf") {
         // return nullptr;
         print("Using builtin function `printf`");
 
@@ -146,12 +147,12 @@ Value *getBuiltinFunction(std::string callee, std::vector<std::unique_ptr<ExprAS
         varArgs.push_back(formatArgs);
         for (int i=1;i<args.size();i++) {
             auto arg = args[i]->codegen();
+
             varArgs.push_back(arg);
         }
+        
         auto func_printf = getPrintfFunction(llvmModule.get());
-        Value *val = llvmBuilder->getInt32(114514);
         return llvmBuilder->CreateCall(func_printf, varArgs);
-
     }
     return nullptr;
 }
@@ -365,6 +366,8 @@ Type *getVarType(LLVMContext &C, int type_id) {
             return Type::getDoubleTy(C);
         case TYPEID_VOID:
             return Type::getVoidTy(C);
+        case TYPEID_STR:
+            return Type::getInt8PtrTy(C);
         default:
             return nullptr;
     }
@@ -493,6 +496,45 @@ Value *LiteralExprAST::codegen() {
             auto doubleCode = ConstantFP::get(*llvmContext, APFloat(atof(value.c_str())));
             return doubleCode;
         }
+        case TYPEID_STR: {
+            std::cout << "Creating string literal: " << value << std::endl;
+            
+            // auto strCode = ConstantDataArray::getString(*llvmContext, value, true);
+            // // auto globalVar = GlobalVariable(*llvmModule, strCode->getType(), true, GlobalValue::PrivateLinkage, strCode);
+
+
+            auto str = this->value;
+            auto charType = llvm::IntegerType::get(*llvmContext, 8);
+
+
+            //1. Initialize chars vector
+            std::vector<llvm::Constant *> chars(str.length());
+            for(unsigned int i = 0; i < str.size(); i++) {
+            chars[i] = llvm::ConstantInt::get(charType, str[i]);
+            }
+
+            //1b. add a zero terminator too
+            chars.push_back(llvm::ConstantInt::get(charType, 0));
+
+
+            //2. Initialize the string from the characters
+            auto stringType = llvm::ArrayType::get(charType, chars.size());
+
+            //3. Create the declaration statement
+            auto globalDeclaration = (llvm::GlobalVariable*) llvmModule->getOrInsertGlobal(".str", stringType);
+            globalDeclaration->setInitializer(llvm::ConstantArray::get(stringType, chars));
+            globalDeclaration->setConstant(true);
+            globalDeclaration->setLinkage(llvm::GlobalValue::LinkageTypes::PrivateLinkage);
+            globalDeclaration->setUnnamedAddr (llvm::GlobalValue::UnnamedAddr::Global);
+
+
+
+            //4. Return a cast to an i8*
+            return llvm::ConstantExpr::getBitCast(globalDeclaration, charType->getPointerTo());
+
+            // return strCode;
+        }
+
         default:
             return logErrorV("Invalid type!");
     }

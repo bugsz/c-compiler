@@ -63,7 +63,7 @@ int getBinaryOpType(std::string binaryOp);
 
 class ExprAST {
 public:
-    int type = UNKNOWN;
+    // int type = UNKNOWN;
     virtual ~ExprAST() = default;
     virtual Value *codegen() = 0;
 };
