@@ -327,7 +327,7 @@ std::string simplecpp::TokenList::stringify() const
 
         while (tok->location.line > loc.line) {
             ret << '\n';
-            for (int i = 0;i < tok->location.col;i++) {
+            for (int i = 1;i < tok->location.col;i++) {
                 ret << ' ';
             }
             loc.line++;
