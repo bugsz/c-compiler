@@ -475,6 +475,20 @@ static void semantic_check_impl(int* n_errs, ast_node_ptr node) {
         if (token == "FunctionDecl") {
             assert(sym_tab.get_cur_sym_tab()->parent == nullptr);
             sym_tab.add(node->val, node->type_id, true);
+            if (node->n_child > 0) { // Not function prototype
+                // Make every function return at the end of the block
+                switch (node->type_id) {
+                    case TYPEID_VOID:
+                        append_child(node->child[node->n_child - 1], mknode("ReturnStmt"));
+                        break;
+                    default:
+                        ast_node_ptr ret0 = mknode("Literal");
+                        ret0->type_id = TYPEID_INT;
+                        strcpy(ret0->val, "0");
+                        append_child(node->child[node->n_child - 1], mknode("ReturnStmt", ret0));
+                        break;
+                }
+            }
         }
         already_checked = true;
         if (token == "CompoundStmt" && string(node->parent->token) == "FunctionDecl") {
