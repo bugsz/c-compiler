@@ -284,6 +284,11 @@ static bool lvalue_validation(ast_node_ptr left, ast_node_ptr right, ast_node_pt
     string ltok(left->token);
     if (ltok != "DeclRefExpr") {
         return false;
+    } else {
+        auto scope_sym_tab = sym_tab.get_global_sym_tab()->sym_tab_impl;
+        auto it = scope_sym_tab.find(left->val);
+        if (it != scope_sym_tab.end() && it->second.func())
+            return false;
     }
     return true;
 }
