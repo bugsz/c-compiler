@@ -1,6 +1,15 @@
 /*
+ * Modify `std::string simplecpp::TokenList::stringify() const`
+ * to make output code looks prettier. Now the identations/spaces
+ * of the output code is the same as input code
+ *
+ * Copyright (C) 2022 Zhiyuan Pan
+ * Last Edit Date: Apr 27, 2022
+ */
+
+/*
  * simplecpp - A simple and high-fidelity C/C++ preprocessor library
- * Copyright (C) 2016-2022 Daniel Marjamäki.
+ * Copyright (C) 2016-2022 DanielL Marjamäki.
  *
  * This library is free software: you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -318,11 +327,17 @@ std::string simplecpp::TokenList::stringify() const
 
         while (tok->location.line > loc.line) {
             ret << '\n';
+            for (int i = 0;i < tok->location.col;i++) {
+                ret << ' ';
+            }
             loc.line++;
         }
 
-        if (sameline(tok->previous, tok))
-            ret << ' ';
+        if (sameline(tok->previous, tok)) {
+            int diff = tok->location.col - tok->previous->location.col - tok->previous->str().length();
+            if (diff > 0)
+                ret << ' ';    
+        }
 
         ret << tok->str();
 
