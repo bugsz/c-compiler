@@ -56,7 +56,7 @@ lib_frontend_ret frontend_entry(int argc, const char** argv) {
             yyin = fopen(pp_filename.c_str(), "r");
             if (!yyin)  throw parse_error("No such file or directory: " + pp_filename);
         }
-        strcpy(global_filename, pp_filename.c_str());
+        strcpy(global_filename, input_file.c_str());
         if (args["-E"] == true && args["--fno-preprocess"] == false) {
             cout << pp_res << endl;
             unlink(tmp_file);
@@ -64,7 +64,6 @@ lib_frontend_ret frontend_entry(int argc, const char** argv) {
         }
         parse(n_errs, root, tmp_file);
         fclose(yyin);
-        unlink(tmp_file);
         if (*n_errs > 0) {
             throw parse_error(to_string(*n_errs) + " error(s) generated.");
         }
@@ -81,6 +80,7 @@ lib_frontend_ret frontend_entry(int argc, const char** argv) {
     }
     catch (const exception& err) {
         cerr << err.what() << endl;
+        unlink(tmp_file);
         exit(1);
     }
     return { *n_errs, input_file, output_file, root };
