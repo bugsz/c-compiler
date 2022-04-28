@@ -372,7 +372,8 @@ ITERATE_STMT :
     | FOR '(' EXPR_STMT EXPR_STMT ')' STMT {
         ast_node_ptr delim = mknode("ForDelimiter");
         ast_node_ptr t = mknode("TO_BE_MERGED", $3, $4);
-        ast_node_ptr t2 = mknode("TO_BE_MERGED", delim, $6);
+        ast_node_ptr nullstmt = mknode("NullStmt");
+        ast_node_ptr t2 = mknode("TO_BE_MERGED", nullstmt, delim, $6);
         $$ = mknode("ForStmt", t, t2);
     }
     | WHILE '(' EXPR ')' STMT {
