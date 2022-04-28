@@ -82,7 +82,8 @@ static void print_node(ast_node_ptr node) {
         strcmp(node->token, "IfStmt") == 0 ||
         strcmp(node->token, "WhileStmt") == 0 ||
         strcmp(node->token, "DoStmt") == 0 ||
-        strcmp(node->token, "ForDelimiter") == 0) {
+        strcmp(node->token, "ForDelimiter") == 0 ||
+        strcmp(node->token, "VariadicParms") == 0) {
     } else {
         sprintf(type, " '%s'", strcmp(node->token, "FunctionDecl") == 0 ? get_function_type(node->val) : typeid_deref[node->type_id]);
     }
@@ -113,28 +114,6 @@ void print_ast(ast_node_ptr root) {
     print_ast_impl(root);
 }
 
-static void shrink_to_fit(ast_node_ptr node) {
-    if(node == NULL) return;
-    if (node->n_child == 0) {
-        free(node->child);
-        node->child = NULL;
-        return;
-    }
-    ast_node_ptr* new_child = malloc(sizeof(ast_node_ptr) * node->n_child);
-    for (int i = 0; i < node->n_child; i++) {
-        new_child[i] = node->child[i];
-    }
-    free(node->child);
-    node->child = new_child;
-}
-
-static void shrink_ast_to_fit(ast_node_ptr node) {
-    shrink_to_fit(node);
-    for (int i = 0; i < node->n_child; i++) {
-        shrink_ast_to_fit(node->child[i]);
-    }
-}
-
 static void insert_node_idx(ast_node_ptr node, ast_node_ptr new_node, int idx) {
     ast_node_ptr* new_child = malloc(sizeof(ast_node_ptr) * (node->n_child + 1));
     for (int i = 0; i < idx; i++) {
@@ -161,6 +140,9 @@ static void merge_node(ast_node_ptr node) {
             for (int j = 1;j < to_delete->n_child;j++) {
                 insert_node_idx(node, to_delete->child[j], i + j);
             }
+            for (int t = 0;t < node->n_child;t++) {
+                node->child[t]->parent = node;
+            }
         }
     }
 }
@@ -182,7 +164,6 @@ static void reverse_array(ast_node_ptr* array, int n) {
 }
 
 void postproc_after_parse(ast_node_ptr root) {
-    // shrink_ast_to_fit(root);
     merge_node_from_root(root);
     reverse_array(root->child, root->n_child);
 }

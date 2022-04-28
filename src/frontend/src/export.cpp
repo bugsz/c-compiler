@@ -71,6 +71,7 @@ lib_frontend_ret frontend_entry(int argc, const char** argv) {
         if (*n_errs > 0) {
             throw parse_error(to_string(*n_errs) + " error(s) generated.");
         }
+        unlink(tmp_file);
         if (args["--ast-dump"] == true) print_ast(root);
         if (args["--sym-dump"] == true) print_sym_tab();
         if (args["--static-analyze"] == true) {
