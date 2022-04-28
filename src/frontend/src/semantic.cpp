@@ -325,20 +325,20 @@ static void semantic_check_impl(int* n_errs, ast_node_ptr node) {
         if (token == "FunctionDecl") {
             assert(sym_tab.get_cur_sym_tab()->parent == nullptr);
             sym_tab.add(node->val, node->type_id, true);
-            if (node->n_child > 0) { // Not function prototype
-                // Make every function return at the end of the block
-                switch (node->type_id) {
-                    case TYPEID_VOID:
-                        append_child(node->child[node->n_child - 1], mknode("ReturnStmt"));
-                        break;
-                    default:
-                        ast_node_ptr ret0 = mknode("Literal");
-                        ret0->type_id = TYPEID_INT;
-                        strcpy(ret0->val, "0");
-                        append_child(node->child[node->n_child - 1], mknode("ReturnStmt", ret0));
-                        break;
-                }
-            }
+            // if (node->n_child > 0) { // Not function prototype
+            //     // Make every function return at the end of the block
+            //     switch (node->type_id) {
+            //         case TYPEID_VOID:
+            //             append_child(node->child[node->n_child - 1], mknode("ReturnStmt"));
+            //             break;
+            //         default:
+            //             ast_node_ptr ret0 = mknode("Literal");
+            //             ret0->type_id = TYPEID_INT;
+            //             strcpy(ret0->val, "0");
+            //             append_child(node->child[node->n_child - 1], mknode("ReturnStmt", ret0));
+            //             break;
+            //     }
+            // }
         }
         already_checked = true;
         if (token == "CompoundStmt" && string(node->parent->token) == "FunctionDecl") {
@@ -367,11 +367,15 @@ static void semantic_check_impl(int* n_errs, ast_node_ptr node) {
                 if (string(node->val).find("__builtin_") != 0) {
                     auto sym_attr = sym_tab.get_global_sym_tab()->sym_tab_impl.find(node->val)->second;
                     assert(sym_attr.param_nums() >= 0);
-                    if (node->parent->n_child - 1 != sym_attr.param_nums()) {
+                    if (!sym_attr.has_va_args() && node->parent->n_child - 1 != sym_attr.param_nums()) {
                         semantic_error(n_errs, node->pos,
                             "invalid number of arguments to function '%s', expected %d argument(s)",
                             node->val, sym_attr.param_nums());
-                    }   
+                    } else if (sym_attr.has_va_args() && node->parent->n_child - 1 < sym_attr.param_nums()) {
+                        semantic_error(n_errs, node->pos,
+                            "invalid number of arguments to function '%s', expected at least %d argument(s)",
+                            node->val, sym_attr.param_nums());
+                    }
                 }
             }
         }
@@ -545,6 +549,10 @@ static void semantic_check_impl(int* n_errs, ast_node_ptr node) {
         if (node->n_child > 0) {
             node->type_id = node->child[0]->type_id;
         }
+    } else if (token == "VariadicParms") {
+        assert(string(node->parent->token) == "FunctionDecl");
+        assert(sym_tab.get_cur_sym_tab()->parent != nullptr);
+        sym_tab.get_global_sym_tab()->sym_tab_impl.find(node->parent->val)->second.set_va_args();
     }
     if (already_checked) return;
     else {

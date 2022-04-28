@@ -42,6 +42,7 @@ public:
                     ret += ",";
                 }
             }
+            if (va_args) ret += ",...";
             ret += ")";
             return ret;
         }
@@ -51,10 +52,19 @@ public:
         return is_func;
     }
 
+    void set_va_args(bool has = true) {
+        va_args = true;
+    }
+
+    bool has_va_args() {
+        return va_args;
+    }
+
 private:
     // value type for expr/literal, return type for function
     int type_id;
     bool is_func;
+    bool va_args;
     vector<int> param_type_id;
 };
 

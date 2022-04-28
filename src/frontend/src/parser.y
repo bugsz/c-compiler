@@ -131,6 +131,7 @@ PARAM_LIST_RIGHT :
     | ',' PARAM_DECL {
         $$ = $2;
     }
+    | ',' '.' '.' '.' {$$ = mknode("VariadicParms");}
     ;
 
 PARAM_DECL :
