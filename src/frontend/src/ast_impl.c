@@ -83,7 +83,8 @@ static void print_node(ast_node_ptr node) {
         strcmp(node->token, "WhileStmt") == 0 ||
         strcmp(node->token, "DoStmt") == 0 ||
         strcmp(node->token, "ForDelimiter") == 0 ||
-        strcmp(node->token, "VariadicParms") == 0) {
+        strcmp(node->token, "VariadicParms") == 0 ||
+        strcmp(node->token, "NullStmt") == 0) {
     } else {
         sprintf(type, " '%s'", strcmp(node->token, "FunctionDecl") == 0 ? get_function_type(node->val) : typeid_deref[node->type_id]);
     }
