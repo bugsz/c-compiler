@@ -11,7 +11,7 @@ using std::cin, std::cout, std::endl, std::hex;
 using std::vector, std::unordered_map;
 using std::runtime_error;
 
-extern const char* typeid_deref[8];
+extern const char* typeid_deref[15];
 
 class SymbolAttr {
     friend class SymbolTable;
