@@ -56,7 +56,7 @@ extern int yycolno;
 %token SIZEOF BUILTIN_ITOA BUILTIN_STRCAT BUILTIN_STRLEN BUILTIN_STRGET
 
 %type <node> PROG FN_DEF PARAM_LIST PARAM_LIST_RIGHT PARAM_DECL
-%type <node> GLOBAL_DECL DECL DECL_LIST DECLARATOR
+%type <node> GLOBAL_DECL DECL DECL_LIST DECLARATOR ARRAY_DECL INIT_LIST INIT_LIST_RIGHT
 %type <node> STMT STMT_LIST COMPOUND_STMT SELECT_STMT EXPR_STMT ITERATE_STMT JMP_STMT
 %type <node> EXPR FUNC_NAME ARG_LIST ARG_LIST_RIGHT
 %type <typeid> TYPE_SPEC
@@ -142,6 +142,14 @@ PARAM_DECL :
         strcpy($$->val, $2);
         $$->pos = @2;
     }
+    | TYPE_SPEC IDENTIFIER '[' ']' {
+        if($1 >= TYPEID_VOID_PTR)
+            yyerror(n_errs, root, tmp_file, "multi-dimensional pointer is not supported");
+        $$ = mknode("ParmVarDecl");
+        $$->type_id = $1 + TYPEID_VOID_PTR - TYPEID_VOID;
+        strcpy($$->val, $2);
+        $$->pos = @2;
+    }
     ;
 
 DECL :
@@ -150,6 +158,25 @@ DECL :
         $$->type_id = $1;
         $$->pos = @2;
         strcpy($$->val, $2);
+    }
+    | TYPE_SPEC IDENTIFIER ARRAY_DECL ';' { 
+        if($1 >= TYPEID_VOID_PTR)
+            yyerror(n_errs, root, tmp_file, "multi-dimensional pointer is not supported");
+        ast_node_ptr arr_decl = $3, temp;
+        $3->type_id = $1 + TYPEID_VOID_PTR - TYPEID_VOID;
+        $3->pos = @2;
+        temp = mknode("VarDecl");
+        temp->type_id = $1;
+        temp->pos = @2;
+        strcpy(temp->val, $2);
+        append_child(arr_decl, temp);
+        assert(arr_decl->n_child == 2 || arr_decl->n_child == 1);
+        if(arr_decl->n_child == 2) {
+            ast_node_ptr t = arr_decl->child[0];
+            arr_decl->child[0] = arr_decl->child[1];
+            arr_decl->child[1] = t;
+        }
+        $$ = arr_decl;
     }
     ;
 
@@ -164,6 +191,50 @@ DECL_LIST :
 DECLARATOR :
         { $$ = NULL; }
     | '=' EXPR { 
+        $$ = $2;
+    }
+    ;
+
+ARRAY_DECL :
+    '[' CONSTANT ']' {
+        $$ = mknode("ArrayDecl");
+        $$->pos = @1;
+        strcpy($$->val, $2);
+    }
+    | '[' CONSTANT ']' '=' '{' INIT_LIST '}' { 
+        ast_node_ptr temp = mknode("InitializerList", $6);
+        $$ = mknode("ArrayDecl", temp);
+        $$->pos = @4;
+        strcpy($$->val, $2);
+    }
+    | '[' ']' '=' '{' INIT_LIST '}' {
+        ast_node_ptr temp = mknode("InitializerList", $5);
+        $$ = mknode("ArrayDecl", temp);
+        $$->pos = @3;
+        strcpy($$->val, "length_tbd");
+    }
+    ;
+
+INIT_LIST :
+    EXPR INIT_LIST_RIGHT {
+        $$ = mknode("TO_BE_MERGED", $1, $2);
+    }
+    | EXPR {
+        $$ = $1;
+    }
+    | EXPR ',' {
+        $$ = $1;
+    }
+    ;
+
+INIT_LIST_RIGHT :
+    ',' EXPR INIT_LIST_RIGHT {
+        $$ = mknode("TO_BE_MERGED", $2, $3);
+    }
+    | ',' EXPR {
+        $$ = $2;
+    }
+    | ',' EXPR ',' {
         $$ = $2;
     }
     ;
@@ -301,6 +372,13 @@ EXPR :
     | '(' TYPE_SPEC ')' EXPR %prec '!' {
         $$ = mknode("ExplicitCastExpr", $4);
         $$->type_id = $2;
+        $$->pos = @1;
+    }
+    | IDENTIFIER '[' EXPR ']' %prec '!' {
+        ast_node_ptr temp = mknode("DeclRefExpr");
+        strcpy(temp->val, $1);
+        temp->pos = @1;
+        $$ = mknode("ArraySubscriptExpr", temp, $3);
         $$->pos = @1;
     }
     | FUNC_NAME '(' ARG_LIST ')' { 

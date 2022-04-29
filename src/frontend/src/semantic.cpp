@@ -313,7 +313,8 @@ static void semantic_check_impl(int* n_errs, ast_node_ptr node) {
     }
     bool already_checked = false;
     string token(node->token);
-    if (token == "VarDecl" || token == "ParmVarDecl") {
+    if ((token == "VarDecl" || token == "ParmVarDecl")
+        && string(node->parent->token) != "ArrayDecl") {
         if (is_declared(node->val)) {
             semantic_error(n_errs, node->pos, "redefinition of '%s'", node->val);
         } else {
@@ -579,6 +580,37 @@ static void semantic_check_impl(int* n_errs, ast_node_ptr node) {
         assert(string(node->parent->token) == "FunctionDecl");
         assert(sym_tab.get_cur_sym_tab()->parent != nullptr);
         sym_tab.get_global_sym_tab()->sym_tab_impl.find(node->parent->val)->second.set_va_args();
+    } else if (token == "ArrayDecl") {
+        assert(string(node->child[0]->token) == "VarDecl");
+        if (get_literal_type(node->val) > TYPEID_LONG) {
+            semantic_error(n_errs, node->pos, "array size must be an integer");
+        }
+        if (is_declared(node->child[0]->val)) {
+            semantic_error(n_errs, node->pos, "redefinition of '%s'", node->child[0]->val);
+        } else {
+            sym_tab.add(node->child[0]->val, node->type_id);
+        }
+        if (node->n_child == 2) {
+            int init_num = node->child[1]->n_child;
+            if (string(node->val) == "length_tbd") {
+                sprintf(node->val, "%d", init_num);
+            } else {
+                int len = atoi(node->val);
+                if (len < init_num) {
+                    semantic_error(n_errs, node->pos, "array length %d is smaller than initializer list size %d", len, init_num);
+                }
+            }
+        } 
+    } else if (token == "ArraySubscriptExpr") {
+        assert(node->n_child == 2);
+        already_checked = true;
+        for (int i = 0;i < node->n_child;i++) {
+            semantic_check_impl(n_errs, node->child[i]);
+        }
+        if (node->child[1]->type_id > TYPEID_LONG) {
+            semantic_error(n_errs, node->pos, "array subscript must be an integer");
+        }
+        node->type_id = ptr_deref_type(node->child[0]->type_id);
     }
     if (already_checked) return;
     else {
