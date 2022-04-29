@@ -47,6 +47,14 @@ extern YYLTYPE yylloc;
 "void"		{ set_col(); yylval.typeid = TYPEID_VOID; return VOID; }
 "string"    { set_col(); yylval.typeid = TYPEID_STR; return STRING; }
 
+"void"[ \t\r\n]*\*   { set_col(); yylval.typeid = TYPEID_VOID_PTR; return VOID_PTR; }
+"char"[ \t\r\n]*\*   { set_col(); yylval.typeid = TYPEID_CHAR_PTR; return CHAR_PTR; }
+"short"[ \t\r\n]*\*  { set_col(); yylval.typeid = TYPEID_SHORT_PTR; return SHORT_PTR; }
+"int"[ \t\r\n]*\*    { set_col(); yylval.typeid = TYPEID_INT_PTR; return INT_PTR; }
+"long"[ \t\r\n]*\*   { set_col(); yylval.typeid = TYPEID_LONG_PTR; return LONG_PTR; }
+"float"[ \t\r\n]*\*  { set_col(); yylval.typeid = TYPEID_FLOAT_PTR; return FLOAT_PTR; }
+"double"[ \t\r\n]*\* { set_col(); yylval.typeid = TYPEID_DOUBLE_PTR; return DOUBLE_PTR; }
+
 "if"        { set_col(); return IF; }
 "else"      { set_col(); return ELSE; }
 "while"     { set_col(); return WHILE; }

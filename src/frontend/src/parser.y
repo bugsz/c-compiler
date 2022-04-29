@@ -47,6 +47,7 @@ extern int yycolno;
 
 %token <str> IDENTIFIER
 %token <typeid> CHAR SHORT INT LONG FLOAT DOUBLE VOID STRING
+%token <typeid> VOID_PTR CHAR_PTR SHORT_PTR INT_PTR LONG_PTR FLOAT_PTR DOUBLE_PTR
 %token <str> CONSTANT
 %token LE GE EQ NE
 %token IF ELSE
@@ -68,7 +69,7 @@ extern int yycolno;
 %left '>' '<' LE GE
 %left '+' '-'
 %left '*' '/' '%'
-%right '!' '~' SIZEOF
+%right '!' '~' SIZEOF '&'
 %left '(' ')'
 
 %% 
@@ -189,6 +190,13 @@ TYPE_SPEC :
     | DOUBLE {}
     | VOID {}
     | STRING {}
+    | VOID_PTR {}
+    | CHAR_PTR {}
+    | SHORT_PTR {}
+    | INT_PTR {}
+    | LONG_PTR {}
+    | FLOAT_PTR {}
+    | DOUBLE_PTR {}
     ;
 
 COMPOUND_STMT :
@@ -278,6 +286,21 @@ EXPR :
     | '~' EXPR {
         $$ = mknode("UnaryOperator", $2);
         strcpy($$->val, "~");
+        $$->pos = @1;
+    }
+    | '*' EXPR %prec '!' {
+        $$ = mknode("UnaryOperator", $2);
+        strcpy($$->val, "*");
+        $$->pos = @1;
+    }
+    | '&' EXPR %prec '!' {
+        $$ = mknode("UnaryOperator", $2);
+        strcpy($$->val, "&");
+        $$->pos = @1;
+    }
+    | '(' TYPE_SPEC ')' EXPR %prec '!' {
+        $$ = mknode("ExplicitCastExpr", $4);
+        $$->type_id = $2;
         $$->pos = @1;
     }
     | FUNC_NAME '(' ARG_LIST ')' { 
