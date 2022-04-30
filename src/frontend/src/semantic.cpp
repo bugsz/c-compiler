@@ -588,7 +588,7 @@ static void semantic_check_impl(int* n_errs, ast_node_ptr node) {
         if (is_declared(node->child[0]->val)) {
             semantic_error(n_errs, node->pos, "redefinition of '%s'", node->child[0]->val);
         } else {
-            sym_tab.add(node->child[0]->val, node->type_id);
+            sym_tab.add(node->child[0]->val, node->child[0]->type_id);
         }
         if (node->n_child == 2) {
             int init_num = node->child[1]->n_child;

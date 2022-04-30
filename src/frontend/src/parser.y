@@ -163,10 +163,10 @@ DECL :
         if($1 >= TYPEID_VOID_PTR)
             yyerror(n_errs, root, tmp_file, "multi-dimensional pointer is not supported");
         ast_node_ptr arr_decl = $3, temp;
-        $3->type_id = $1 + TYPEID_VOID_PTR - TYPEID_VOID;
+        $3->type_id = $1;
         $3->pos = @2;
         temp = mknode("VarDecl");
-        temp->type_id = $1;
+        temp->type_id = $1  + TYPEID_VOID_PTR - TYPEID_VOID;
         temp->pos = @2;
         strcpy(temp->val, $2);
         append_child(arr_decl, temp);
