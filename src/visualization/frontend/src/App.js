@@ -52,7 +52,7 @@ function App() {
             headerBordered
           >
             <ProCard title="Editor" 
-              colSpan="33%" 
+              colSpan="25%" 
               className='card' 
               extra={<Button type="primary" onClick={handleCompile}>Compile</Button>}>
               <Editor
@@ -64,12 +64,12 @@ function App() {
               />
             </ProCard>
             <ProCard title="Abstract Syntax Tree" 
-                    colSpan="33%" 
+                    colSpan="60%" 
                     className='card' 
                     extra={<Button type="primary" onClick={handleSave}>Save</Button>}>
             <Graph ref={graphRef} data={data}></Graph>
             </ProCard>
-            <ProCard title="Log" subTitle="Running Result" colSpan="33%" className='card'>
+            <ProCard title="Log" subTitle="Running Result" colSpan="15%" className='card'>
               <div>日志</div>
             </ProCard>
           </ProCard>
