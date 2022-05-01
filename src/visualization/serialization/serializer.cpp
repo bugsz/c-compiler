@@ -4,7 +4,7 @@
 
 using namespace std;
 extern char* typeid_deref[];
-static string print_node(ast_node_ptr node) {
+static string print_node(ast_node_ptr node, bool pretty = false) {
     static int count = 0;
     static int tabs = 0;
     if (node == NULL)
@@ -25,35 +25,48 @@ static string print_node(ast_node_ptr node) {
         strcmp(node->token, "NullStmt") == 0 ||
         strcmp(node->token, "InitializerList") == 0) {
     } else {
-        sprintf(type, " '%s'", typeid_deref[node->type_id]);
+        sprintf(type, "'%s'", typeid_deref[node->type_id]);
     }
     string children = "";
     tabs += 2;
     for(int i = 0; i < node->n_child; i++){
-        children += (i > 0 ? ",\n" : "") + print_node(node->child[i]);
+        children += (i > 0 ? (pretty ? ",\n":",") : "") + print_node(node->child[i], pretty);
     }
     tabs -= 2;
     string whitespace(4*tabs, ' ');
     string whitespaceplus(4*tabs+4, ' ');
-    return fmt::format("{}{{ \
-                        \n{}\"id\": \"{}\", \
-                        \n{}\"label\": \"{}\", \
-                        \n{}\"position\": \"{}\", \
-                        \n{}\"val\": \"{}\",  \
-                        \n{}\"ctype\": \"{}\", \
-                        \n{}\"type\": \"circle\", \
-                        \n{}\"children\": [\n{}{}\n{}] \
-                        \n{}}}", 
-                        whitespace,
-                        whitespaceplus, fmt::format("node-{}", count++), 
-                        whitespaceplus, node->token, 
-                        whitespaceplus, position, 
-                        whitespaceplus, node->val, 
-                        whitespaceplus, type,
-                        whitespaceplus, 
-                        whitespaceplus, children, whitespaceplus, whitespaceplus,
-                        whitespace
-                        );
+    string val = node->val;
+    if(node->type_id == TYPEID_STR && strcmp(node->token, "Literal") == 0)
+        val = val.substr(1, strlen(node->val)-2);
+    if(pretty)
+        return fmt::format("{}{{ \
+                            \n{}\"id\": \"{}\", \
+                            \n{}\"label\": \"{}\", \
+                            \n{}\"position\": \"{}\", \
+                            \n{}\"value\": \"{}\",  \
+                            \n{}\"ctype\": \"{}\", \
+                            \n{}\"type\": \"circle\", \
+                            \n{}\"children\": [\n{}{}\n{}] \
+                            \n{}}}", 
+                            whitespace,
+                            whitespaceplus, fmt::format("node-{}", count++), 
+                            whitespaceplus, node->token, 
+                            whitespaceplus, position, 
+                            whitespaceplus, val, 
+                            whitespaceplus, type,
+                            whitespaceplus, 
+                            whitespaceplus, children, whitespaceplus, whitespaceplus,
+                            whitespace
+                            );
+    else
+        return fmt::format("{{\"id\":\"{}\",\"label\":\"{}\",\"position\":\"{}\",\"val\":\"{}\",\"ctype\":\"{}\",\"type\": \"circle\",\"children\":[{}]}}", 
+                            fmt::format("node-{}", count++), 
+                            node->token, 
+                            position, 
+                            val, 
+                            type,
+                            children
+                            );
 }
 
 
