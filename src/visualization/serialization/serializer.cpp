@@ -3,12 +3,9 @@
 #include <bits/stdc++.h>
 
 using namespace std;
-
-static const char* typeid_deref[] = {
-    "void", "char", "short", "int", "long", "float", "double", "string"
-};
-
+extern char* typeid_deref[];
 static string print_node(ast_node_ptr node) {
+    static int count = 0;
     static int tabs = 0;
     if (node == NULL)
         return "";
@@ -16,15 +13,19 @@ static string print_node(ast_node_ptr node) {
     if (node->pos.last_line * node->pos.last_column) {
         sprintf(position, "<%d:%d>", node->pos.last_line, node->pos.last_column);
     }
-    if (strcmp(node->token, "TranslationUnit") == 0 ||
+    if (strcmp(node->token, "TranslationUnitDecl") == 0 ||
         strcmp(node->token, "CompoundStmt") == 0 ||
         strcmp(node->token, "DeclStmt") == 0 ||
         strcmp(node->token, "ForStmt") == 0 ||
         strcmp(node->token, "IfStmt") == 0 ||
         strcmp(node->token, "WhileStmt") == 0 ||
-        strcmp(node->token, "DoStmt") == 0) {
+        strcmp(node->token, "DoStmt") == 0 ||
+        strcmp(node->token, "ForDelimiter") == 0 ||
+        strcmp(node->token, "VariadicParms") == 0 ||
+        strcmp(node->token, "NullStmt") == 0 ||
+        strcmp(node->token, "InitializerList") == 0) {
     } else {
-        sprintf(type, "%s", typeid_deref[node->type_id]);
+        sprintf(type, " '%s'", typeid_deref[node->type_id]);
     }
     string children = "";
     tabs += 2;
@@ -35,17 +36,21 @@ static string print_node(ast_node_ptr node) {
     string whitespace(4*tabs, ' ');
     string whitespaceplus(4*tabs+4, ' ');
     return fmt::format("{}{{ \
-                        \n{}\"token\": \"{}\", \
+                        \n{}\"id\": \"{}\", \
+                        \n{}\"label\": \"{}\", \
                         \n{}\"position\": \"{}\", \
                         \n{}\"val\": \"{}\",  \
-                        \n{}\"type\": \"{}\", \
+                        \n{}\"ctype\": \"{}\", \
+                        \n{}\"type\": \"circle\", \
                         \n{}\"children\": [\n{}{}\n{}] \
                         \n{}}}", 
                         whitespace,
+                        whitespaceplus, fmt::format("node-{}", count++), 
                         whitespaceplus, node->token, 
                         whitespaceplus, position, 
                         whitespaceplus, node->val, 
-                        whitespaceplus, type, 
+                        whitespaceplus, type,
+                        whitespaceplus, 
                         whitespaceplus, children, whitespaceplus, whitespaceplus,
                         whitespace
                         );
