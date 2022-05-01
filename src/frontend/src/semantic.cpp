@@ -27,6 +27,7 @@ static bool warning_flag = false; // disable warning if true
 static void semantic_warning(ast_loc_t loc, const char* fmt, ...);
 
 static SymbolTable sym_tab;
+static TypeAliasTable type_alias_tab;
 
 int get_literal_type(const char* literal) {
     string test(literal);
@@ -83,6 +84,14 @@ int get_type_size(int type_id){
     default:
         return -1;
     }
+}
+
+void add_type_alias(const char* name, int type_id) {
+    type_alias_tab.add_typedef(name, type_id);
+}
+
+int get_type_alias(const char* name) {
+    return type_alias_tab.get_typeid(name);
 }
 
 static int ptr_deref_type(int type_id) {

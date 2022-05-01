@@ -24,6 +24,9 @@ extern "C" {
     int is_declared(const char* name);
     void print_sym_tab();
 
+    void add_type_alias(const char* name, int type_id);
+    int get_type_alias(const char* name);
+
 #ifdef __cplusplus
 }
 #endif

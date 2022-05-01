@@ -15,6 +15,7 @@
 #include "parser.h"
 #include "config.h"
 #include "builtin.h"
+#include "semantic.h"
 
 int yycolno = 1;
 char yyline[1024] = {0};
@@ -26,6 +27,8 @@ void set_include();
 
 char* to_int(char* s, int base);
 char* char_to_int(char* s);
+
+int check_type();
 
 extern YYLTYPE yylloc;
 #define YY_USER_ACTION         \
@@ -64,6 +67,8 @@ extern YYLTYPE yylloc;
 "continue"  { set_col(); return CONTINUE; }
 "return"    { set_col(); return RETURN; }
 
+"typedef"   { set_col(); return TYPEDEF; }
+
 "sizeof"    { set_col(); return SIZEOF; }
 "__builtin_itoa" { set_col(); return BUILTIN_ITOA; }
 "__builtin_strcat" { set_col(); return BUILTIN_STRCAT; }
@@ -72,7 +77,7 @@ extern YYLTYPE yylloc;
 
 "#line"[ \t]+[0-9]+[ \t]+.*\n { set_include();}
 
-[a-zA-Z_][a-zA-Z0-9_]*	{ set_col(); assert(yyleng < 50); yylval.str = strdup(yytext); return IDENTIFIER; }
+[a-zA-Z_][a-zA-Z0-9_]*	{ set_col(); assert(yyleng < 50); return check_type(); }
 ("0"|[1-9]+[0-9]*)			{ set_col(); assert(yyleng < 50); yylval.str = strdup(yytext); return CONSTANT; }
 ("0"|[1-9]+[0-9]*)\.[0-9]+		{ set_col(); assert(yyleng < 50); yylval.str = strdup(yytext); return CONSTANT; }
 "'"(.|\\.)"'"         { set_col(); yylval.str = char_to_int(yytext); return CONSTANT;}
@@ -173,4 +178,32 @@ char* char_to_int(char* s) {
     char* ret = builtin_itoa(ch, 10);
     ret[strlen(ret) - 1] = '\0';
     return ret + 1;
+}
+
+int check_type(){
+    int expect_type = get_type_alias(yytext);
+    if(expect_type < 0){
+        yylval.str = strdup(yytext);
+        return IDENTIFIER;
+    } else {
+        yylval.typeid = expect_type;
+        switch(expect_type){
+            case TYPEID_VOID: return VOID;
+            case TYPEID_CHAR: return CHAR;
+            case TYPEID_SHORT: return SHORT;
+            case TYPEID_INT: return INT;
+            case TYPEID_LONG: return LONG;
+            case TYPEID_FLOAT: return FLOAT;
+            case TYPEID_DOUBLE: return DOUBLE;
+            case TYPEID_STR: return STRING;
+            case TYPEID_VOID_PTR: return VOID_PTR;
+            case TYPEID_CHAR_PTR: return CHAR_PTR;
+            case TYPEID_SHORT_PTR: return SHORT_PTR;
+            case TYPEID_INT_PTR: return INT_PTR;
+            case TYPEID_LONG_PTR: return LONG_PTR;
+            case TYPEID_FLOAT_PTR: return FLOAT_PTR;
+            case TYPEID_DOUBLE_PTR: return DOUBLE_PTR;
+            default: assert(0);
+        }
+    }
 }

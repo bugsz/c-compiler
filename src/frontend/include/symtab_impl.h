@@ -186,3 +186,24 @@ private:
         }
     }
 };
+
+class TypeAliasTable {
+public:
+    TypeAliasTable() = default;
+    ~TypeAliasTable() = default;
+
+    void add_typedef(const char* name, int type_id) {
+        type_alias_table[string(name)] = type_id;
+    }
+
+    int get_typeid(const char* name) {
+        if (type_alias_table.find(string(name)) != type_alias_table.end()) {
+            return type_alias_table[string(name)];
+        } else {
+            return -1;
+        }
+    }
+
+private:
+    unordered_map<string, int> type_alias_table;
+};
