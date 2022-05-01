@@ -72,7 +72,15 @@ int get_type_size(int type_id){
         return sizeof(float);
     case TYPEID_DOUBLE:
         return sizeof(double);
-    default: 
+    case TYPEID_VOID_PTR:
+    case TYPEID_CHAR_PTR:
+    case TYPEID_SHORT_PTR:
+    case TYPEID_INT_PTR:
+    case TYPEID_LONG_PTR:
+    case TYPEID_FLOAT_PTR:
+    case TYPEID_DOUBLE_PTR:
+        return sizeof(void*);
+    default:
         return -1;
     }
 }
@@ -100,8 +108,23 @@ void print_sym_tab() {
 static int expr_type_check(ast_node_ptr uni, ast_node_ptr op) {
     if (uni->type_id == TYPEID_VOID || uni->type_id == TYPEID_STR)
         return -1;
-    if(get_function_type(uni->val) != nullptr){
+    if (get_function_type(uni->val) != nullptr) {
+        if (string(op->val) == "&") {
+            return ptr_ref_type(uni->type_id);
+        }
         return -1;
+    }
+    if (string(op->val) == "*") {
+        if (uni->type_id < TYPEID_VOID_PTR || uni->type_id > TYPEID_DOUBLE_PTR
+            || string(uni->token) == "Literal")
+            return -1;
+        return ptr_deref_type(uni->type_id);
+    }
+    if (string(op->val) == "&") {
+        if (uni->type_id <= TYPEID_VOID || uni->type_id > TYPEID_DOUBLE
+            || string(uni->token) == "Literal")
+            return -1;
+        return ptr_ref_type(uni->type_id);
     }
     return uni->type_id;
 }
@@ -427,25 +450,13 @@ static void semantic_check_impl(int* n_errs, ast_node_ptr node) {
         if (type < 0) {
             semantic_error(n_errs, node->pos, "incompatible types in unary expression");
         } else {
-            if (string(node->val) == "*") {
-                node->type_id = ptr_deref_type(type);
-                if (string(node->child[0]->token) == "Literal") {
-                    semantic_error(n_errs, node->pos, "cannot operate prefix '*' on a constant");
-                }
-            } else if (string(node->val) == "&") {
-                node->type_id = ptr_ref_type(type);
-                if (string(node->child[0]->token) == "Literal") {
-                    semantic_error(n_errs, node->pos, "cannot operate prefix '&' on a constant");
-                }
-            } else {
-                node->type_id = type;
-                if(string(node->child[0]->token)== "Literal") {
-                    string res = const_fold(n_errs, node->child[0], node->val);
-                    if (!res.empty()) {
-                        strcpy(node->val, res.c_str());
-                        strcpy(node->token, "Literal");
-                        node->n_child = 0;
-                    }
+            node->type_id = type;
+            if(string(node->child[0]->token)== "Literal") {
+                string res = const_fold(n_errs, node->child[0], node->val);
+                if (!res.empty()) {
+                    strcpy(node->val, res.c_str());
+                    strcpy(node->token, "Literal");
+                    node->n_child = 0;
                 }
             }
         }
@@ -611,6 +622,19 @@ static void semantic_check_impl(int* n_errs, ast_node_ptr node) {
             semantic_error(n_errs, node->pos, "array subscript must be an integer");
         }
         node->type_id = ptr_deref_type(node->child[0]->type_id);
+    } else if (token == "__SIZEOF") {
+        assert(node->n_child == 1);
+        already_checked = true;
+        semantic_check_impl(n_errs, node->child[0]);
+        sprintf(node->token, "%s", "Literal");
+        node->type_id = TYPEID_INT;
+        if (string(node->child[0]->token) == "Literal"
+            && get_literal_type(node->child[0]->val) == TYPEID_STR) {
+            sprintf(node->val, "%d", builtin_strlen(node->child[0]->val));
+        } else {
+            sprintf(node->val, "%d", get_type_size(node->child[0]->type_id));
+        }
+        node->n_child = 0;
     }
     if (already_checked) return;
     else {
