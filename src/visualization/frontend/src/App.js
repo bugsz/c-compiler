@@ -1,5 +1,5 @@
 import React, {useRef, useState } from 'react';
-import { Layout, Button } from 'antd';
+import { Layout, Button, Space } from 'antd';
 import ProCard from '@ant-design/pro-card';
 import Editor from "@monaco-editor/react";
 import moment from 'moment';
@@ -28,11 +28,17 @@ function App() {
     if(resp.success){
       setData(resp.data)
     }
+    graphRef.current.Refresh()
   }
 
   const handleSave =  () =>{
     graphRef.current.Save()
   }
+  
+  const handleRefresh = () =>{
+    graphRef.current.Refresh()
+  }
+
   return (
       <>
       <Layout>
@@ -46,7 +52,7 @@ function App() {
           <ProCard
             className='card'
             title="Web IDE"
-            extra={moment(new Date()).format("YYYY-MM-DD  ")}
+            extra={moment(new Date()).format("YYYY-MM-DD")}
             split={'vertical'}
             bordered
             headerBordered
@@ -66,7 +72,15 @@ function App() {
             <ProCard title="Abstract Syntax Tree" 
                     colSpan="60%" 
                     className='card' 
-                    extra={<Button type="primary" onClick={handleSave}>Save</Button>}>
+                    extra={
+                      <>
+                      <Space>
+                        <Button type="primary" onClick={handleSave}>Save</Button>
+                        <Button type="primary" onClick={handleRefresh}>Refresh</Button>
+                      </Space>
+                      </>
+                    }
+                    >
             <Graph ref={graphRef} data={data}></Graph>
             </ProCard>
             <ProCard title="Log" subTitle="Running Result" colSpan="15%" className='card'>
