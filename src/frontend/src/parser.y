@@ -49,7 +49,8 @@ extern int yycolno;
 %token <typeid> CHAR SHORT INT LONG FLOAT DOUBLE VOID STRING
 %token <typeid> VOID_PTR CHAR_PTR SHORT_PTR INT_PTR LONG_PTR FLOAT_PTR DOUBLE_PTR
 %token <str> CONSTANT
-%token LE GE EQ NE
+%token LE GE EQ NE LAND LOR SHL SHR
+%token ADD_ASSIGN SUB_ASSIGN MUL_ASSIGN DIV_ASSIGN MOD_ASSIGN AND_ASSIGN XOR_ASSIGN OR_ASSIGN SHL_ASSIGN SHR_ASSIGN
 %token IF ELSE
 %token DO FOR WHILE 
 %token RETURN BREAK CONTINUE
@@ -64,13 +65,20 @@ extern int yycolno;
 %nonassoc OUTERELSE
 %nonassoc ELSE
 
-%right '='
+%left ','
+%right '=' ADD_ASSIGN SUB_ASSIGN MUL_ASSIGN DIV_ASSIGN MOD_ASSIGN AND_ASSIGN XOR_ASSIGN OR_ASSIGN SHL_ASSIGN SHR_ASSIGN
+%left LOR
+%left LAND
+%left '|'
+%left '^'
+%left '&'
 %left EQ NE
 %left '>' '<' LE GE
+%left SHL SHR
 %left '+' '-'
 %left '*' '/' '%'
-%right '!' '~' SIZEOF '&'
-%left '(' ')'
+%right '!' '~' SIZEOF
+%left '(' ')' '[' ']'
 
 %% 
 TRANSLATION_UNIT : PROG { 
@@ -280,6 +288,7 @@ COMPOUND_STMT :
 EXPR_STMT :
     ';' { $$ = mknode("NullStmt"); }
     | EXPR ';' { $$ = $1; }
+    | EXPR ',' EXPR_STMT { $$ = mknode("TO_BE_MERGED", $1, $3); }
     ;
 
 EXPR :
@@ -344,7 +353,92 @@ EXPR :
         strcpy($$->val, "=");
         $$->pos = @2;
     }
-    | '-' EXPR %prec '*'    { 
+    | EXPR ADD_ASSIGN EXPR { 
+        $$ = mknode("BinaryOperator", $1, $3);
+        strcpy($$->val, "+=");
+        $$->pos = @2;
+    }
+    | EXPR SUB_ASSIGN EXPR { 
+        $$ = mknode("BinaryOperator", $1, $3);
+        strcpy($$->val, "-=");
+        $$->pos = @2;
+    }
+    | EXPR MUL_ASSIGN EXPR { 
+        $$ = mknode("BinaryOperator", $1, $3);
+        strcpy($$->val, "*=");
+        $$->pos = @2;
+    }
+    | EXPR DIV_ASSIGN EXPR { 
+        $$ = mknode("BinaryOperator", $1, $3);
+        strcpy($$->val, "/=");
+        $$->pos = @2;
+    }
+    | EXPR MOD_ASSIGN EXPR { 
+        $$ = mknode("BinaryOperator", $1, $3);
+        strcpy($$->val, "%=");
+        $$->pos = @2;
+    }
+    | EXPR AND_ASSIGN EXPR { 
+        $$ = mknode("BinaryOperator", $1, $3);
+        strcpy($$->val, "&=");
+        $$->pos = @2;
+    }
+    | EXPR OR_ASSIGN EXPR { 
+        $$ = mknode("BinaryOperator", $1, $3);
+        strcpy($$->val, "|=");
+        $$->pos = @2;
+    }
+    | EXPR XOR_ASSIGN EXPR { 
+        $$ = mknode("BinaryOperator", $1, $3);
+        strcpy($$->val, "^=");
+        $$->pos = @2;
+    }
+    | EXPR SHL_ASSIGN EXPR { 
+        $$ = mknode("BinaryOperator", $1, $3);
+        strcpy($$->val, "<<=");
+        $$->pos = @2;
+    }
+    | EXPR SHR_ASSIGN EXPR { 
+        $$ = mknode("BinaryOperator", $1, $3);
+        strcpy($$->val, ">>=");
+        $$->pos = @2;
+    }
+    | EXPR SHL EXPR {
+        $$ = mknode("BinaryOperator", $1, $3);
+        strcpy($$->val, "<<");
+        $$->pos = @2;
+    }
+    | EXPR SHR EXPR {
+        $$ = mknode("BinaryOperator", $1, $3);
+        strcpy($$->val, ">>");
+        $$->pos = @2;
+    }
+    | EXPR '&' EXPR { 
+        $$ = mknode("BinaryOperator", $1, $3);
+        strcpy($$->val, "&");
+        $$->pos = @2;
+    }
+    | EXPR '|' EXPR { 
+        $$ = mknode("BinaryOperator", $1, $3);
+        strcpy($$->val, "|");
+        $$->pos = @2;
+    }
+    | EXPR '^' EXPR { 
+        $$ = mknode("BinaryOperator", $1, $3);
+        strcpy($$->val, "^");
+        $$->pos = @2;
+    }
+    | EXPR LOR EXPR { 
+        $$ = mknode("BinaryOperator", $1, $3);
+        strcpy($$->val, "||");
+        $$->pos = @2;
+    }
+    | EXPR LAND EXPR { 
+        $$ = mknode("BinaryOperator", $1, $3);
+        strcpy($$->val, "&&");
+        $$->pos = @2;
+    }
+    | '-' EXPR %prec '!'    { 
         $$ = mknode("UnaryOperator", $2);
         strcpy($$->val, "-");   
         $$->pos = @1; 
@@ -374,7 +468,7 @@ EXPR :
         $$->type_id = $2;
         $$->pos = @1;
     }
-    | IDENTIFIER '[' EXPR ']' %prec '!' {
+    | IDENTIFIER '[' EXPR ']' {
         ast_node_ptr temp = mknode("DeclRefExpr");
         strcpy(temp->val, $1);
         temp->pos = @1;
@@ -398,6 +492,10 @@ EXPR :
         char s[2]={0};
         s[0] = temp + '0';
         strcpy($$->val, s);
+    }
+    | SIZEOF '(' EXPR ')' {
+        $$ = mknode("__SIZEOF", $3);
+        $$->pos = @1;
     }
     | BUILTIN_ITOA '(' EXPR ',' CONSTANT ')' { 
         ast_node_ptr parm2 = mknode("c2");
@@ -431,7 +529,7 @@ EXPR :
         strcpy($$->val, $1);
         $$->pos = @1;
     }
-    | '(' EXPR ')' %prec '('    { $$ = $2; }
+    | '(' EXPR ')'    { $$ = $2; }
     ;
 
 FUNC_NAME :
