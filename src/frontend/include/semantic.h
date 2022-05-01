@@ -16,8 +16,6 @@ extern "C" {
 #endif
     
     int get_literal_type(const char* literal);
-    int get_bin_expr_type(ast_node_ptr left, ast_node_ptr right);
-    int get_un_expr_type(ast_node_ptr expr);
     
     void add_symbol(const char* name, int type);
     int get_symbol_type(const char* name);
