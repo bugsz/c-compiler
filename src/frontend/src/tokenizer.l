@@ -70,7 +70,7 @@ extern YYLTYPE yylloc;
 "__builtin_strlen" { set_col(); return BUILTIN_STRLEN; }
 "__builtin_strget" { set_col(); return BUILTIN_STRGET; }
 
-"#line "[0-9]+" ".*\n { set_include();}
+"#line"[ \t]+[0-9]+[ \t]+.*\n { set_include();}
 
 [a-zA-Z_][a-zA-Z0-9_]*	{ set_col(); assert(yyleng < 50); yylval.str = strdup(yytext); return IDENTIFIER; }
 ("0"|[1-9]+[0-9]*)			{ set_col(); assert(yyleng < 50); yylval.str = strdup(yytext); return CONSTANT; }
@@ -79,12 +79,30 @@ extern YYLTYPE yylloc;
 "0x"[0-9a-fA-F]+	{ set_col(); assert(yyleng < 50); yylval.str = to_int(yytext, 16); return CONSTANT; }
 "0"[0-7]*       { set_col(); assert(yyleng < 50); yylval.str = to_int(yytext, 8); return CONSTANT; }
 "0b"[01]+		{ set_col(); assert(yyleng < 50); yylval.str = to_int(yytext, 2); return CONSTANT; }
-[a-zA-Z_]?\"(\\.|[^\\"])*\"          { set_col(); assert(yyleng < 50); yylval.str = strdup(yytext); return CONSTANT; }
+\"(\\.|[^\\"])*\"          { set_col(); assert(yyleng < 50); yylval.str = strdup(yytext); return CONSTANT; }
 
 "<=" { set_col(); return LE; }
 ">=" { set_col(); return GE; }
 "==" { set_col(); return EQ; }
 "!=" { set_col(); return NE; }
+
+"&&" { set_col(); return LAND; }
+"||" { set_col(); return LOR; }
+">>" { set_col(); return SHR; }
+"<<" { set_col(); return SHL; }
+
+"+=" { set_col(); return ADD_ASSIGN; }
+"-=" { set_col(); return SUB_ASSIGN; }
+"*=" { set_col(); return MUL_ASSIGN; }
+"/=" { set_col(); return DIV_ASSIGN; }
+"%=" { set_col(); return MOD_ASSIGN; }
+"&=" { set_col(); return AND_ASSIGN; }
+"|=" { set_col(); return OR_ASSIGN; }
+"^=" { set_col(); return XOR_ASSIGN; }
+"<<=" { set_col(); return SHL_ASSIGN; }
+">>=" { set_col(); return SHR_ASSIGN; }
+
+
 
 [;\{\},:=\(\)\.&!~\-\+\*/%<>\^\|\?\[\]]	{ set_col(); return yytext[0];}
 [ \t]+	        { set_col(); }
