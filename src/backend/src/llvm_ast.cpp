@@ -27,8 +27,8 @@
 #include "frontend.h"
 #include <bits/stdc++.h>
 #include <iostream>
-#include <llvm-12/llvm/ADT/APInt.h>
-#include <llvm-12/llvm/ADT/StringRef.h>
+#include <llvm/ADT/APInt.h>
+#include <llvm/ADT/StringRef.h>
 #include <memory>
 
 using namespace llvm;

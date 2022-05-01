@@ -4,12 +4,12 @@ const url = settings.url;
 
 const getAST = async (code) => {
     let res = await axios(
-            url+'/GetAST',
-            {
-                method: "POST",
-                data: code
-            }
-        )
+        url+'/GetAST',
+        {
+            method: "POST",
+            data: code
+        }
+    )
     return {
         success: res.status === 200,
         data: res.data
