@@ -31,7 +31,6 @@
 *.out
 *.app
 
-*.json
 
 # cmake
 build
