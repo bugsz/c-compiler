@@ -1,5 +1,5 @@
 diff --git a/node_modules/ansi-to-html/lib/ansi_to_html.js b/node_modules/ansi-to-html/lib/ansi_to_html.js
-index e8b2db4..b589ea7 100644
+index e8b2db4..c8b4fd2 100644
 --- a/node_modules/ansi-to-html/lib/ansi_to_html.js
 +++ b/node_modules/ansi-to-html/lib/ansi_to_html.js
 @@ -308,7 +308,7 @@ function pushText(text, options) {
@@ -7,7 +7,7 @@ index e8b2db4..b589ea7 100644
      return entities.encodeXML(text);
    }
 -
-+  text = text.replace(/ /g, "&emsp;");
++  text = text.replace(/ /g, "&nbsp;");
    return text;
  }
  /**

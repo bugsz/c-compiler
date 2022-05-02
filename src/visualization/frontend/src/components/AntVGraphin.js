@@ -20,8 +20,12 @@ export default forwardRef((props, ref) => {
   }
   
   return(
-    <ResizeObserver onResize={() => {
+    <ResizeObserver onResize={({ width, height }) => {
+      console.info("graph resize")
+      graphinRef.current.graph.set('width', width)
+      graphinRef.current.graph.set('height', height)
       graphinRef.current.graph.fitView()
+      graphinRef.current.graph.paint()
     }}>
       <Graphin 
         ref = {graphinRef}

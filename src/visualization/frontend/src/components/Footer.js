@@ -8,6 +8,9 @@ export default () => {
   return (
     <DefaultFooter
       copyright={`${currentYear} | ${defaultMessage}`}
+      style={{
+        marginTop: '-13px'
+      }}
       links={[
         {
           key: 'Ant Design',
