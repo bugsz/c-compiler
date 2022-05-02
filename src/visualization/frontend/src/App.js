@@ -32,7 +32,6 @@ function App() {
   const logger = new Logger(output, setOutput)
   
   useEffect(()=>{
-    console.info("!!!")
     bottomRef.current.scrollIntoView({ behavior: 'smooth' })
   },[output])
 
@@ -129,20 +128,27 @@ function App() {
             />
             </ProCard>
             <ProCard title="Abstract Syntax Tree" 
-                    className='card' 
-                    extra={
-                      <Space>
-                        <Button type="primary" onClick={handleSave}>Save</Button>
-                        <Button type="primary" onClick={handleRefresh}>Refresh</Button>
-                      </Space>
-                    }
-                    colSpan={horizontal ? "100%":"54%"}
-                    >
+                className='card' 
+                extra={
+                  <Space>
+                    <Button type="primary" onClick={handleSave}>Save</Button>
+                    <Button type="primary" onClick={handleRefresh}>Refresh</Button>
+                  </Space>
+                }
+                colSpan={horizontal ? "100%":"53%"}
+              >
             <Graph ref={graphRef} data={data}></Graph>
             </ProCard>
-            <ProCard title="Log" subTitle="Running Result" className='card' 
+            <ProCard title="Log" subTitle="Running Result" 
+              className='card' 
               style={{overflow:'auto', maxHeight:"80vh"}} 
-              colSpan={horizontal ? "100%":"21%"}>
+              colSpan={horizontal ? "100%":"22%"}
+              extra={
+                <Button type="primary">Run Code</Button>
+              }
+              headStyle={{
+              }}
+              >
               {parse(output)}
               <div ref={bottomRef}></div>
             </ProCard>

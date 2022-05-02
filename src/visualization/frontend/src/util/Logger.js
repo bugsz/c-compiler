@@ -1,3 +1,4 @@
+import moment from 'moment';
 export default class Logger {
     constructor(output, f){
         this.output = output
@@ -5,8 +6,7 @@ export default class Logger {
     }
 
     timeStampString() {
-        const currentTime = new Date()
-        return `${currentTime.getFullYear()}/${currentTime.getMonth() + 1}/${currentTime.getDate()} - ${currentTime.getHours()}:${currentTime.getMinutes()}:${currentTime.getSeconds()}`
+        return moment(new Date()).format("YYYY/MM/DD - HH:mm:ss")
     }
     
     appendOutput = (data) => {
