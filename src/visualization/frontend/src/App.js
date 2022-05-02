@@ -106,6 +106,7 @@ function App() {
                 </Space>
               }
               colSpan={horizontal ? "100%":"25%"}
+              bodyStyle={{height:horizontal ?'50vh':'100%'}}
             >
             <Editor
                 defaultLanguage='c'
