@@ -20,7 +20,7 @@ export default class Logger {
     }
     
     Info(data) {
-        const log = `[INFO] - ${this.timeStampString()} - ${data}`
+        const log = `<span style="color:#3399FF">[INFO] - ${this.timeStampString()} -</span> ${data}`
         console.log(log)
         this.appendOutput(log)
     }
@@ -32,7 +32,7 @@ export default class Logger {
     }
 
     Error(data) {
-        const log = `<b><span style="color:#F00">[ERROR] - ${this.timeStampString()} -</span></b> ${data}`
+        const log = `<b><span style="color:#FF0000">[ERROR] - ${this.timeStampString()} -</span></b> ${data}`
         console.error(log)
         this.appendOutput(log)
     }

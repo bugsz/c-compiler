@@ -1,4 +1,4 @@
-import React, {useRef, useState } from 'react';
+import React, {useEffect, useRef, useState } from 'react';
 import ResizeObserver from 'rc-resize-observer';
 import { Layout, Button, Space,  Select, Modal } from 'antd';
 import ProCard from '@ant-design/pro-card';
@@ -25,10 +25,17 @@ const convert = new Convert({newline: true})
 function App() {
   const graphRef = useRef(null)
   const editorRef = useRef(null)
+  const bottomRef = useRef(null)
   const [data, setData] = useState({id: '1', label: 'c-complier', type: 'circle'})
-  const [output, setOutput] = useState("[INFO] Welcome to c-compiler")
+  const [output, setOutput] = useState("<span><h3>[INFO] Welcome to c-compiler</h3></span>")
   const [horizontal, setHorizontal] = useState(false)
   const logger = new Logger(output, setOutput)
+  
+  useEffect(()=>{
+    console.info("!!!")
+    bottomRef.current.scrollIntoView({ behavior: 'smooth' })
+  },[output])
+
   function handleEditorDidMount(editor, monaco) {
     editorRef.current = editor;
     editorRef.current.setValue(Examples[0].code)
@@ -49,11 +56,19 @@ function App() {
         logger.Error(htmltext)
         Modal.error({
           title: 'Compile Error!',
+          closable: true,
+          okButtonProps:{
+            style:{backgroundColor:'#F00000',borderColor:'#F00000'}
+          },
+          okType: 'primary',
           content: parse(htmltext),
           centered:true,
           width: 'max-content',
           bodyStyle:{
             overflowWrap:'normal',
+          },
+          afterClose:()=>{
+            bottomRef.current.scrollIntoView({ behavior: 'smooth' })
           }
         })
       }
@@ -121,12 +136,15 @@ function App() {
                         <Button type="primary" onClick={handleRefresh}>Refresh</Button>
                       </Space>
                     }
-                    colSpan={horizontal ? "100%":"50%"}
+                    colSpan={horizontal ? "100%":"54%"}
                     >
             <Graph ref={graphRef} data={data}></Graph>
             </ProCard>
-            <ProCard title="Log" subTitle="Running Result" className='card' style={{overflow:'auto', maxHeight:"100vh"}} colSpan={horizontal ? "100%":"25%"}>
+            <ProCard title="Log" subTitle="Running Result" className='card' 
+              style={{overflow:'auto', maxHeight:"80vh"}} 
+              colSpan={horizontal ? "100%":"21%"}>
               {parse(output)}
+              <div ref={bottomRef}></div>
             </ProCard>
           </ProCard>
         </Content>
