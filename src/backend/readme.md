@@ -35,9 +35,10 @@
 
   ```shell
   mkdir build && cd build
-  cmake ..
+  cmake [-DIRONLY=ON] .. 
   make
   ```
+  (if IRONLY is defined, only IR code will be output to stdout, no output file will be generated, defaults to OFF)
 
 + Then you should notice a `./zjucc-backend` as a output program.
 
