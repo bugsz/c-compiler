@@ -10,10 +10,9 @@ export default forwardRef((props, ref) => {
     Save,
     Refresh
   }));
-
   const graphinRef = useRef(null);
   const Save = () => {
-      graphinRef.current.graph.downloadImage("graph", 'image/png' ,'#fff');
+    graphinRef.current.graph.downloadImage('graph', 'image/png' ,'#fff');
   }
   const Refresh = () => {
     graphinRef.current.graph.render();
@@ -28,7 +27,7 @@ export default forwardRef((props, ref) => {
       <Graphin 
         ref = {graphinRef}
         data = {props.data}
-        layout= {{
+        layout = {{
           type: 'compactBox',
           direction: 'TB',
           getId: function getId(d) {
