@@ -22,6 +22,7 @@ const getRunningResult = async (code) => {
             {
                 method: "POST",
                 data: code,
+                transformResponse: (resp) => resp
             }
         )
     return {

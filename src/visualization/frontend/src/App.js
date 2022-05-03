@@ -91,7 +91,6 @@ function App() {
     try {
       let resp = await getRunningResult(code)
       logger.Debug(JSON.stringify(resp))
-      console.info(convert.toHtml(resp.data))
       if(resp.success){
         logger.Info("Run Success\n" + convert.toHtml(resp.data))
       }
