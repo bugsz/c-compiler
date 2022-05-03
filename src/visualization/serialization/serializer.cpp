@@ -36,14 +36,15 @@ static string print_node(ast_node_ptr node, bool pretty = false) {
     string whitespace(4*tabs, ' ');
     string whitespaceplus(4*tabs+4, ' ');
     string val = node->val;
-    if(node->type_id == TYPEID_STR && strcmp(node->token, "Literal") == 0)
-        val = val.substr(1, strlen(node->val)-2);
+    std::stringstream ss;
+    ss << std::quoted(val);
+    val = ss.str();
     if(pretty)
         return fmt::format("{}{{ \
                             \n{}\"id\": \"{}\", \
                             \n{}\"label\": \"{}\", \
                             \n{}\"position\": \"{}\", \
-                            \n{}\"value\": \"{}\",  \
+                            \n{}\"value\": {},  \
                             \n{}\"ctype\": \"{}\", \
                             \n{}\"type\": \"circle\", \
                             \n{}\"children\": [\n{}{}\n{}] \
@@ -59,7 +60,7 @@ static string print_node(ast_node_ptr node, bool pretty = false) {
                             whitespace
                             );
     else
-        return fmt::format("{{\"id\":\"{}\",\"label\":\"{}\",\"position\":\"{}\",\"val\":\"{}\",\"ctype\":\"{}\",\"type\": \"circle\",\"children\":[{}]}}", 
+        return fmt::format("{{\"id\":\"{}\",\"label\":\"{}\",\"position\":\"{}\",\"val\":{},\"ctype\":\"{}\",\"type\": \"circle\",\"children\":[{}]}}", 
                             fmt::format("node-{}", count++), 
                             node->token, 
                             position, 

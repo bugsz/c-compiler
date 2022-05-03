@@ -1,6 +1,7 @@
 import React, {useEffect, useRef, useState } from 'react';
 import ResizeObserver from 'rc-resize-observer';
 import { Layout, Button, Space,  Select, Modal } from 'antd';
+import { DeleteTwoTone } from '@ant-design/icons';
 import ProCard from '@ant-design/pro-card';
 import Editor from "@monaco-editor/react";
 import moment from 'moment';
@@ -182,8 +183,22 @@ function App() {
                 {whiteSpace: 'pre-line', overflow:'auto', maxHeight: '80vh'}
               }
               >
-                {parse(output)}
-              <div ref={bottomRef}></div>
+                {
+                  parse(output)
+                }
+                <div  ref={bottomRef}></div>
+                <Button type= "default" shape="circle" icon={<DeleteTwoTone />} 
+                  style={{
+                    position:'absolute',
+                    right: '4%',
+                    bottom: '2%'
+                  }}
+                  onClick={
+                    ()=>{
+                      setOutput("")
+                    }
+                  }
+                />
             </ProCard>
           </ProCard>
         </Content>

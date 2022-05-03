@@ -59,7 +59,7 @@ export default forwardRef((props, ref) => {
               border:"5%",
               background:"#fff",
               opacity:"0.92",
-              width:"180px"
+              width:"max-content"
             }
           }>
             {(value) => {
