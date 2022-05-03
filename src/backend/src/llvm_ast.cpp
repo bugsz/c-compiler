@@ -1147,6 +1147,8 @@ int main(int argc, const char **argv) {
     #ifdef IRONLY
         int stdout_fd = dup(STDOUT_FILENO);
         close(STDOUT_FILENO);
+        int devnull = open("/dev/null", O_WRONLY);
+        dup2(devnull, STDOUT_FILENO);
     #endif
     
     initializeModule();
@@ -1158,6 +1160,7 @@ int main(int argc, const char **argv) {
         int status_code = compile();
         std::cout << "Compile end with status code: " << status_code << std::endl << std::endl;
     #else
+        close(devnull);
     	dup2(stdout_fd, STDOUT_FILENO);
     #endif
     save();
