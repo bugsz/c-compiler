@@ -30,7 +30,8 @@
 #include <llvm/ADT/APInt.h>
 #include <llvm/ADT/StringRef.h>
 #include <memory>
-
+#include <unistd.h>
+#include <fcntl.h>
 using namespace llvm;
 
 static std::unique_ptr<LLVMContext> llvmContext;
@@ -1130,27 +1131,35 @@ void save() {
     raw_string_ostream OS(IRText);
     OS << *llvmModule;
     OS.flush();
-    // std::cout << IRText;
-
-    std::string fileName("output.ll");
-
-    std::ofstream outFile;
-    outFile.open(fileName);
-    outFile << IRText;
-    std::cout << "IR code saved to " + fileName;
-    outFile.close();
+    #ifdef IRONLY
+        std::cout << IRText;
+    #else
+        std::string fileName("output.ll");
+        std::ofstream outFile;
+        outFile.open(fileName);
+        outFile << IRText;
+        std::cout << "IR code saved to " + fileName;
+        outFile.close();
+    #endif
 }
 
 int main(int argc, const char **argv) {
+    #ifdef IRONLY
+        int stdout_fd = dup(STDOUT_FILENO);
+        close(STDOUT_FILENO);
+    #endif
+    
     initializeModule();
 
     run_lib_backend(argc, argv);
     // llvmModule->print(errs(), nullptr);
 
-    
-    int status_code = compile();
-    std::cout << "Compile end with status code: " << status_code << std::endl << std::endl;
+    #ifndef IRONLY
+        int status_code = compile();
+        std::cout << "Compile end with status code: " << status_code << std::endl << std::endl;
+    #else
+    	dup2(stdout_fd, STDOUT_FILENO);
+    #endif
     save();
-    
     return 0;
 }

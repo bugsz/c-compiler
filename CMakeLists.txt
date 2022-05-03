@@ -42,3 +42,10 @@ llvm_map_components_to_libnames(llvm_libs ${LLVM_TARGETS_TO_BUILD} support core 
 # SET(CMAKE_EXE_LINKER_FLAGS "-Wl,-znodelete")
 target_link_libraries(${PROJECT_NAME} ${llvm_libs})
 target_link_libraries(${PROJECT_NAME} ${ZJUCC_LIB})
+
+option(IRONLY "Only output IR codes to stdout" OFF)
+
+if(IRONLY)
+    message(STATUS "Only output IR codes to stdout")
+    ADD_DEFINITIONS(-DIRONLY)
+endif()
