@@ -113,8 +113,8 @@ std::string filterString(std::string str){
     std::string buffer(str.size()+1, 0);
     std::string cmd = "python -c 'print("+str+", end=\"\")'";
     FILE * f = popen(cmd.c_str(), "r"); assert(f);
-    buffer.resize(fread(&buffer[0],1,buffer.size()-1, f));
-    fclose(f);
+    buffer.resize(fread(&buffer[0], 1, buffer.size()-1, f));
+    pclose(f);
     return buffer;
 }
 
