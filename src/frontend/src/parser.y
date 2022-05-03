@@ -59,8 +59,8 @@ extern int yycolno;
 %token TYPEDEF SIZEOF BUILTIN_ITOA BUILTIN_STRCAT BUILTIN_STRLEN BUILTIN_STRGET BUILTIN_EVAL
 
 %type <node> PROG FN_DEF PARAM_LIST PARAM_LIST_RIGHT PARAM_DECL
-%type <node> GLOBAL_DECL DECL DECL_LIST DECLARATOR ARRAY_DECL INIT_LIST INIT_LIST_RIGHT
-%type <node> STMT STMT_LIST COMPOUND_STMT SELECT_STMT EXPR_STMT ITERATE_STMT JMP_STMT
+%type <node> GLOBAL_DECL DECL DECLARATOR ARRAY_DECL INIT_LIST INIT_LIST_RIGHT
+%type <node> STMT COMPOUND_STMT SELECT_STMT EXPR_STMT ITERATE_STMT JMP_STMT MIX_LIST
 %type <node> EXPR FUNC_NAME ARG_LIST ARG_LIST_RIGHT
 %type <typeid> TYPE_SPEC
 
@@ -196,14 +196,6 @@ DECL :
     }
     ;
 
-DECL_LIST :
-    DECL DECL_LIST { 
-        ast_node_ptr t1 = mknode("DeclStmt", $1);
-        $$ = mknode("TO_BE_MERGED", t1, $2); 
-    }
-    | DECL  { $$ = mknode("DeclStmt", $1); }
-    ;
-
 DECLARATOR :
         { $$ = NULL; }
     | '=' EXPR { 
@@ -255,11 +247,6 @@ INIT_LIST_RIGHT :
     }
     ;
 
-STMT_LIST :
-    STMT STMT_LIST { $$ = mknode("TO_BE_MERGED", $1, $2); }
-    | STMT { $$ = $1;}
-    ;
-
 STMT :
     COMPOUND_STMT { $$ = $1; }
     | EXPR_STMT   { $$ = $1; }
@@ -288,9 +275,14 @@ TYPE_SPEC :
 
 COMPOUND_STMT :
     '{' '}' { $$ = mknode("CompoundStmt"); }
-    | '{' STMT_LIST '}' { $$ = mknode("CompoundStmt", $2); }
-    | '{' DECL_LIST STMT_LIST '}' { $$ = mknode("CompoundStmt", $2, $3); }
-    | '{' DECL_LIST '}' { $$ = mknode("CompoundStmt", $2); }
+    | '{' MIX_LIST '}' { $$ = mknode("CompoundStmt", $2); }
+    ;
+
+MIX_LIST :
+    DECL MIX_LIST {$$ = mknode("TO_BE_MERGED", $1, $2);}
+    | STMT MIX_LIST {$$ = mknode("TO_BE_MERGED", $1, $2);}
+    | STMT {$$ = $1;}
+    | DECL {$$ = $1;}
     ;
 
 EXPR_STMT :
