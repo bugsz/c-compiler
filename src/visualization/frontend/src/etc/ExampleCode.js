@@ -173,5 +173,20 @@ int foo() {
 
     return 0;
 }`
+    },
+    {
+        id: 12,
+        name: 'xterm-256color',
+        code: `int main() {
+    int i;
+    int j;
+    for(i = 0; i < 16; i=i+1){
+        for(j = 0; j < 16; j=j+1){
+            __builtin_printf("%d\\n", i*16+j);
+        }
     }
+    return 0;
+}`
+    }
+
 ]

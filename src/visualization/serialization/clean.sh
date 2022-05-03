@@ -1,1 +1,1 @@
-rm serializer
+test -e "serializer" && rm -f serializer
