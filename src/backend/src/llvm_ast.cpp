@@ -575,14 +575,8 @@ Value *GlobalVarExprAST::codegen() {
     }
 
     auto globalVar = createGlob(getVarType(*llvmContext, type), name);
-    auto iVal = getInitVal(varType);
-    globalVar->setInitializer(iVal);
-    // llvmBuilder->CreateStore(initVal, globalVar);
-    // TODO 目前不支持初始化成某个数
-
-    return iVal;
-
-    // return initVal;
+    globalVar->setInitializer(dyn_cast<Constant>(initVal));
+    return initVal;
 }
 
 
