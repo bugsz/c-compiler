@@ -92,9 +92,7 @@ public:
     : type(type), value(value) {
         this->type = type;
         if(type == TYPEID_STR) {
-            // std::cout << "  asdf" << value << std::endl;
-            this->value = value.substr(1, value.size() - 2);
-            this->value = filterString(this->value);
+            this->value = filterString(value);
         }
     }
     Value *codegen() override;

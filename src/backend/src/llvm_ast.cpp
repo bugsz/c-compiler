@@ -110,10 +110,12 @@ bool isEqual(char *a, std::string b) {
 }
 
 std::string filterString(std::string str){
-    int pos;
-    str = std::regex_replace(str, std::regex(R"(\\n)"), "\n");
-    str = std::regex_replace(str, std::regex(R"(\\t)"), "\t");
-    return str;
+    std::string buffer(str.size()+1, 0);
+    std::string cmd = "python -c 'print("+str+", end=\"\")'";
+    FILE * f = popen(cmd.c_str(), "r"); assert(f);
+    buffer.resize(fread(&buffer[0],1,buffer.size()-1, f));
+    fclose(f);
+    return buffer;
 }
 
 Constant *getInitVal(Type *type) {

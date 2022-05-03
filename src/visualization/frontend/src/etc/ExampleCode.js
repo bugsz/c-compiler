@@ -3,6 +3,7 @@ export const Examples = [
         id: 1,
         name: 'Basic',
         code: `int main() {
+    __builtin_printf("hello world!");
     return 0;
 }`
     },
