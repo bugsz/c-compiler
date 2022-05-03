@@ -1,1 +1,1 @@
-g++ *.cpp -Iinclude -I../../frontend -Llib -lzjucc -lfmt -std=c++17 -o serializer
+g++ *.cpp -Iinclude -I../../frontend -Llib -L../../frontend -lzjucc -lfmt -std=c++17 -o serializer
