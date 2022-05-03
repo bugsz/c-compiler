@@ -46,15 +46,15 @@ function App() {
       let resp = await getAST(code)
       logger.Debug(JSON.stringify(resp))
       if(resp.success){
-        logger.Info('Compile success')
+        logger.Info('Compile Success\n')
         setData(resp.data)
       }
     } catch (error) {
       if(error.response){
         var htmltext = "<div style=\"fontFamily:courier\">"+convert.toHtml(error.response.data)+"</div>"
-        logger.Error(htmltext)
+        logger.Error('Compile Error!'+htmltext)
         Modal.error({
-          title: 'Compile Error!',
+          title: 'Compile Error !',
           closable: true,
           okButtonProps:{
             style:{backgroundColor:'#F00000',borderColor:'#F00000'}
@@ -74,19 +74,53 @@ function App() {
     }
   }
 
-  const handleChange = (value) =>{
+  const handleChange = (value) => {
     editorRef.current.setValue(Examples[value-1].code)
   }
 
-  const handleSave = () =>{
+  const handleSave = () => {
     graphRef.current.Save()
   }
   
-  const handleRefresh = () =>{
+  const handleRefresh = () => {
     graphRef.current.Refresh()
   }
 
-  return (
+  const handleRunCode = async () => {
+    var code = editorRef.current.getValue()
+    try {
+      let resp = await getRunningResult(code)
+      logger.Debug(JSON.stringify(resp))
+      console.info(convert.toHtml(resp.data))
+      if(resp.success){
+        logger.Info("Run Success\n" + convert.toHtml(resp.data))
+      }
+    } catch (error) {
+        if(error.response){
+          var htmltext = "<div style=\"fontFamily:courier\">"+convert.toHtml(error.response.data)+"</div>"
+          logger.Error('Run Error !'+htmltext)
+          Modal.error({
+            title: 'Run Code Error!',
+            closable: true,
+            okButtonProps:{
+              style:{backgroundColor:'#F00000',borderColor:'#F00000'}
+            },
+            okType: 'primary',
+            content: parse(htmltext),
+            centered:true,
+            width: 'max-content',
+            bodyStyle:{
+              overflowWrap:'normal',
+            },
+            afterClose:()=>{
+              bottomRef.current.scrollIntoView({ behavior: 'smooth' })
+            }
+        })
+      }
+    }
+  }
+
+    return (
       <ResizeObserver onResize={({ width, height }) => {
         if(width < 600)
           setHorizontal(true)
@@ -119,7 +153,7 @@ function App() {
                   <Button type="primary" onClick={handleCompile}>Compile</Button>
                 </Space>
               }
-              colSpan={horizontal ? "100%":"25%"}
+              colSpan={horizontal ? "100%":"35%"}
               bodyStyle={{height:horizontal ?'50vh':'100%'}}
             >
             <Editor
@@ -135,21 +169,21 @@ function App() {
                     <Button type="primary" onClick={handleRefresh}>Refresh</Button>
                   </Space>
                 }
-                colSpan={horizontal ? "100%":"53%"}
+                colSpan={horizontal ? "100%":"43%"}
               >
             <Graph ref={graphRef} data={data}></Graph>
             </ProCard>
             <ProCard title="Log" subTitle="Running Result" 
               className='card' 
-              style={{overflow:'auto', maxHeight:"80vh"}} 
               colSpan={horizontal ? "100%":"22%"}
               extra={
-                <Button type="primary">Run Code</Button>
+                <Button type="primary" onClick={handleRunCode}>Run Code</Button>
               }
-              headStyle={{
-              }}
+              bodyStyle={
+                {whiteSpace: 'pre-line', overflow:'auto', maxHeight: '80vh'}
+              }
               >
-              {parse(output)}
+                {parse(output)}
               <div ref={bottomRef}></div>
             </ProCard>
           </ProCard>

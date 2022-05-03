@@ -26,7 +26,7 @@ export default class Logger {
     }
 
     Warn(data) {
-        const log = `[WARN] - ${this.timeStampString()} - ${data}`
+        const log = `<b><span style="color:#FFFF33">[WARN] - ${this.timeStampString()} -</span></b> ${data}`
         console.warn(log)
         this.appendOutput(log)
     }
