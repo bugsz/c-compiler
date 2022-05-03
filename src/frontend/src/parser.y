@@ -12,11 +12,13 @@
 #include <string.h>
 #include <assert.h>
 #include <unistd.h>
+#include <math.h>
 
 #include "ast_impl.h"
 #include "semantic.h"
 #include "builtin.h"
 #include "config.h"
+#include "tinyexpr.h"
 
 void yyerror(int*, struct ast_node_impl*, char* s, char* tmp_file);
 extern int yylex();
@@ -54,7 +56,7 @@ extern int yycolno;
 %token IF ELSE
 %token DO FOR WHILE 
 %token RETURN BREAK CONTINUE
-%token TYPEDEF SIZEOF BUILTIN_ITOA BUILTIN_STRCAT BUILTIN_STRLEN BUILTIN_STRGET
+%token TYPEDEF SIZEOF BUILTIN_ITOA BUILTIN_STRCAT BUILTIN_STRLEN BUILTIN_STRGET BUILTIN_EVAL
 
 %type <node> PROG FN_DEF PARAM_LIST PARAM_LIST_RIGHT PARAM_DECL
 %type <node> GLOBAL_DECL DECL DECL_LIST DECLARATOR ARRAY_DECL INIT_LIST INIT_LIST_RIGHT
@@ -529,6 +531,37 @@ EXPR :
         $$->type_id = TYPEID_CHAR;
         $$->pos = @1;
     }
+    | BUILTIN_EVAL '(' CONSTANT ')' {
+        if(get_literal_type($3) != TYPEID_STR) {
+            yyerror(n_errs, root, tmp_file, "invalid type to builtin function 'eval'");
+        }
+        $$ = mknode("Literal");
+        $$->type_id = TYPEID_DOUBLE;
+        $$->pos = @1;
+        int eval_err = 0;
+        char *math_str = strdup($3+1);
+        math_str[strlen(math_str)-1] = 0;
+        double res = te_interp(math_str, &eval_err);
+        if(eval_err) {
+            fprintf(stderr, COLOR_BOLD"%s:%d:%d: "COLOR_RED"%s"COLOR_NORMAL"\n%s\n", \
+                global_filename, yylineno, @3.last_column + eval_err, "invalid syntax in '__builtin_eval'", yyline);
+            for(int i = 0; i < @3.last_column + eval_err - 1; i++)
+                fprintf(stderr, " ");
+            fprintf(stderr, COLOR_GREEN"^\n"COLOR_NORMAL);
+            (*n_errs)++;
+            sprintf($$->val, "%f", 0.0);
+        } else {
+            if(isnan(fabs(res)) || isinf(fabs(res))){
+                fprintf(stderr, COLOR_BOLD"%s:%d:%d: "COLOR_RED"%s"COLOR_NORMAL"\n%s\n", \
+                    global_filename, yylineno, @3.last_column + eval_err, "math error in '__builtin_eval'", yyline);
+                for(int i = 0; i < @3.last_column + eval_err - 1; i++)
+                    fprintf(stderr, " ");
+                fprintf(stderr, COLOR_GREEN"^\n"COLOR_NORMAL);
+                (*n_errs)++;
+            }
+            sprintf($$->val, "%f", res);
+        }
+    }
     | CONSTANT     { 
         $$ = mknode("Literal");
         $$->type_id = get_literal_type($1);
@@ -602,7 +635,7 @@ void yyerror(int* n_errs, struct ast_node_impl* node, char* tmp_file, char *s){
     fprintf(stderr, COLOR_BOLD"%s:%d:%d: "COLOR_RED"%s"COLOR_NORMAL"\n%s\n", \
         global_filename, yylineno, yycolno, s, yyline);
     for(int i = 0; i < yycolno - 1; i++)
-        fprintf(stderr, COLOR_GREEN"~");
+        fprintf(stderr, " ");
     fprintf(stderr, COLOR_GREEN"^\n"COLOR_NORMAL);
     unlink(tmp_file);
 }
