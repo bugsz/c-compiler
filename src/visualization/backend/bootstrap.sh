@@ -1,9 +1,10 @@
-filename=main
+filename=zju.c-compiler.backend
+killall ${filename}
 RED_BOLD=$(tput setaf 1;tput bold)
 NORMAL=$(tput sgr0)
 CURDIR=$(cd $(dirname $0); pwd)
 
-echo "${RED_BOLD}Build Backend Binary${NORMAL}"
+echo "${RED_BOLD}Build Web Backend Binary${NORMAL}"
     test -d $CURDIR/bin && rm -rf $CURDIR/bin
     mkdir $CURDIR/bin
     go mod tidy

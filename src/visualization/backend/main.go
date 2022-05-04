@@ -28,12 +28,16 @@ func (b *Buffer) Write(p []byte) (n int, err error) {
 func Cors() gin.HandlerFunc {
 	return func(context *gin.Context) {
 		method := context.Request.Method
-		context.RemoteIP()
-		context.Header("Access-Control-Allow-Origin", "*")
-		context.Header("Access-Control-Allow-Headers", "Content-Type,AccessToken,X-CSRF-Token, Authorization, Token")
-		context.Header("Access-Control-Allow-Methods", "POST, GET, OPTIONS")
-		context.Header("Access-Control-Expose-Headers", "Content-Length, Access-Control-Allow-Origin, Access-Control-Allow-Headers, Content-Type")
-		context.Header("Access-Control-Allow-Credentials", "true")
+		_, ok := context.RemoteIP()
+		if ok {
+			context.Header("Access-Control-Allow-Origin", "*")
+			context.Header("Access-Control-Allow-Headers", "Content-Type,AccessToken,X-CSRF-Token, Authorization, Token")
+			context.Header("Access-Control-Allow-Methods", "POST, GET, OPTIONS")
+			context.Header("Access-Control-Expose-Headers", "Content-Length, Access-Control-Allow-Origin, Access-Control-Allow-Headers, Content-Type")
+			context.Header("Access-Control-Allow-Credentials", "true")
+		} else {
+			context.AbortWithStatus(http.StatusForbidden)
+		}
 		if method == "OPTIONS" {
 			context.AbortWithStatus(http.StatusNoContent)
 		}
@@ -43,8 +47,8 @@ func Cors() gin.HandlerFunc {
 
 func main() {
 	r := gin.Default()
+	r.SetTrustedProxies([]string{"127.0.0.1"})
 	r.Use(Cors())
-
 	r.POST("/GetAST", func(c *gin.Context) {
 		buffer := new(bytes.Buffer)
 		cmd := exec.Command("./serializer", "-stdin")
