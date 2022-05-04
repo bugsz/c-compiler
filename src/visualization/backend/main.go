@@ -28,6 +28,7 @@ func (b *Buffer) Write(p []byte) (n int, err error) {
 func Cors() gin.HandlerFunc {
 	return func(context *gin.Context) {
 		method := context.Request.Method
+		context.RemoteIP()
 		context.Header("Access-Control-Allow-Origin", "*")
 		context.Header("Access-Control-Allow-Headers", "Content-Type,AccessToken,X-CSRF-Token, Authorization, Token")
 		context.Header("Access-Control-Allow-Methods", "POST, GET, OPTIONS")
@@ -43,9 +44,10 @@ func Cors() gin.HandlerFunc {
 func main() {
 	r := gin.Default()
 	r.Use(Cors())
+
 	r.POST("/GetAST", func(c *gin.Context) {
 		buffer := new(bytes.Buffer)
-		cmd := exec.Command("./bin/serializer", "-stdin")
+		cmd := exec.Command("./serializer", "-stdin")
 		cmd.Stdin = c.Request.Body
 		cmd.Stderr = buffer
 		bytes, err := cmd.Output()
@@ -58,7 +60,7 @@ func main() {
 
 	r.POST("/GetRunningResult", func(c *gin.Context) {
 		buffer := new(Buffer)
-		genIR := exec.Command("./bin/llvm_wrapper", "-stdin")
+		genIR := exec.Command("./llvm_wrapper", "-stdin")
 		genIR.Stdin = c.Request.Body
 		genIR.Stderr = buffer
 		llvmJIT := exec.Command("lli")
@@ -75,7 +77,7 @@ func main() {
 
 	r.POST("/GetIR", func(c *gin.Context) {
 		buffer := new(Buffer)
-		genIR := exec.Command("./bin/llvm_wrapper", "-stdin")
+		genIR := exec.Command("./llvm_wrapper", "-stdin")
 		genIR.Stdin = c.Request.Body
 		genIR.Stderr = buffer
 		bytes, err := genIR.Output()
@@ -85,5 +87,5 @@ func main() {
 		}
 		c.Data(200, "plaintext", bytes)
 	})
-	r.Run() // listen and serve on 0.0.0.0:8080
+	r.Run("127.0.0.1:8080")
 }

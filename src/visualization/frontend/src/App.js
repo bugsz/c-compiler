@@ -147,7 +147,7 @@ function App() {
               className='card'
               extra={
                 <Space>
-                  <Select defaultValue={1} onChange={handleChange} >
+                  <Select defaultValue={1} onChange={handleChange} dropdownStyle={{width:'max-content'}} dropdownMatchSelectWidth={false} >
                     {Examples.map(element => <Option key={element.id} value={element.id}>{element.name}</Option>)}
                   </Select>
                   <Button type="primary" onClick={handleCompile}>Compile</Button>

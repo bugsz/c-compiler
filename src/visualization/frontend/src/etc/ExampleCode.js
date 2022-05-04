@@ -123,14 +123,33 @@ int bar(int a, int b, int c) {
     {
         id: 8,
         name: 'Global Variables',
-        code: `int main() {
-    a = 3;
-    return a;
+        code: `int b = 6666;
+void foo(int a, int c, int d){
+    __builtin_printf("global b: %d\\n", b);
+    b = 555;
+    __builtin_printf("new_global b: %d\\n", b);
+    __builtin_printf("a+c+d: %d\\n", a+c+d);
+    a = -1;
+    c = -1;
+    d = -1;
 }
 
-int a  = 0;
-
-int foo() {
+int main(){
+    __builtin_printf("global b: %d\\n", b);
+    int d = 1000;
+    __builtin_printf("%d\\n", d);
+    int a = 2;
+    int c = 1;
+    __builtin_printf("a:%d c:%d d:%d\\n", a, c, d);
+    // this is global b
+    b = 888;
+    // this is local b
+    int b = 777;
+    __builtin_printf("local b: %d\\n", b);
+    foo(a, c, d);
+    __builtin_printf("After call foo\\n");
+    __builtin_printf("local b: %d\\n", b);
+    __builtin_printf("a:%d c:%d d:%d\\n", a, c, d);
     return 0;
 }
 `
@@ -167,9 +186,9 @@ int foo() {
         id: 11,
         name: 'String',
         code: `int main() {
-    char* s = "String Test";
+    string s = "String Test";
 
-    printf("%s", s);
+    __builtin_printf("%s", s);
 
     return 0;
 }`
