@@ -180,7 +180,7 @@ function App() {
                 <Button type="primary" onClick={handleRunCode}>Run Code</Button>
               }
               bodyStyle={
-                {whiteSpace: 'pre-line', overflow:'auto', maxHeight: '80vh'}
+                {whiteSpace: 'pre-line', overflow:'auto', maxHeight: '80vh', fontFamily: 'monospace'}
               }
               >
                 {
