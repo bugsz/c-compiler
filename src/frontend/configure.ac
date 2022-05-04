@@ -1,4 +1,4 @@
-AC_INIT([C-Compiler],[0.1.0.0410_alpha],[zy_pan@zju.edu.cn])
+AC_INIT([C-Compiler],[0.8.54],[zy_pan@zju.edu.cn])
 AC_CONFIG_AUX_DIR([build-aux])
 AM_INIT_AUTOMAKE([subdir-objects])
 AC_CONFIG_HEADERS([include/config.h])
@@ -33,6 +33,14 @@ if [[ "$TERM" = "xterm-256color" ]]; then
 else
     AC_DEFINE([COLOR_TERM], [0], [Define to 1 if colorized output is enabled])
 fi
+
+arch=`uname -p`
+arch=${arch,,}
+os=`uname`
+os=${os,,}
+
+AC_DEFINE_UNQUOTED([OS], ["$os"], [Define to the operating system type.])
+AC_DEFINE_UNQUOTED([ARCH], ["$arch"], [Define to arch type])
 
 CXXFLAGS="${CXXFLAGS} -std=c++17"
 

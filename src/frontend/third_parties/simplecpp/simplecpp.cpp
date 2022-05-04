@@ -30,6 +30,7 @@
 #define NOMINMAX
 #endif
 #include "simplecpp.h"
+#include "config.h"
 
 #include <algorithm>
 #include <climits>
@@ -3000,6 +3001,30 @@ void simplecpp::preprocess(simplecpp::TokenList &output, const simplecpp::TokenL
     getLocaltime(ltime);
     macros.insert(std::make_pair("__DATE__", Macro("__DATE__", getDateDefine(&ltime), files)));
     macros.insert(std::make_pair("__TIME__", Macro("__TIME__", getTimeDefine(&ltime), files)));
+    // Modified by Zhiyuan Pan
+    // Wed May 4, 2022
+    macros.insert(std::make_pair("true", Macro("true", "1", files)));
+    macros.insert(std::make_pair("false", Macro("false", "0", files)));
+    macros.insert(std::make_pair("__OS__", Macro("__OS__", "\"" + std::string(OS) + "\"", files)));
+    macros.insert(std::make_pair("__" + std::string(OS) + "__", Macro("__" + std::string(OS) + "__", "1", files)));
+    macros.insert(std::make_pair("__" + std::string(OS), Macro("__" + std::string(OS), "1", files)));
+    macros.insert(std::make_pair("__ARCH__", Macro("__ARCH__", "\"" + std::string(ARCH) + "\"", files)));
+    macros.insert(std::make_pair("__" + std::string(ARCH), Macro("__" + std::string(ARCH), "1", files)));
+    macros.insert(std::make_pair("__" + std::string(ARCH) + "__", Macro("__" + std::string(ARCH) + "__", "1", files)));
+    macros.insert(std::make_pair("__VERSION__", Macro("__VERSION__", "\"" + std::string(VERSION) + "\"", files)));
+    macros.insert(std::make_pair("__SIZEOF_INT__", Macro("__SIZEOF_INT__", std::to_string(sizeOfType["int"]), files)));
+    macros.insert(std::make_pair("__SIZEOF_LONG__", Macro("__SIZEOF_LONG__", std::to_string(sizeOfType["long"]), files)));
+    macros.insert(std::make_pair("__SIZEOF_SHORT__", Macro("__SIZEOF_SHORT__", std::to_string(sizeOfType["short"]), files)));
+    macros.insert(std::make_pair("__SIZEOF_FLOAT__", Macro("__SIZEOF_FLOAT__", std::to_string(sizeOfType["float"]), files)));
+    macros.insert(std::make_pair("__SIZEOF_DOUBLE__", Macro("__SIZEOF_DOUBLE__", std::to_string(sizeOfType["double"]), files)));
+    macros.insert(std::make_pair("__SIZEOF_POINTER__", Macro("__SIZEOF_POINTER__", std::to_string(sizeOfType["char *"]), files)));
+    macros.insert(std::make_pair("__INT32_TYPE__", Macro("__INT32_TYPE__", "int", files)));
+    macros.insert(std::make_pair("__INT64_TYPE__", Macro("__INT64_TYPE__", "long", files)));
+    macros.insert(std::make_pair("__INT32_MAX__", Macro("__INT32_MAX__", std::to_string(std::numeric_limits<int>::max()), files)));
+    macros.insert(std::make_pair("__INT32_MIN__", Macro("__INT32_MIN__", std::to_string(std::numeric_limits<int>::min()), files)));
+    macros.insert(std::make_pair("__INT64_MAX__", Macro("__INT64_MAX__", std::to_string(std::numeric_limits<long>::max()), files)));
+    macros.insert(std::make_pair("__INT64_MIN__", Macro("__INT64_MIN__", std::to_string(std::numeric_limits<long>::min()), files)));
+    macros.insert(std::make_pair("printf", Macro("printf", "__builtin_printf", files)));
 
     if (!dui.std.empty()) {
         std::string std_def = simplecpp::getCStdString(dui.std);

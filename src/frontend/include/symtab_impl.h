@@ -189,7 +189,9 @@ private:
 
 class TypeAliasTable {
 public:
-    TypeAliasTable() = default;
+    TypeAliasTable() {
+        init_typedef();
+    }
     ~TypeAliasTable() = default;
 
     void add_typedef(const char* name, int type_id) {
@@ -205,5 +207,9 @@ public:
     }
 
 private:
+    void init_typedef() {
+        type_alias_table["bool"] = TYPEID_INT;
+        type_alias_table["byte"] = TYPEID_CHAR;
+    }
     unordered_map<string, int> type_alias_table;
 };
