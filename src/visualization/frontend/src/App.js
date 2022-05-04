@@ -27,7 +27,7 @@ function App() {
   const graphRef = useRef(null)
   const editorRef = useRef(null)
   const bottomRef = useRef(null)
-  const [data, setData] = useState({id: '1', label: 'c-complier', type: 'circle'})
+  const [data, setData] = useState({id: '1', label: 'c-compiler', type: 'circle'})
   const [output, setOutput] = useState("<span><h3>[INFO] Welcome to c-compiler</h3></span>")
   const [horizontal, setHorizontal] = useState(false)
   const logger = new Logger(output, setOutput)
@@ -127,7 +127,7 @@ function App() {
         else
           setHorizontal(false)
       }}>
-      <Layout>
+      <Layout style={{minHeight:'100vh'}}>
          <Header>
          </Header>
          <Content
@@ -142,6 +142,9 @@ function App() {
             split={horizontal ? 'horizontal':'vertical'} 
             bordered
             headerBordered
+            bodyStyle={{
+              minHeight: '70vh'
+            }}
           >
             <ProCard title="Editor"
               className='card'
@@ -185,7 +188,7 @@ function App() {
                 <Button type="primary" onClick={handleRunCode}>Run Code</Button>
               }
               bodyStyle={
-                {whiteSpace: 'pre-line', overflow:'auto', maxHeight: '80vh', fontFamily: 'monospace'}
+                {whiteSpace: 'pre-line', overflow:'auto', maxHeight: '85vh', fontFamily: 'consolas,monospace'}
               }
               >
                 {

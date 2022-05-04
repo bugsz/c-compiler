@@ -9,7 +9,7 @@ export default () => {
     <DefaultFooter
       copyright={`${currentYear} | ${defaultMessage}`}
       style={{
-        marginTop: '-13px'
+        marginTop: '-2vh'
       }}
       links={[
         {
