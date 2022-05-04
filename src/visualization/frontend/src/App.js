@@ -153,12 +153,17 @@ function App() {
                   <Button type="primary" onClick={handleCompile}>Compile</Button>
                 </Space>
               }
-              colSpan={horizontal ? "100%":"35%"}
+              colSpan={horizontal ? "100%":"30%"}
               bodyStyle={{height:horizontal ?'50vh':'100%'}}
             >
             <Editor
                 defaultLanguage='c'
                 onMount={handleEditorDidMount}
+                options={{
+                  minimap:{ // 关闭代码缩略图
+                    enabled: false,
+                  }
+                }}
             />
             </ProCard>
             <ProCard title="Abstract Syntax Tree" 
@@ -169,18 +174,18 @@ function App() {
                     <Button type="primary" onClick={handleRefresh}>Refresh</Button>
                   </Space>
                 }
-                colSpan={horizontal ? "100%":"43%"}
+                colSpan={horizontal ? "100%":"40%"}
               >
             <Graph ref={graphRef} data={data}></Graph>
             </ProCard>
             <ProCard title="Log" subTitle="Running Result" 
               className='card' 
-              colSpan={horizontal ? "100%":"22%"}
+              colSpan={horizontal ? "100%":"30%"}
               extra={
                 <Button type="primary" onClick={handleRunCode}>Run Code</Button>
               }
               bodyStyle={
-                {whiteSpace: 'pre-line', overflow:'auto', maxHeight: '80vh'}
+                {whiteSpace: 'pre-line', overflow:'auto', maxHeight: '80vh', fontFamily:'courier'}
               }
               >
                 {

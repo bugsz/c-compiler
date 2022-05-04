@@ -189,7 +189,6 @@ Value *getBuiltinFunction(std::string callee, std::vector<std::unique_ptr<ExprAS
             logErrorV("too few arguments to function call");
             exit(1);
         }
-        std::vector<Value *> varArgs;
         varArgs.push_back(args[0]->codegen());
         auto formatArgs = llvmBuilder->CreateGlobalStringPtr(
             (static_cast<LiteralExprAST *>(args[1].get()))->getValue()
@@ -499,6 +498,12 @@ static AllocaInst *CreateEntryBlockAllocaWithType(Function *TheFunction,
     return TmpB.CreateAlloca(type, nullptr, VarName);
 }
 
+static AllocaInst *CreateEntryBlockAllocaWithTypeSize(Function *TheFunction,
+                                          StringRef VarName, Type* type, Value* size) {
+    IRBuilder<> TmpB(&TheFunction->getEntryBlock(),
+                     TheFunction->getEntryBlock().begin());
+    return TmpB.CreateAlloca(type, size, VarName);
+}
 
 std::string getTypeString(Type *type) {
     if (type->isFloatTy()) 
@@ -591,7 +596,13 @@ Value *VarExprAST::codegen() {
     auto castedVal = createCast(initVal, varType);
     std::cout << "casted-val-type:" << getTypeString(castedVal->getType()) << " node-val-type: " << getTypeString(varType) << std::endl;
     AllocaInst *alloca = CreateEntryBlockAllocaWithType(currFunction, name, type);
-    llvmBuilder->CreateStore(castedVal, alloca);
+    if(type == TYPEID_CHAR_PTR){
+        auto ArraySize = llvmBuilder->getInt32(1000);
+        AllocaInst * arrayspace = CreateEntryBlockAllocaWithTypeSize(currFunction, name, llvmBuilder->getInt8Ty(), ArraySize);
+        llvmBuilder->CreateStore(arrayspace, alloca);
+    }else{
+        llvmBuilder->CreateStore(castedVal, alloca);
+    }
     NamedValues[name] = alloca;
     return castedVal;
 }
