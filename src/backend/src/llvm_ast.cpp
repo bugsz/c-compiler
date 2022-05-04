@@ -62,7 +62,6 @@ ASTNodeType getNodeType(std::string token) {
     if(token == "Literal") return LITERAL;
     if(token == "CompoundStmt") return COMPOUNDSTMT;
     if(token == "DeclRefExpr") return DECLREFEXPR;
-    if(token == "DeclStmt") return DECLSTMT;
     if(token == "ReturnStmt") return RETURNSTMT;
     if(token == "ForStmt") return FORSTMT;
     if(token == "ForDelimiter") return FORDELIMITER;
@@ -119,18 +118,24 @@ std::string filterString(std::string str){
 }
 
 Constant *getInitVal(Type *type) {
-    if(type->isDoubleTy()) return ConstantFP::get(llvmBuilder->getDoubleTy(), 0);
-    else if(type->isIntegerTy(INTEGER_BITWIDTH)) {
-        if (INTEGER_BITWIDTH == 32) return llvmBuilder->getInt32(0);
-        else return llvmBuilder->getInt64(0);
+    if(type->isFloatTy())
+        return ConstantFP::get(llvmBuilder->getFloatTy(), 0);
+    else if(type->isDoubleTy()) 
+        return ConstantFP::get(llvmBuilder->getDoubleTy(), 0);
+    else if(type->isIntegerTy(1)) 
+        return llvmBuilder->getInt1(false);
+    else if(type->isIntegerTy(8))
+        return llvmBuilder->getInt8(0);
+    else if(type->isIntegerTy(16))
+        return llvmBuilder->getInt16(0);
+    else if(type->isIntegerTy(32))
+        return llvmBuilder->getInt32(0);
+    else if(type->isIntegerTy(64))
+        return llvmBuilder->getInt64(0);
+    else{
+        // others are all pointers
+        return ConstantExpr::getIntToPtr(llvmBuilder->getInt64(0), type);
     }
-    else if(type->isIntegerTy(1)) return llvmBuilder->getInt1(false);
-    
-    std::string error_msg("In func `getInitVal`: unknown type ");
-    error_msg += getLLVMTypeStr(type);
-
-    fprintf(stderr, "Error: %s\n", error_msg.c_str());
-    return nullptr;
 }
 
 GlobalVariable *createGlob(Type *type, std::string name) {
@@ -149,47 +154,64 @@ bool isValidBinaryOperand(Value *value) {
     return (value->getType()->isDoubleTy() || value->getType()->isIntegerTy(INTEGER_BITWIDTH));
 }
 
-Function *getPrintfFunction(Module *mod) {
-    const char *func_name = "printf";
-    Function *func = mod->getFunction(func_name);
-    // if(func) logErrorF("Cannot use `printf`, as it is a built-in function");
-    if (func) return func;
-
-    
-    FunctionType *funcType = FunctionType::get(
-        Type::getInt32Ty(mod->getContext()), 
-        {Type::getInt8PtrTy(mod->getContext())},
-         true); 
-    func = Function::Create(funcType, Function::ExternalLinkage, func_name, mod);
-    func->setCallingConv(CallingConv::C);
-    
-    return func;
-    // return nullptr;
-}
 
 Value *getBuiltinFunction(std::string callee, std::vector<std::unique_ptr<ExprAST>> &args) {
-    if(callee == "__builtin_printf") {
-        // return nullptr;
-        print("Using builtin function `printf`");
-
-        std::vector<Value *> varArgs;
+    if(llvmModule->getFunction(callee)){
+        print("Builtin function over written by user!");
+        return nullptr;
+    }
+    Module* mod = llvmModule.get();
+    std::vector<Value *> varArgs;
+    FunctionType *funcType;
+    std::string func_name = callee.substr(strlen("__builtin_"), callee.length());
+    print("Real name of " + callee + " is " + func_name);
+    auto external_func = llvmModule->getFunction(func_name);
+    if(callee == "__builtin_printf"){
+        if(args.size() < 1){
+            logErrorV("too few arguments to function call");
+            exit(1);
+        }
         auto formatArgs = llvmBuilder->CreateGlobalStringPtr(
             (static_cast<LiteralExprAST *>(args[0].get()))->getValue()
         );
-
-        std::cout << static_cast<LiteralExprAST *>(args[0].get())->getValue() << std::endl;
         varArgs.push_back(formatArgs);
-        for (int i=1;i<args.size();i++) {
+        for (int i = 1; i < args.size(); i++) {
             auto arg = args[i]->codegen();
             varArgs.push_back(arg);
         }
-        
-        auto func_printf = getPrintfFunction(llvmModule.get());
-        return llvmBuilder->CreateCall(func_printf, varArgs);
+        funcType = FunctionType::get(
+            Type::getInt32Ty(mod->getContext()), 
+            {Type::getInt8PtrTy(mod->getContext())},
+            true
+        );
+    }else if(callee == "__builtin_sprintf"){
+        if(args.size() < 2){
+            logErrorV("too few arguments to function call");
+            exit(1);
+        }
+        varArgs.push_back(args[0]->codegen());
+        auto formatArgs = llvmBuilder->CreateGlobalStringPtr(
+            (static_cast<LiteralExprAST *>(args[1].get()))->getValue()
+        );
+        varArgs.push_back(formatArgs);
+        for (int i=2; i < args.size(); i++) {
+            auto arg = args[i]->codegen();
+            varArgs.push_back(arg);
+        }
+        funcType = FunctionType::get(
+            Type::getInt32Ty(mod->getContext()), 
+            {Type::getInt8PtrTy(mod->getContext()), Type::getInt8PtrTy(mod->getContext())},
+            true
+        );
     }
-    return nullptr;
+    
+    if(external_func){
+        return llvmBuilder->CreateCall(external_func, varArgs);
+    }
+    auto func = Function::Create(funcType, Function::ExternalLinkage, func_name, mod);
+    func->setCallingConv(CallingConv::C);
+    return llvmBuilder->CreateCall(func, varArgs);
 }
-
 
 std::unique_ptr<ExprAST> generateBackendASTNode(ast_node_ptr root) {
     // if (!root->n_child) return nullptr;
@@ -255,15 +277,9 @@ std::unique_ptr<ExprAST> generateBackendASTNode(ast_node_ptr root) {
             }
         }
 
-        case DECLSTMT: {
-            // 全局变量声明的AST就是 VarDecl, 无DeclStmt这一层
-            return generateBackendASTNode(root->child[0]);
-        }
-
         case DECLREFEXPR: {
             std::string varName(val);
             int type = root->type_id;
-
             auto var = std::make_unique<VarRefExprAST>(varName, type);
             return var;
         }
@@ -394,16 +410,42 @@ static void initializeBuiltinFunction() {
 Type *getVarType(LLVMContext &C, int type_id) {
     std::cout << "Get var type: " << type_id << std::endl;
     switch(type_id) {
-        case TYPEID_INT:
-            // std::cout << "int\n";
-            if(INTEGER_BITWIDTH == 32) return Type::getInt32Ty(C);
-            else return Type::getInt64Ty(C);
-        case TYPEID_DOUBLE:
-            return Type::getDoubleTy(C);
         case TYPEID_VOID:
             return Type::getVoidTy(C);
+        case TYPEID_CHAR:
+            return Type::getInt8Ty(C);
+        case TYPEID_SHORT:
+            return Type::getInt16Ty(C);
+        case TYPEID_INT:
+            if(INTEGER_BITWIDTH == 32) 
+                return Type::getInt32Ty(C);
+            else 
+                return Type::getInt64Ty(C);
+        case TYPEID_LONG:
+            return Type::getInt64Ty(C);
+        case TYPEID_FLOAT:
+            return Type::getFloatTy(C);
+        case TYPEID_DOUBLE:
+            return Type::getDoubleTy(C);
         case TYPEID_STR:
             return Type::getInt8PtrTy(C);
+        case TYPEID_VOID_PTR:
+            return nullptr;
+        case TYPEID_CHAR_PTR:
+            return Type::getInt8PtrTy(C);
+        case TYPEID_SHORT_PTR:
+            return Type::getInt16PtrTy(C);        
+        case TYPEID_INT_PTR:
+            if(INTEGER_BITWIDTH == 32) 
+                return Type::getInt32PtrTy(C);
+            else 
+                return Type::getInt64PtrTy(C);
+        case TYPEID_LONG_PTR:
+            return Type::getInt64PtrTy(C);        
+        case TYPEID_FLOAT_PTR:
+            return Type::getFloatPtrTy(C);        
+        case TYPEID_DOUBLE_PTR:
+            return Type::getDoublePtrTy(C);        
         default:
             return nullptr;
     }
@@ -456,28 +498,59 @@ static AllocaInst *CreateEntryBlockAllocaWithType(Function *TheFunction,
     return TmpB.CreateAlloca(type, nullptr, VarName);
 }
 
-
-std::string getTypeString(Type *type) {
-    if (type->isDoubleTy()) return std::string("double");
-    if (type->isIntegerTy(INTEGER_BITWIDTH)) 
-        return std::string("int_") + std::to_string(INTEGER_BITWIDTH);
-    return std::string("Unknown");
+static AllocaInst *CreateEntryBlockAllocaWithTypeSize(Function *TheFunction,
+                                          StringRef VarName, Type* type, Value* size) {
+    IRBuilder<> TmpB(&TheFunction->getEntryBlock(),
+                     TheFunction->getEntryBlock().begin());
+    return TmpB.CreateAlloca(type, size, VarName);
 }
 
+std::string getTypeString(Type *type) {
+    if (type->isFloatTy()) 
+        return "float";
+    if (type->isDoubleTy()) 
+        return "double";
+    if (type->isIntegerTy()) 
+        return "int_" + std::to_string(type->getIntegerBitWidth());
+    if (type->isFloatTy())
+        return "float";
+    if (type->isPtrOrPtrVectorTy())
+        return "Pointer";
+    return "Unknown type";
+}
+
+// 将value转成想要的type类型
 Value *createCast(Value *value, Type *type) {
-    Type *valType = value->getType();
-    if(valType == type) return value;
-    else if(type->isDoubleTy() && valType->isDoubleTy()) return value;
-    else if(type->isIntegerTy(INTEGER_BITWIDTH) && valType->isIntegerTy(INTEGER_BITWIDTH)) return value;
-    else if(type->isDoubleTy() && valType->isIntegerTy(INTEGER_BITWIDTH)) 
-        return llvmBuilder->CreateSIToFP(value, type);
-    else if(type->isIntegerTy(INTEGER_BITWIDTH) && valType->isDoubleTy())
-        return llvmBuilder->CreateFPToSI(value, type);
-    
-    
-    std::cout << "Not finish creating cast" << std::endl;
+    auto val_type = value->getType();
+    if(val_type->isDoubleTy()){
+        if(type->isDoubleTy()){
+            return value;
+        }else if(type->isIntegerTy()){
+            return llvmBuilder->CreateCast(Instruction::FPToSI, value, type);
+        }else if(type->isPtrOrPtrVectorTy()){
+            return nullptr;
+        }
+    }
+    if(val_type->isIntegerTy()){
+        if(type->isDoubleTy()){
+            return llvmBuilder->CreateCast(Instruction::SIToFP, value, type);
+        }else if(type->isIntegerTy()){
+            return value;
+        }else if(val_type->isPtrOrPtrVectorTy()){
+            return llvmBuilder->CreateCast(Instruction::IntToPtr, value, type);
+        }
+    }
+    if(val_type->isPtrOrPtrVectorTy()){
+        if(type->isDoubleTy()){
+            return nullptr;
+        }else if(type->isIntegerTy()){
+            return llvmBuilder->CreateCast(Instruction::PtrToInt, value, type);
+        }else if(type->isPtrOrPtrVectorTy()){
+            return value;
+        }
+    }
+    print("Unknown type to be cast");
     return value;
-    // return logErrorV("Invalid type cast!\n");
 }
 
 Value *TranslationUnitExprAST::codegen() {
@@ -492,7 +565,7 @@ Value *TranslationUnitExprAST::codegen() {
 
     int globalVar_len = globalVarList.size();
     int expr_len = exprList.size();
-    print(std::to_string(globalVar_len) + " " + std::to_string(expr_len));
+    print("Global vars: "+ std::to_string(globalVar_len) + " Exprs: " + std::to_string(expr_len));
 
     for (int i=0;i<globalVar_len;i++) globalVarList[i]->codegen();
     llvmBuilder->CreateRetVoid();
@@ -514,22 +587,24 @@ Value *VarExprAST::codegen() {
     auto varType = getVarType(*llvmContext, this->getType());
 
     Value *initVal;
-
-
     if(init) {
         initVal = init->codegen();
-        std::cout << getTypeString(initVal->getType()) << " " << getTypeString(varType) << std::endl;
-        initVal = createCast(initVal, varType);
-
-        if(!initVal) return nullptr;
+    } else {
+        initVal = getInitVal(varType);
     }
-    else initVal = getInitVal(varType);
-    
-    
+    std::cout << "initial-val-type:" << getTypeString(initVal->getType()) << " node-val-type: " << getTypeString(varType) << std::endl;
+    auto castedVal = createCast(initVal, varType);
+    std::cout << "casted-val-type:" << getTypeString(castedVal->getType()) << " node-val-type: " << getTypeString(varType) << std::endl;
     AllocaInst *alloca = CreateEntryBlockAllocaWithType(currFunction, name, type);
-    llvmBuilder->CreateStore(initVal, alloca);
+    if(type == TYPEID_CHAR_PTR){
+        auto ArraySize = llvmBuilder->getInt32(1000);
+        AllocaInst * arrayspace = CreateEntryBlockAllocaWithTypeSize(currFunction, name, llvmBuilder->getInt8Ty(), ArraySize);
+        llvmBuilder->CreateStore(arrayspace, alloca);
+    }else{
+        llvmBuilder->CreateStore(castedVal, alloca);
+    }
     NamedValues[name] = alloca;
-    return initVal;
+    return castedVal;
 }
 
 Value *VarRefExprAST::codegen() {
@@ -906,10 +981,11 @@ Value *ForExprAST::codegen() {
 
 Value *CallExprAST::codegen() {
     std::cout << "Call to: " + callee << std::endl;
-
-    auto builtin_ret = getBuiltinFunction(callee, args);
-    if(builtin_ret) return builtin_ret;
-    
+    // 如果是builtin function
+    if(callee.find("__builtin_") == 0){
+        auto builtin_ret = getBuiltinFunction(callee, args);
+        if(builtin_ret) return builtin_ret;
+    }
 
     Function *calleeFunction = llvmModule->getFunction(callee);
     if (!calleeFunction) return logErrorV("Unknown function");
