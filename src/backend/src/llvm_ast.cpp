@@ -149,47 +149,53 @@ bool isValidBinaryOperand(Value *value) {
     return (value->getType()->isDoubleTy() || value->getType()->isIntegerTy(INTEGER_BITWIDTH));
 }
 
-Function *getPrintfFunction(Module *mod) {
-    const char *func_name = "printf";
-    Function *func = mod->getFunction(func_name);
-    // if(func) logErrorF("Cannot use `printf`, as it is a built-in function");
-    if (func) return func;
-
-    
-    FunctionType *funcType = FunctionType::get(
-        Type::getInt32Ty(mod->getContext()), 
-        {Type::getInt8PtrTy(mod->getContext())},
-         true); 
-    func = Function::Create(funcType, Function::ExternalLinkage, func_name, mod);
-    func->setCallingConv(CallingConv::C);
-    
-    return func;
-    // return nullptr;
-}
 
 Value *getBuiltinFunction(std::string callee, std::vector<std::unique_ptr<ExprAST>> &args) {
-    if(callee == "__builtin_printf") {
-        // return nullptr;
-        print("Using builtin function `printf`");
-
-        std::vector<Value *> varArgs;
+    if(llvmModule->getFunction(callee)){
+        print("Over written by user!");
+        return nullptr;
+    }
+    Module* mod = llvmModule.get();
+    std::vector<Value *> varArgs;
+    FunctionType *funcType;
+    std::string func_name;
+    if(callee == "__builtin_printf"){
         auto formatArgs = llvmBuilder->CreateGlobalStringPtr(
             (static_cast<LiteralExprAST *>(args[0].get()))->getValue()
         );
-
-        std::cout << static_cast<LiteralExprAST *>(args[0].get())->getValue() << std::endl;
         varArgs.push_back(formatArgs);
-        for (int i=1;i<args.size();i++) {
+        for (int i = 1; i < args.size(); i++) {
             auto arg = args[i]->codegen();
             varArgs.push_back(arg);
         }
-        
-        auto func_printf = getPrintfFunction(llvmModule.get());
-        return llvmBuilder->CreateCall(func_printf, varArgs);
+        funcType = FunctionType::get(
+            Type::getInt32Ty(mod->getContext()), 
+            {Type::getInt8PtrTy(mod->getContext())},
+            true
+        );
+        func_name = "printf";
+    }else if(callee == "__builtin_sprintf"){
+        std::vector<Value *> varArgs;
+        varArgs.push_back(args[0]->codegen());
+        auto formatArgs = llvmBuilder->CreateGlobalStringPtr(
+            (static_cast<LiteralExprAST *>(args[1].get()))->getValue()
+        );
+        varArgs.push_back(formatArgs);
+        for (int i=2; i < args.size(); i++) {
+            auto arg = args[i]->codegen();
+            varArgs.push_back(arg);
+        }
+        funcType = FunctionType::get(
+            Type::getInt32Ty(mod->getContext()), 
+            {Type::getInt8PtrTy(mod->getContext()), Type::getInt8PtrTy(mod->getContext())},
+            true
+        );
+        func_name = "sprintf";
     }
-    return nullptr;
+    auto func = Function::Create(funcType, Function::ExternalLinkage, func_name, mod);
+    func->setCallingConv(CallingConv::C);
+    return llvmBuilder->CreateCall(func, varArgs);
 }
-
 
 std::unique_ptr<ExprAST> generateBackendASTNode(ast_node_ptr root) {
     // if (!root->n_child) return nullptr;
@@ -492,7 +498,7 @@ Value *TranslationUnitExprAST::codegen() {
 
     int globalVar_len = globalVarList.size();
     int expr_len = exprList.size();
-    print(std::to_string(globalVar_len) + " " + std::to_string(expr_len));
+    print("Global vars: "+ std::to_string(globalVar_len) + " Exprs: " + std::to_string(expr_len));
 
     for (int i=0;i<globalVar_len;i++) globalVarList[i]->codegen();
     llvmBuilder->CreateRetVoid();
@@ -906,10 +912,11 @@ Value *ForExprAST::codegen() {
 
 Value *CallExprAST::codegen() {
     std::cout << "Call to: " + callee << std::endl;
-
-    auto builtin_ret = getBuiltinFunction(callee, args);
-    if(builtin_ret) return builtin_ret;
-    
+    // 如果是builtin function
+    if(callee.find("__builtin_") == 0){
+        auto builtin_ret = getBuiltinFunction(callee, args);
+        if(builtin_ret) return builtin_ret;
+    }
 
     Function *calleeFunction = llvmModule->getFunction(callee);
     if (!calleeFunction) return logErrorV("Unknown function");
