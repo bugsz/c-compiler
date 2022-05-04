@@ -33,7 +33,8 @@ message(STATUS "SRC_LIST: ${SRC_LIST}")
 # aux_source_directory(./src/backend/src SRC_LIST)
 
 include_directories(./src/backend/include)
-# include_directories(./src/frontend/frontend.h)
+include_directories(./src/frontend)
+
 add_executable(${PROJECT_NAME} ${SRC_LIST})
 message(${LLVM_TARGETS_TO_BUILD})
 # llvm_map_components_to_libnames(llvm_libs support core irreader executionEngine target native)
