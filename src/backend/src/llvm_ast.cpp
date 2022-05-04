@@ -62,7 +62,6 @@ ASTNodeType getNodeType(std::string token) {
     if(token == "Literal") return LITERAL;
     if(token == "CompoundStmt") return COMPOUNDSTMT;
     if(token == "DeclRefExpr") return DECLREFEXPR;
-    if(token == "DeclStmt") return DECLSTMT;
     if(token == "ReturnStmt") return RETURNSTMT;
     if(token == "ForStmt") return FORSTMT;
     if(token == "ForDelimiter") return FORDELIMITER;
@@ -273,15 +272,9 @@ std::unique_ptr<ExprAST> generateBackendASTNode(ast_node_ptr root) {
             }
         }
 
-        case DECLSTMT: {
-            // 全局变量声明的AST就是 VarDecl, 无DeclStmt这一层
-            return generateBackendASTNode(root->child[0]);
-        }
-
         case DECLREFEXPR: {
             std::string varName(val);
             int type = root->type_id;
-
             auto var = std::make_unique<VarRefExprAST>(varName, type);
             return var;
         }
