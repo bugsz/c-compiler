@@ -162,6 +162,10 @@ Value *getBuiltinFunction(std::string callee, std::vector<std::unique_ptr<ExprAS
     print("Real name of " + callee + " is " + func_name);
     auto external_func = llvmModule->getFunction(func_name);
     if(callee == "__builtin_printf"){
+        if(args.size() < 1){
+            logErrorV("too few arguments to function call");
+            exit(1);
+        }
         auto formatArgs = llvmBuilder->CreateGlobalStringPtr(
             (static_cast<LiteralExprAST *>(args[0].get()))->getValue()
         );
@@ -176,6 +180,10 @@ Value *getBuiltinFunction(std::string callee, std::vector<std::unique_ptr<ExprAS
             true
         );
     }else if(callee == "__builtin_sprintf"){
+        if(args.size() < 2){
+            logErrorV("too few arguments to function call");
+            exit(1);
+        }
         std::vector<Value *> varArgs;
         varArgs.push_back(args[0]->codegen());
         auto formatArgs = llvmBuilder->CreateGlobalStringPtr(
@@ -192,6 +200,7 @@ Value *getBuiltinFunction(std::string callee, std::vector<std::unique_ptr<ExprAS
             true
         );
     }
+    
     if(external_func){
         return llvmBuilder->CreateCall(external_func, varArgs);
     }
