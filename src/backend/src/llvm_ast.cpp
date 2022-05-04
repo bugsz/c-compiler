@@ -152,13 +152,15 @@ bool isValidBinaryOperand(Value *value) {
 
 Value *getBuiltinFunction(std::string callee, std::vector<std::unique_ptr<ExprAST>> &args) {
     if(llvmModule->getFunction(callee)){
-        print("Over written by user!");
+        print("Builtin function over written by user!");
         return nullptr;
     }
     Module* mod = llvmModule.get();
     std::vector<Value *> varArgs;
     FunctionType *funcType;
-    std::string func_name;
+    std::string func_name = callee.substr(strlen("__builtin_"), callee.length());
+    print("Real name of " + callee + " is " + func_name);
+    auto external_func = llvmModule->getFunction(func_name);
     if(callee == "__builtin_printf"){
         auto formatArgs = llvmBuilder->CreateGlobalStringPtr(
             (static_cast<LiteralExprAST *>(args[0].get()))->getValue()
@@ -173,7 +175,6 @@ Value *getBuiltinFunction(std::string callee, std::vector<std::unique_ptr<ExprAS
             {Type::getInt8PtrTy(mod->getContext())},
             true
         );
-        func_name = "printf";
     }else if(callee == "__builtin_sprintf"){
         std::vector<Value *> varArgs;
         varArgs.push_back(args[0]->codegen());
@@ -190,7 +191,9 @@ Value *getBuiltinFunction(std::string callee, std::vector<std::unique_ptr<ExprAS
             {Type::getInt8PtrTy(mod->getContext()), Type::getInt8PtrTy(mod->getContext())},
             true
         );
-        func_name = "sprintf";
+    }
+    if(external_func){
+        return llvmBuilder->CreateCall(external_func, varArgs);
     }
     auto func = Function::Create(funcType, Function::ExternalLinkage, func_name, mod);
     func->setCallingConv(CallingConv::C);
