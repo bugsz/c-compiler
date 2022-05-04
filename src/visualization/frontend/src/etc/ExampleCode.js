@@ -201,8 +201,12 @@ int main(){
     int j;
     for(i = 0; i < 16; i=i+1){
         for(j = 0; j < 16; j=j+1){
-            __builtin_printf("%d\\n", i*16+j);
+            char buf[100];
+            int code = i*16+j;
+            __builtin_sprintf(buf, "\\u001b[48;5;%dm%-4d", code, code);
+            __builtin_printf("%s", buf);
         }
+        __builtin_printf("\\u001b[0m\\n");
     }
     return 0;
 }`
