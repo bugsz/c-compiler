@@ -24,4 +24,4 @@ echo "${RED_BOLD}Build c-compiler${NORMAL}"
 echo "${RED_BOLD}Backend start${NORMAL}"
     cd $CURDIR/bin
     export GIN_MODE=release
-    exec $CURDIR/bin/${filename}
+    exec nohup $CURDIR/bin/${filename} &
