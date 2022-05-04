@@ -14,11 +14,10 @@ echo "${RED_BOLD}Build c-compiler${NORMAL}"
     test -e llvm_wrapper && rm -f llvm_wrapper
     sh $CURDIR/../serialization/compile.sh $1
     cp $CURDIR/../serialization/serializer $CURDIR/bin/serializer
-    cd $CURDIR/../../../
-    test -d $CURDIR/../../../build && rm -rf $CURDIR/../../../build
-    mkdir $CURDIR/../../../build
-    cd $CURDIR/../../../build
-    cmake -DIRONLY=ON .. 1>/dev/null && make 1>/dev/null
+    test -d $CURDIR/bin/build && rm -rf $CURDIR/bin/build
+    mkdir $CURDIR/bin/build
+    cd $CURDIR/bin/build
+    cmake -DIRONLY=ON $CURDIR/../../.. 1>/dev/null && make 1>/dev/null
     test -e "zjucc_backend" && echo "Backend build success"
     cp zjucc_backend $CURDIR/bin/llvm_wrapper
 
