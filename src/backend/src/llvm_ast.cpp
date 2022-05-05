@@ -586,6 +586,9 @@ Value *VarExprAST::codegen() {
         initVal = getInitVal(varType);
     }
     auto castedVal = createCast(initVal, varType);
+    if(!castedVal){
+        logErrorV((std::string("Unsupported initializatin from "+ getLLVMTypeStr(initVal->getType()) +" to " + getLLVMTypeStr(varType)).c_str()));
+    }
     AllocaInst *alloca = CreateEntryBlockAllocaWithType(currFunction, name, type);
     if(type == TYPEID_CHAR_PTR){
         auto ArraySize = llvmBuilder->getInt32(1000);
@@ -613,7 +616,7 @@ Value *VarRefExprAST::codegen() {
     // std::cout << "Type of varRef: " << this->type << std::endl;
     // Value *nextVar = llvmBuilder->CreateLoad(valType, alloca, varName.c_str());
     auto type = getVarType(*llvmContext, this->type);
-    std::cout << "Type: " << getLLVMTypeStr(type) << " thisType: " << this->type << " Name: " << this->name << std::endl;
+    std::cout << "Type: " << getLLVMTypeStr(type) << " Type-id: " << this->type << " Name: " << this->name << std::endl;
     auto retVal = llvmBuilder->CreateLoad(type, V, name.c_str());
 
     std::cout << "Value of load: " + getLLVMTypeStr(retVal) << std::endl;
@@ -710,15 +713,22 @@ Value *BinaryExprAST::codegen() {
     if (opType == ASSIGN) {
         VarRefExprAST *lhse = static_cast<VarRefExprAST *>(lhs.get());
         Value *val =rhs->codegen();
-        if (!val) return nullptr;
+        if (!val) {
+            logErrorV("Invaild Reference");
+            return nullptr;
+        }
         // Value *variable = NamedValues[lhse->getName()];
 
         int isGlobal = 0;
         auto variable = getVariable(lhse->getName(), isGlobal);
         if (!variable) return variable;
 
-        val = createCast(val, variable->getType()->getPointerElementType());
-        if (!val) return nullptr;
+        auto castedVal = createCast(val, variable->getType()->getPointerElementType());
+        if (!castedVal){
+            logErrorV((std::string("Unsupported assign from "+ getLLVMTypeStr(val->getType()) +" to " + getLLVMTypeStr(variable->getType()->getPointerElementType())).c_str()));
+            return nullptr;
+        }
+        val = castedVal;
         std::cout << getLLVMTypeStr(val) << std::endl;
         llvmBuilder->CreateStore(val, variable);
         return val;
@@ -739,10 +749,14 @@ Value *BinaryExprAST::codegen() {
 
     if(left->getType()->isFloatingPointTy() || right->getType()->isFloatingPointTy()) {
         // always cast int to FP
-        left = createCast(left, Type::getDoubleTy(*llvmContext));
-        right = createCast(right, Type::getDoubleTy(*llvmContext));
-        if(!left || !right){
-            logErrorV((std::string("There is no such operand between "+ getLLVMTypeStr(left) +" : " + getLLVMTypeStr(right)).c_str()));
+        auto FPleft = createCast(left, Type::getDoubleTy(*llvmContext));
+        auto FPright = createCast(right, Type::getDoubleTy(*llvmContext));
+        if(!FPleft || !FPright){
+            logErrorV(std::string("Unsupported operand between "+ getLLVMTypeStr(left->getType()) +" : " + getLLVMTypeStr(right->getType())).c_str());
+            return nullptr;
+        }else{
+            left = FPleft;
+            right = FPright;
         }
         switch(opType) {
             case ADD:
@@ -769,6 +783,12 @@ Value *BinaryExprAST::codegen() {
                 return logErrorV("Invalid binary operator");
         }
     }else{
+        // Otherwise, always try to convert right to left!
+        print("!!!!!");
+        right = createCast(right, left->getType());
+        if(!right){
+            logErrorV((std::string("Unsupported operand between "+ getLLVMTypeStr(left->getType()) +" : " + getLLVMTypeStr(right->getType())).c_str()));
+        }
         switch(opType) {
             case ADD:
                 return llvmBuilder->CreateAdd(left, right, "iadd");
