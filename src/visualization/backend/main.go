@@ -51,6 +51,19 @@ func main() {
 	r := gin.Default()
 	r.SetTrustedProxies([]string{"127.0.0.1"})
 	r.Use(Cors())
+	r.POST("/dumpAST", func(c *gin.Context) {
+		buffer := new(bytes.Buffer)
+		cmd := exec.Command("./serializer", "-stdin", "-ast-dump")
+		cmd.Stdin = c.Request.Body
+		cmd.Stderr = buffer
+		bytes, err := cmd.Output()
+		if err != nil {
+			c.Data(400, "plaintext", buffer.Bytes())
+			return
+		}
+		c.Data(200, "application/json", bytes)
+	})
+
 	r.POST("/GetAST", func(c *gin.Context) {
 		buffer := new(bytes.Buffer)
 		cmd := exec.Command("./serializer", "-stdin")
@@ -95,6 +108,7 @@ func main() {
 	})
 
 	r.POST("/deploy", func(c *gin.Context) {
+		c.AbortWithStatus(http.StatusNoContent)
 		f, err := os.OpenFile("update.log", os.O_CREATE|os.O_APPEND|os.O_RDWR, os.ModePerm)
 		if err != nil {
 			return
@@ -113,7 +127,6 @@ func main() {
 		updateProject.Stdout = f
 		updateProject.Stderr = f
 		err = updateProject.Run()
-		c.AbortWithStatus(http.StatusNoContent)
 	})
 
 	r.Run("127.0.0.1:8080")
