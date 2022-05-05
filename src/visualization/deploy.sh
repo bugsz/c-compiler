@@ -5,5 +5,5 @@ yarn install
 yarn build
 
 cd $CURDIR/backend
-sh bootstrap.sh new
+sh bootstrap.sh NEW_BUILD
 

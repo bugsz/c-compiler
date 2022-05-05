@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"sync"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -98,13 +99,20 @@ func main() {
 		if err != nil {
 			return
 		}
+		now := time.Now()
+		f.WriteString(now.Format("[UPDATE BEGIN AT] 2006-01-02 15:04:05.000 \n"))
 		defer func() {
+			if err != nil {
+				f.WriteString(now.Format("[UPDATE FAILED] 2006-01-02 15:04:05.000 \n"))
+			} else {
+				f.WriteString(now.Format("[UPDATE FINISHED AT] 2006-01-02 15:04:05.000 \n"))
+			}
 			f.Close()
 		}()
-		updateProject := exec.Command("sh", "./update.sh", "new")
+		updateProject := exec.Command("sh", "./update.sh")
 		updateProject.Stdout = f
 		updateProject.Stderr = f
-		updateProject.Run()
+		err = updateProject.Run()
 		c.AbortWithStatus(http.StatusNoContent)
 	})
 

@@ -19,7 +19,8 @@ echo "${RED_BOLD}Backend start${NORMAL}"
     exec nohup $CURDIR/bin/${filename} &
 
 touch $CURDIR/bin/update.sh 
-echo "sh ../build.sh" >> $CURDIR/bin/update.sh
-echo "cd ../../frontend" >> $CURDIR/bin/update.sh
-echo "yarn install" >> $CURDIR/bin/update.sh 
+echo "git pull &&" >> $CURDIR/bin/update.sh
+echo "sh ../build.sh NEW_BUILD &&" >> $CURDIR/bin/update.sh
+echo "cd ../../frontend &&" >> $CURDIR/bin/update.sh
+echo "yarn install &&" >> $CURDIR/bin/update.sh 
 echo "yarn build" >> $CURDIR/bin/update.sh 
