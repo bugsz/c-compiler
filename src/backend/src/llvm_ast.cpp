@@ -86,13 +86,6 @@ template<typename T> static std::string getLLVMTypeStr(T* value_or_type) {
     return str;
 }
 
-std::string getLLVMTypeStr(Value *value) {
-    std::string str;
-    raw_string_ostream stream(str);
-    value->getType()->print(stream);
-    return str;
-}
-
 
 Value *logErrorV(const char *str) {
     logError<ExprAST>(str);
@@ -506,26 +499,15 @@ static AllocaInst *CreateEntryBlockAllocaWithTypeSize(Function *TheFunction,
     return TmpB.CreateAlloca(type, size, VarName);
 }
 
-std::string getTypeString(Type *type) {
-    if (type->isFloatTy()) 
-        return "float";
-    if (type->isDoubleTy()) 
-        return "double";
-    if (type->isIntegerTy()) 
-        return "int_" + std::to_string(type->getIntegerBitWidth());
-    if (type->isFloatTy())
-        return "float";
-    if (type->isPtrOrPtrVectorTy())
-        return "Pointer";
-    return "Unknown type";
-}
 
 // 将value转成想要的type类型
 Value *createCast(Value *value, Type *type) {
+    std::cout << "val-type:" << getLLVMTypeStr(value) << " want-type: " << getLLVMTypeStr(type) << std::endl;
     auto val_type = value->getType();
     if(val_type->isFloatingPointTy()){
+        print("Val belongs to FloatingPoint");
         if(type->isFloatingPointTy()){
-            return value;
+            return llvmBuilder->CreateFPCast(value, type);
         }else if(type->isIntegerTy()){
             return llvmBuilder->CreateCast(Instruction::FPToSI, value, type);
         }else if(type->isPtrOrPtrVectorTy()){
@@ -533,15 +515,17 @@ Value *createCast(Value *value, Type *type) {
         }
     }
     if(val_type->isIntegerTy()){
+        print("Val belongs to Integer");
         if(type->isFloatingPointTy()){
             return llvmBuilder->CreateCast(Instruction::SIToFP, value, type);
         }else if(type->isIntegerTy()){
             return llvmBuilder->CreateSExtOrTrunc(value, type);
-        }else if(val_type->isPtrOrPtrVectorTy()){
+        }else if(type->isPtrOrPtrVectorTy()){
             return llvmBuilder->CreateCast(Instruction::IntToPtr, value, type);
         }
     }
     if(val_type->isPtrOrPtrVectorTy()){
+        print("Val belongs to Pointer");
         if(type->isFloatingPointTy()){
             return nullptr;
         }else if(type->isIntegerTy()){
@@ -593,9 +577,7 @@ Value *VarExprAST::codegen() {
     } else {
         initVal = getInitVal(varType);
     }
-    std::cout << "initial-val-type:" << getTypeString(initVal->getType()) << " node-val-type: " << getTypeString(varType) << std::endl;
     auto castedVal = createCast(initVal, varType);
-    std::cout << "casted-val-type:" << getTypeString(castedVal->getType()) << " node-val-type: " << getTypeString(varType) << std::endl;
     AllocaInst *alloca = CreateEntryBlockAllocaWithType(currFunction, name, type);
     if(type == TYPEID_CHAR_PTR){
         auto ArraySize = llvmBuilder->getInt32(1000);
@@ -640,9 +622,8 @@ Value *GlobalVarExprAST::codegen() {
 
     if(init->init) {
         initVal = init->init->codegen();
-        std::cout << getTypeString(initVal->getType()) << " " << getTypeString(varType) << " " << getLLVMTypeStr(initVal) << std::endl;
+        std::cout << getLLVMTypeStr(initVal->getType()) << " " << getLLVMTypeStr(varType) << " " << getLLVMTypeStr(initVal) << std::endl;
         initVal = createCast(initVal, varType);
-
         if(!initVal) return nullptr;
     }
     else {
@@ -720,7 +701,7 @@ Value *BinaryExprAST::codegen() {
     
     if (opType == ASSIGN) {
         VarRefExprAST *lhse = static_cast<VarRefExprAST *>(lhs.get());
-        Value *val = rhs->codegen();
+        Value *val =rhs->codegen();
         if (!val) return nullptr;
         // Value *variable = NamedValues[lhse->getName()];
 
@@ -728,7 +709,8 @@ Value *BinaryExprAST::codegen() {
         auto variable = getVariable(lhse->getName(), isGlobal);
         if (!variable) return variable;
 
-
+        val = createCast(val, variable->getType());
+        if (!val) return nullptr;
         std::cout << getLLVMTypeStr(val) << std::endl;
         llvmBuilder->CreateStore(val, variable);
         return val;
@@ -848,7 +830,7 @@ Function *FunctionDeclAST::codegen() {
     }
 
     Type *retType = getVarType(*llvmContext, p.retVal);
-    // std::cout << "return type: " << getTypeString(retType) << std::endl;
+    // std::cout << "return type: " << getLLVMTypeStr(retType) << std::endl;
     auto compoundStmt = static_cast<CompoundStmtExprAST *>(body.get());
     bool final_return = true;
     auto expr_len = compoundStmt->exprList.size();
@@ -876,7 +858,7 @@ Function *FunctionDeclAST::codegen() {
     return currFunction;
     
     // Value *bodyVal = body->codegen();
-    // print(getTypeString(bodyVal->getType()) + " " + std::to_string(p.retVal));
+    // print(getLLVMTypeStr(bodyVal->getType()) + " " + std::to_string(p.retVal));
     // if(bodyVal) {
     //     if(p.getRetVal() == TYPEID_VOID) llvmBuilder->CreateRetVoid();
     //     else llvmBuilder->CreateRet(
@@ -962,11 +944,11 @@ Value *ForExprAST::codegen() {
                 << getLLVMTypeStr(stepVar) 
                 << std::endl;
     // std::cout   << "Type in for: "
-    //             << getTypeString(startVal->getType()) 
+    //             << getLLVMTypeStr(startVal->getType()) 
     //             << " " 
-    //             << getTypeString(endVal->getType())
+    //             << getLLVMTypeStr(endVal->getType())
     //             << " "
-    //             << getTypeString(stepVar->getType()) 
+    //             << getLLVMTypeStr(stepVar->getType()) 
     //             << std::endl;
 
     Value *nextVar = llvmBuilder->CreateLoad(valType, alloca, varName.c_str());
@@ -1084,7 +1066,7 @@ Value *WhileExprAST::codegen() {
     std::cout << "Type in while: " 
             << getLLVMTypeStr(condVal) 
             << " "
-            << getTypeString(condVal->getType())
+            << getLLVMTypeStr(condVal->getType())
             << std::endl;
     // std::cout << condVal->getType() << std::endl;
     // condVal = getInitVal(Type::getDoubleTy(*llvmContext));
@@ -1131,7 +1113,7 @@ Value *DoExprAST::codegen() {
     std::cout << "Type in do_while: " 
             << getLLVMTypeStr(condVal) 
             << " "
-            << getTypeString(condVal->getType())
+            << getLLVMTypeStr(condVal->getType())
             << std::endl;
 
 
