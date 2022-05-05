@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"net/http"
+	"os"
 	"os/exec"
 	"sync"
 
@@ -91,5 +92,21 @@ func main() {
 		}
 		c.Data(200, "plaintext", bytes)
 	})
+
+	r.POST("/deploy", func(c *gin.Context) {
+		f, err := os.OpenFile("update.log", os.O_CREATE|os.O_APPEND|os.O_RDWR, os.ModePerm)
+		if err != nil {
+			return
+		}
+		defer func() {
+			f.Close()
+		}()
+		updateProject := exec.Command("sh", "./update.sh", "new")
+		updateProject.Stdout = f
+		updateProject.Stderr = f
+		updateProject.Run()
+		c.AbortWithStatus(http.StatusNoContent)
+	})
+
 	r.Run("127.0.0.1:8080")
 }
