@@ -507,6 +507,10 @@ static AllocaInst *CreateEntryBlockAllocaWithTypeSize(Function *TheFunction,
 // 将value转成想要的type类型
 Value *createCast(Value *value, Type *type) {
     std::cout << "val-type:" << getLLVMTypeStr(value) << " want-type: " << getLLVMTypeStr(type) << std::endl;
+    if(value->getType() == type){
+        print("No need to cast");
+        return value;
+    }
     auto val_type = value->getType();
     if(val_type->isFloatingPointTy()){
         print("Val belongs to FloatingPoint");
@@ -733,17 +737,13 @@ Value *BinaryExprAST::codegen() {
         return logErrorV("lhs / rhs is not valid");
     }
 
-    right = createCast(right, left->getType());
-
-    if (!right) {
-        std::string error_msg("Invalid binary operand! left: ");
-        error_msg += getLLVMTypeStr(left);
-        error_msg += ", right: ";
-        error_msg += getLLVMTypeStr(right);
-        return logErrorV(error_msg.c_str());
-    }
-
     if(left->getType()->isFloatingPointTy() || right->getType()->isFloatingPointTy()) {
+        // always cast int to FP
+        left = createCast(left, Type::getDoubleTy(*llvmContext));
+        right = createCast(right, Type::getDoubleTy(*llvmContext));
+        if(!left || !right){
+            logErrorV((std::string("There is no such operand between "+ getLLVMTypeStr(left) +" : " + getLLVMTypeStr(right)).c_str()));
+        }
         switch(opType) {
             case ADD:
                 return llvmBuilder->CreateFAdd(left, right, "fadd");
