@@ -728,10 +728,6 @@ Value *BinaryExprAST::codegen() {
     Value *right = rhs->codegen();
     std::cout << "Value on rhs: " + getLLVMTypeStr(right) << std::endl;
 
-    // std::string t;
-    // raw_string_ostream stream(t);
-    // left->getType()->print(stream);
-    // std::cout << t << std::endl;
 
     if (!left || !right) {
         return logErrorV("lhs / rhs is not valid");
@@ -747,7 +743,7 @@ Value *BinaryExprAST::codegen() {
         return logErrorV(error_msg.c_str());
     }
 
-    if(left->getType()->isFloatingPointTy()) {
+    if(left->getType()->isFloatingPointTy() || right->getType()->isFloatingPointTy()) {
         switch(opType) {
             case ADD:
                 return llvmBuilder->CreateFAdd(left, right, "fadd");
