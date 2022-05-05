@@ -998,32 +998,33 @@ Value *IfExprAST::codegen() {
     std::cout << "type of condval: " << getLLVMTypeStr(condVal) << std::endl;
     Function *currFunction = llvmBuilder->GetInsertBlock()->getParent();
     BasicBlock *thenBlock = BasicBlock::Create(*llvmContext, "then_case", currFunction);
-    BasicBlock *finalBlock = BasicBlock::Create(*llvmContext, "final", currFunction);
+    BasicBlock *endifBlock = BasicBlock::Create(*llvmContext, "endif", currFunction);
 
     if(else_case){
-        BasicBlock *elseBlock = BasicBlock::Create(*llvmContext, "else_case", currFunction);
+        BasicBlock *elseBlock = BasicBlock::Create(*llvmContext, "else_case", currFunction, endifBlock);
         llvmBuilder->CreateCondBr(condVal, thenBlock, elseBlock);
 
         llvmBuilder->SetInsertPoint(thenBlock);
         Value *thenValue = then_case->codegen();
         if (!thenValue) return nullptr;
-        llvmBuilder->CreateBr(finalBlock);
+        llvmBuilder->CreateBr(endifBlock);
 
         llvmBuilder->SetInsertPoint(elseBlock);
         Value *elseValue = else_case->codegen();
         if (!elseValue) return nullptr;
-        llvmBuilder->CreateBr(finalBlock);
-        llvmBuilder->SetInsertPoint(finalBlock);
+        llvmBuilder->CreateBr(endifBlock);
+
+        llvmBuilder->SetInsertPoint(endifBlock);
         return condValue;
     }else{
-        llvmBuilder->CreateCondBr(condValue, thenBlock, finalBlock);
+        llvmBuilder->CreateCondBr(condValue, thenBlock, endifBlock);
         llvmBuilder->SetInsertPoint(thenBlock);
 
         Value *thenValue = then_case->codegen();
         if (!thenValue) return nullptr;
         std::cout << "Return value of then value: " << getLLVMTypeStr(thenValue) << std::endl;
-        llvmBuilder->CreateBr(finalBlock);
-        llvmBuilder->SetInsertPoint(finalBlock);
+        llvmBuilder->CreateBr(endifBlock);
+        llvmBuilder->SetInsertPoint(endifBlock);
         return condValue;
     }
 }
