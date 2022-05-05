@@ -752,7 +752,7 @@ Value *BinaryExprAST::codegen() {
         auto FPleft = createCast(left, Type::getDoubleTy(*llvmContext));
         auto FPright = createCast(right, Type::getDoubleTy(*llvmContext));
         if(!FPleft || !FPright){
-            logErrorV(std::string("Unsupported operand between "+ getLLVMTypeStr(left->getType()) +" : " + getLLVMTypeStr(right->getType())).c_str());
+            logErrorV(std::string("Unsupported operand between "+ getLLVMTypeStr(left->getType()) +" and " + getLLVMTypeStr(right->getType())).c_str());
             return nullptr;
         }else{
             left = FPleft;
@@ -784,7 +784,6 @@ Value *BinaryExprAST::codegen() {
         }
     }else{
         // Otherwise, always try to convert right to left!
-        print("!!!!!");
         right = createCast(right, left->getType());
         if(!right){
             logErrorV((std::string("Unsupported operand between "+ getLLVMTypeStr(left->getType()) +" : " + getLLVMTypeStr(right->getType())).c_str()));
