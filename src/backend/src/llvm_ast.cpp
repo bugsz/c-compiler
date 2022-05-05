@@ -709,7 +709,7 @@ Value *BinaryExprAST::codegen() {
         auto variable = getVariable(lhse->getName(), isGlobal);
         if (!variable) return variable;
 
-        val = createCast(val, variable->getType());
+        val = createCast(val, variable->getType()->getPointerElementType());
         if (!val) return nullptr;
         std::cout << getLLVMTypeStr(val) << std::endl;
         llvmBuilder->CreateStore(val, variable);
