@@ -45,6 +45,7 @@ enum ASTNodeType {
     CALLEXPR,
     WHILESTMT,
     DOSTMT,
+    CASTEXPR,
     UNKNOWN
 };
 

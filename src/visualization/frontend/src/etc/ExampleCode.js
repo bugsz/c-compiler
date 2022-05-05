@@ -173,13 +173,16 @@ int main(){
     {
         id: 10,
         name: 'Cast Expression',
-        code: `int cast() {
-
+        code: `int main() {
     double a = 10.5;
-
     int b = (int) a;
-
-    return b;
+    int c = a;
+    int d = 255;
+    char e = d;
+    __builtin_printf("%d %d %d\n", a, b, c, d, e);
+    d = d+1;
+    __builtin_printf("%d %d %d\n", a, b, c, d, e);
+    return 0;
 }`
     },
     {

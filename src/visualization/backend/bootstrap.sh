@@ -9,19 +9,18 @@ echo "${RED_BOLD}Build Web Backend Binary${NORMAL}"
     mkdir $CURDIR/bin
     go mod tidy
     go build -o $CURDIR/bin/${filename}
+
 echo "${RED_BOLD}Build c-compiler${NORMAL}"
-    test -e serializer && rm -f serializer
-    test -e llvm_wrapper && rm -f llvm_wrapper
-    sh $CURDIR/../serialization/compile.sh $1
-    cp $CURDIR/../serialization/serializer $CURDIR/bin/serializer
-    test -d $CURDIR/bin/build && rm -rf $CURDIR/bin/build
-    mkdir $CURDIR/bin/build
-    cd $CURDIR/bin/build
-    cmake -DIRONLY=ON $CURDIR/../../.. 1>/dev/null && make 1>/dev/null
-    test -e "zjucc_backend" && echo "Backend build success"
-    cp zjucc_backend $CURDIR/bin/llvm_wrapper
+    sh $CURDIR/build.sh $1
 
 echo "${RED_BOLD}Backend start${NORMAL}"
     cd $CURDIR/bin
     export GIN_MODE=release
     exec nohup $CURDIR/bin/${filename} &
+
+touch $CURDIR/bin/update.sh 
+echo "git pull &&" >> $CURDIR/bin/update.sh
+echo "sh ../build.sh NEW_BUILD &&" >> $CURDIR/bin/update.sh
+echo "cd ../../frontend &&" >> $CURDIR/bin/update.sh
+echo "yarn install &&" >> $CURDIR/bin/update.sh 
+echo "yarn build" >> $CURDIR/bin/update.sh 

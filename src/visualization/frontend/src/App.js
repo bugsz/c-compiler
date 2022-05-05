@@ -14,7 +14,6 @@ import {Examples} from './etc/ExampleCode'
 import Convert from 'ansi-to-html';
 import parse from 'html-react-parser';
 
-import 'antd/dist/antd.css';
 import '@ant-design/pro-card/dist/card.css';
 import '@ant-design/pro-layout/dist/layout.css';
 import './App.css'
