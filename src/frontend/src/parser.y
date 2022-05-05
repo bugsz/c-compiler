@@ -557,6 +557,7 @@ EXPR :
     | CONSTANT     { 
         $$ = mknode("Literal");
         $$->type_id = get_literal_type($1);
+        if($$->type_id < 0) yyerror(n_errs, root, tmp_file, "integer constant is too large for its type");
         strcpy($$->val, $1);
         $$->pos = @1;
     }

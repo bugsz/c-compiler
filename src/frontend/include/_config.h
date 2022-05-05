@@ -39,7 +39,8 @@
 #endif
 
 enum TYPEID {
-    TYPEID_VOID = 0,
+    TYPEID_OVERFLOW = -1,
+    TYPEID_VOID,
     TYPEID_CHAR,
     TYPEID_SHORT,
     TYPEID_INT,

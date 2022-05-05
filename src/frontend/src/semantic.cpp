@@ -31,14 +31,26 @@ static TypeAliasTable type_alias_tab;
 
 int get_literal_type(const char* literal) {
     string test(literal);
-    if (test.find(".") != string::npos) {
-        return TYPEID_DOUBLE;
+    if (test.find("\"") != string::npos) {
+        return TYPEID_STR;
     } else if (test.find("'") != string::npos) {
         return TYPEID_CHAR;
-    } else if (test.find("\"") != string::npos) {
-        return TYPEID_STR;
+    } else if (test.find(".") != string::npos) {
+        return TYPEID_DOUBLE;
     } else {
-        return TYPEID_INT;
+        try {  
+            stoi(test);
+            return TYPEID_INT;
+        }
+        catch (...) {
+            try {
+                stol(test);
+                return TYPEID_LONG;
+            }
+            catch (...) {
+                return TYPEID_OVERFLOW;
+            }
+        }
     } 
 }
 
