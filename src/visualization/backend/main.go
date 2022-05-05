@@ -108,7 +108,7 @@ func main() {
 	})
 
 	r.POST("/deploy", func(c *gin.Context) {
-		c.AbortWithStatus(http.StatusNoContent)
+		c.AbortWithStatus(200)
 		f, err := os.OpenFile("update.log", os.O_CREATE|os.O_APPEND|os.O_RDWR, os.ModePerm)
 		if err != nil {
 			return
