@@ -985,9 +985,6 @@ Value *CallExprAST::codegen() {
 Value *IfExprAST::codegen() {
     Value *condValue = cond->codegen();
     if (!condValue) return nullptr;
-
-    // condValue = llvmBuilder->CreateFCmpONE(
-    //         condValue, ConstantFP::get(*llvmContext, APFloat(0.0)), "if_cond");
     auto condType = condValue->getType();
 
     std::cout << "Cond type: " << getLLVMTypeStr(condType) << std::endl;
@@ -1001,44 +998,31 @@ Value *IfExprAST::codegen() {
     std::cout << "type of condval: " << getLLVMTypeStr(condVal) << std::endl;
     Function *currFunction = llvmBuilder->GetInsertBlock()->getParent();
     BasicBlock *thenBlock = BasicBlock::Create(*llvmContext, "then_case", currFunction);
-    BasicBlock *finalBlock = BasicBlock::Create(*llvmContext, "final");
+    BasicBlock *finalBlock = BasicBlock::Create(*llvmContext, "final", currFunction);
 
-    if(else_case) {
-        BasicBlock *elseBlock = BasicBlock::Create(*llvmContext, "else_case");
+    if(else_case){
+        BasicBlock *elseBlock = BasicBlock::Create(*llvmContext, "else_case", currFunction);
         llvmBuilder->CreateCondBr(condVal, thenBlock, elseBlock);
-        llvmBuilder->SetInsertPoint(elseBlock);
 
+        llvmBuilder->SetInsertPoint(thenBlock);
         Value *thenValue = then_case->codegen();
         if (!thenValue) return nullptr;
+        llvmBuilder->CreateBr(finalBlock);
 
-        currFunction->getBasicBlockList().push_back(elseBlock);
         llvmBuilder->SetInsertPoint(elseBlock);
-
         Value *elseValue = else_case->codegen();
         if (!elseValue) return nullptr;
-
         llvmBuilder->CreateBr(finalBlock);
-        elseBlock = llvmBuilder->GetInsertBlock();
-
-        currFunction->getBasicBlockList().push_back(finalBlock);
         llvmBuilder->SetInsertPoint(finalBlock);
-        PHINode *PN = llvmBuilder->CreatePHI(Type::getDoubleTy(*llvmContext), 2, "if");
-
-        PN->addIncoming(thenValue, thenBlock);
-        PN->addIncoming(elseValue, elseBlock);
-        return PN;
-    }
-    
-    else{
+        return condValue;
+    }else{
         llvmBuilder->CreateCondBr(condValue, thenBlock, finalBlock);
         llvmBuilder->SetInsertPoint(thenBlock);
 
         Value *thenValue = then_case->codegen();
         if (!thenValue) return nullptr;
         std::cout << "Return value of then value: " << getLLVMTypeStr(thenValue) << std::endl;
-
-        currFunction->getBasicBlockList().push_back(finalBlock);
-        // llvmBuilder->CreateBr(finalBlock);
+        llvmBuilder->CreateBr(finalBlock);
         llvmBuilder->SetInsertPoint(finalBlock);
         return condValue;
     }
