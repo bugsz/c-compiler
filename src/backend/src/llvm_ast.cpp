@@ -49,8 +49,12 @@ int getBinaryOpType(std::string binaryOp) {
     if(binaryOp == "*") return MUL;
     if(binaryOp == "/") return DIV;
     if(binaryOp == "<") return LT;
-    if(binaryOp == "=") return ASSIGN;
+    if(binaryOp == ">") return GT;
+    if(binaryOp == "<=") return LE;
+    if(binaryOp == ">=") return GE;    
     if(binaryOp == "==") return EQ;
+    if(binaryOp == "!=") return NE;
+    if(binaryOp == "=") return ASSIGN;
     return ADD;
 }
 
@@ -751,15 +755,20 @@ Value *BinaryExprAST::codegen() {
                 return llvmBuilder->CreateFSub(left, right, "fsub");
             case MUL:
                 return llvmBuilder->CreateFMul(left, right, "fmul");
-            case LT:
-                left = llvmBuilder->CreateFCmpULT(left, right, "flt");
-                return llvmBuilder->CreateUIToFP(left, Type::getDoubleTy(*llvmContext), "booltmp");
             case DIV:
-                return llvmBuilder->CreateFDiv(left, right);
+                return llvmBuilder->CreateFDiv(left, right, "fdiv");
+            case LT:
+                return llvmBuilder->CreateFCmpOLT(left, right, "flt");
+            case GT:
+                return llvmBuilder->CreateFCmpOGT(left, right, "fgt");
             case EQ:
-                left = llvmBuilder->CreateFCmpUEQ(left, right, "flt");
-                return llvmBuilder->CreateUIToFP(left, Type::getDoubleTy(*llvmContext), "booltmp");
-
+                return llvmBuilder->CreateFCmpOEQ(left, right, "feq");
+            case NE:
+                return llvmBuilder->CreateFCmpUNE(left, right, "fne");
+            case LE:
+                return llvmBuilder->CreateFCmpOLE(left, right, "fle");
+            case GE:
+                return llvmBuilder->CreateFCmpOGE(left, right, "fge");
             default:
                 return logErrorV("Invalid binary operator");
         }
@@ -774,19 +783,18 @@ Value *BinaryExprAST::codegen() {
             case DIV:
                 return llvmBuilder->CreateSDiv(left, right, "idiv");
             case LT:
-                left = llvmBuilder->CreateICmpSLT(left, right, "ilt");
-                // left = llvmBuilder->CreateSIToFP(left, getVarType(*llvmContext, TYPEID_DOUBLE));
-                // left = llvmBuilder->CreateFPToSI(left, getVarType(*llvmContext, TYPEID_INT));
-                return left;
-            
+                return llvmBuilder->CreateICmpSLT(left, right, "ilt");
+            case GT:
+                return llvmBuilder->CreateICmpSGT(left, right, "igt");
+            case LE:
+                return llvmBuilder->CreateICmpSLE(left, right, "ile");
+            case GE:
+                return llvmBuilder->CreateICmpSGE(left, right, "ige");
+            case NE:
+                return llvmBuilder->CreateICmpNE(left, right, "ine");
             case EQ:
-                left = llvmBuilder->CreateICmpEQ(left, right, "ilt");
-                // left = llvmBuilder->CreateSIToFP(left, getVarType(*llvmContext, TYPEID_DOUBLE));
-                // left = llvmBuilder->CreateFPToSI(left, getVarType(*llvmContext, TYPEID_INT));
-                return left;
-                
+                return llvmBuilder->CreateICmpEQ(left, right, "ieq");
             default:
-                // llvmBuilder->CreateI
                 return logErrorV("Invalid binary operator");
         }
     }
@@ -988,13 +996,8 @@ Value *IfExprAST::codegen() {
     auto condType = condValue->getType();
 
     std::cout << "Cond type: " << getLLVMTypeStr(condType) << std::endl;
+    Value *condVal = llvmBuilder->CreateICmpNE(condValue, getInitVal(condType), "if_comp");
 
-    Value *condVal;
-    if(condType->isFloatingPointTy())
-        condVal = llvmBuilder->CreateFCmpONE(condValue, getInitVal(condType), "if_comp");
-    else
-        condVal = llvmBuilder->CreateICmpNE(condValue, getInitVal(condType), "if_comp");
-    
     std::cout << "type of condval: " << getLLVMTypeStr(condVal) << std::endl;
     Function *currFunction = llvmBuilder->GetInsertBlock()->getParent();
     BasicBlock *thenBlock = BasicBlock::Create(*llvmContext, "then_case", currFunction);

@@ -56,6 +56,10 @@ enum BinaryOpType {
     DIV,
     EQ,
     LT,
+    GT,
+    LE,
+    GE,
+    NE,
     ASSIGN,
 };
 
