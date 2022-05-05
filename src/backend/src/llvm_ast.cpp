@@ -69,6 +69,7 @@ ASTNodeType getNodeType(std::string token) {
     if(token == "WhileStmt") return WHILESTMT;
     if(token == "DoStmt") return DOSTMT;
     if(token == "IfStmt") return IFSTMT;
+    if(token == "ExplicitCastExpr") return CASTEXPR;
     return UNKNOWN;
 }
 
@@ -151,7 +152,7 @@ void print_node(ast_node_ptr node) {
 }
 
 bool isValidBinaryOperand(Value *value) {
-    return (value->getType()->isDoubleTy() || value->getType()->isIntegerTy(INTEGER_BITWIDTH));
+    return (value->getType()->isFloatingPointTy() || value->getType()->isIntegerTy());
 }
 
 
@@ -522,8 +523,8 @@ std::string getTypeString(Type *type) {
 // 将value转成想要的type类型
 Value *createCast(Value *value, Type *type) {
     auto val_type = value->getType();
-    if(val_type->isDoubleTy()){
-        if(type->isDoubleTy()){
+    if(val_type->isFloatingPointTy()){
+        if(type->isFloatingPointTy()){
             return value;
         }else if(type->isIntegerTy()){
             return llvmBuilder->CreateCast(Instruction::FPToSI, value, type);
@@ -532,16 +533,16 @@ Value *createCast(Value *value, Type *type) {
         }
     }
     if(val_type->isIntegerTy()){
-        if(type->isDoubleTy()){
+        if(type->isFloatingPointTy()){
             return llvmBuilder->CreateCast(Instruction::SIToFP, value, type);
         }else if(type->isIntegerTy()){
-            return value;
+            return llvmBuilder->CreateSExtOrTrunc(value, type);
         }else if(val_type->isPtrOrPtrVectorTy()){
             return llvmBuilder->CreateCast(Instruction::IntToPtr, value, type);
         }
     }
     if(val_type->isPtrOrPtrVectorTy()){
-        if(type->isDoubleTy()){
+        if(type->isFloatingPointTy()){
             return nullptr;
         }else if(type->isIntegerTy()){
             return llvmBuilder->CreateCast(Instruction::PtrToInt, value, type);
@@ -550,7 +551,7 @@ Value *createCast(Value *value, Type *type) {
         }
     }
     print("Unknown type to be cast");
-    return value;
+    return nullptr;
 }
 
 Value *TranslationUnitExprAST::codegen() {
@@ -750,7 +751,9 @@ Value *BinaryExprAST::codegen() {
         return logErrorV("lhs / rhs is not valid");
     }
 
-    if (!isValidBinaryOperand(left) || !isValidBinaryOperand(right)) {
+    right = createCast(right, left->getType());
+
+    if (!right) {
         std::string error_msg("Invalid binary operand! left: ");
         error_msg += getLLVMTypeStr(left);
         error_msg += ", right: ";
@@ -758,11 +761,7 @@ Value *BinaryExprAST::codegen() {
         return logErrorV(error_msg.c_str());
     }
 
-    if(left->getType()->isDoubleTy())
-        right = createCast(right, left->getType());
-    else left = createCast(left, right->getType());
-
-    if(left->getType()->isDoubleTy()) {
+    if(left->getType()->isFloatingPointTy()) {
         switch(opType) {
             case ADD:
                 return llvmBuilder->CreateFAdd(left, right, "fadd");
@@ -782,8 +781,7 @@ Value *BinaryExprAST::codegen() {
             default:
                 return logErrorV("Invalid binary operator");
         }
-    }
-    else {
+    }else{
         switch(opType) {
             case ADD:
                 return llvmBuilder->CreateAdd(left, right, "iadd");
@@ -940,7 +938,7 @@ Value *ForExprAST::codegen() {
 
     Value *endVal = end->codegen();
     if (!endVal) return nullptr;
-    if(endVal->getType()->isDoubleTy())
+    if(endVal->getType()->isFloatingPointTy())
         endVal = llvmBuilder->CreateFCmpONE(endVal, getInitVal(endVal->getType()), "loop_end");
 
     else if(endVal->getType()->isIntegerTy(INTEGER_BITWIDTH))
@@ -1013,7 +1011,7 @@ Value *IfExprAST::codegen() {
     std::cout << "Cond type: " << getLLVMTypeStr(condType) << std::endl;
 
     Value *condVal;
-    if(condType->isDoubleTy())
+    if(condType->isFloatingPointTy())
         condVal = llvmBuilder->CreateFCmpONE(condValue, getInitVal(condType), "if_comp");
     else
         condVal = llvmBuilder->CreateICmpNE(condValue, getInitVal(condType), "if_comp");
@@ -1094,7 +1092,7 @@ Value *WhileExprAST::codegen() {
     // TODO 这个应该用什么类型
 
 
-    if(condType->isDoubleTy())
+    if(condType->isFloatingPointTy())
         endVal = llvmBuilder->CreateFCmpONE(condVal, getInitVal(condVal->getType()), "while_comp");
     else
         endVal = llvmBuilder->CreateICmpNE(condVal, getInitVal(condVal->getType()), "while_comp");
@@ -1137,7 +1135,7 @@ Value *DoExprAST::codegen() {
             << std::endl;
 
 
-    if(condVal->getType()->isDoubleTy())
+    if(condVal->getType()->isFloatingPointTy())
         endVal = llvmBuilder->CreateFCmpONE(condVal, getInitVal(condVal->getType()), "while_comp");
     else
         endVal = llvmBuilder->CreateICmpNE(condVal, getInitVal(condVal->getType()), "while_comp");
