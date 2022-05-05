@@ -39,7 +39,7 @@ static std::unique_ptr<Module> llvmModule;
 static std::map<std::string, AllocaInst *> NamedValues;
 static std::unique_ptr<IRBuilder<>> llvmBuilder;
 static std::map<std::string, std::unique_ptr<PrototypeAST>> functionProtos;
-
+static bool initializing;
 
 inline void print(std::string a) { std::cout << a << std::endl; }
 
@@ -466,7 +466,6 @@ Value *getVariable(std::string name, int &isGlobal) {
     auto key = llvmModule->getGlobalVariable(name);
     if (key) {
         isGlobal = 1;
-
         return key;
     }
     std::string msg = "Unknown variable name: " + name;
@@ -548,28 +547,20 @@ Value *createCast(Value *value, Type *type) {
 
 Value *TranslationUnitExprAST::codegen() {
     print("TranslationUnit");
-
-    FunctionType *initFuncType = FunctionType::get(llvmBuilder->getVoidTy(), false);
-    Function *initFunc = Function::Create(initFuncType, Function::ExternalLinkage, "__global_var_init", llvmModule.get());
-    llvmBuilder->SetInsertPoint(BasicBlock::Create(*llvmContext, "entry", initFunc));
-
-    // auto theBB = BasicBlock::Create(*llvmContext, "entry", llvmBuilder->GetInsertBlock()->getParent());
-    // llvmBuilder->SetInsertPoint(theBB);
-
     int globalVar_len = globalVarList.size();
     int expr_len = exprList.size();
-    print("Global vars: "+ std::to_string(globalVar_len) + " Exprs: " + std::to_string(expr_len));
+    print("Global vars: "+ std::to_string(globalVar_len) + "\nExprs: " + std::to_string(expr_len));
+    print("Global(s) Initializing Pass......");
+    initializing = true;
+    for (int i=0; i < globalVar_len; i++) {
+        globalVarList[i]->codegen();
+    }
+    initializing = false;
+    print("Global(s) Initializing End......");
 
-    for (int i=0;i<globalVar_len;i++) globalVarList[i]->codegen();
-    llvmBuilder->CreateRetVoid();
-    verifyFunction(*initFunc, &llvm::errs());
-
-    // llvmBuilder->CreateCall(getFunction("__global_var_init"));
-
-    for (int i=0;i<expr_len;i++) exprList[i]->codegen();
-
-    
-
+    for (int i=0; i < expr_len; i++) {
+        exprList[i]->codegen();
+    }
     return nullptr;
 }
 
@@ -608,8 +599,11 @@ Value *VarRefExprAST::codegen() {
     if (!V) return V;
     if(isGlobal) {
         std::cout << "Find global var: " << name << std::endl;
-        return llvmBuilder->CreateLoad(V);
-        // return V;
+        GlobalVariable *gV = static_cast<GlobalVariable *>(V);
+        if(gV->isConstant() || initializing)
+            return gV->getInitializer();
+        else
+            return llvmBuilder->CreateLoad(V);
     }
 
     std::cout << "Value of varRef: " + getLLVMTypeStr(V) << std::endl;
@@ -624,25 +618,22 @@ Value *VarRefExprAST::codegen() {
 }
 
 Value *GlobalVarExprAST::codegen() {
-    print("GlobalVarExpr, typeid: " + std::to_string(type));
-    Function *currFunction = llvmBuilder->GetInsertBlock()->getParent();
-
-    auto varType = getVarType(*llvmContext, this->type);
+    auto varType = getVarType(*llvmContext, this->init->getType());
+    print("GlobalVarExpr, Name: " + init->name + " Type: " + getLLVMTypeStr(varType));
 
     Value *initVal;
 
     if(init->init) {
         initVal = init->init->codegen();
-        std::cout << getLLVMTypeStr(initVal->getType()) << " " << getLLVMTypeStr(varType) << " " << getLLVMTypeStr(initVal) << std::endl;
         initVal = createCast(initVal, varType);
-        if(!initVal) return nullptr;
-    }
-    else {
+        if(!initVal) 
+            return nullptr;
+    }else{
         std::cout << "No init val, using default" << std::endl;
         initVal = getInitVal(varType);
     }
 
-    auto globalVar = createGlob(getVarType(*llvmContext, type), name);
+    auto globalVar = createGlob(varType, init->name);
     globalVar->setInitializer(dyn_cast<Constant>(initVal));
     return initVal;
 }
@@ -836,7 +827,6 @@ Function *PrototypeAST::codegen() {
 
 Function *FunctionDeclAST::codegen() {
     std::cout << "FunctionDeclAST: " << prototype->getName() << std::endl;
-    // std::cout << prototype.get() << std::endl;
     auto &p = *prototype;
     functionProtos[p.getName()] = std::move(prototype);
     Function *currFunction = getFunction(p.getName());
@@ -1212,12 +1202,13 @@ int main(int argc, const char **argv) {
     // llvmModule->print(errs(), nullptr);
 
     #ifndef IRONLY
+        save();
         int status_code = compile();
         std::cout << "Compile end with status code: " << status_code << std::endl << std::endl;
     #else
         close(devnull);
     	dup2(stdout_fd, STDOUT_FILENO);
+        save();
     #endif
-    save();
     return 0;
 }
