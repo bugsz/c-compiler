@@ -179,9 +179,9 @@ int main(){
     int c = a;
     int d = 255;
     char e = d;
-    __builtin_printf("%d %d %d\n", a, b, c, d, e);
+    __builtin_printf("%d %d %d\\n", a, b, c, d, e);
     d = d+1;
-    __builtin_printf("%d %d %d\n", a, b, c, d, e);
+    __builtin_printf("%d %d %d\\n", a, b, c, d, e);
     return 0;
 }`
     },

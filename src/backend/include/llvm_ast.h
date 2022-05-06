@@ -1,4 +1,5 @@
 #include<bits/stdc++.h>
+#include <memory>
 
 
 #include "llvm/ADT/APFloat.h"
@@ -34,10 +35,13 @@ enum ASTNodeType {
     TRANSLATIONUNIT = 0,
     FUNCTIONDECL,
     BINARYOPERATOR,
+    UNARYOPERATOR,
     IFSTMT,
     LITERAL,
     VARDECL,
+    ARRAYDECL,
     COMPOUNDSTMT,
+    NULLSTMT,
     DECLREFEXPR,
     RETURNSTMT,
     FORSTMT,
@@ -46,17 +50,21 @@ enum ASTNodeType {
     WHILESTMT,
     DOSTMT,
     CASTEXPR,
+    ARRAYSUBSCRIPTEXPR,
     UNKNOWN
 };
 
-enum BinaryOpType {
-    ADD = 0,
-    SUB,
-    MUL, 
-    DIV,
-    EQ,
-    LT,
-    ASSIGN,
+
+enum UnaryOpType {
+    POS = 0,
+    NEG,
+    DEREF,
+    REF,
+};
+
+enum BinaryLHSType {
+    UNARYOP = -1,
+    ARRAYSUB = -2,
 };
 
 ASTNodeType getNodeType(std::string token);
@@ -71,6 +79,10 @@ public:
     virtual Value *codegen() = 0;
 };
 
+class NullStmtAST: public ExprAST{
+    Value *codegen() override;
+};
+
 class TranslationUnitExprAST: public ExprAST {
     std::vector<std::unique_ptr<ExprAST>> globalVarList;
     std::vector<std::unique_ptr<ExprAST>> exprList;
@@ -80,7 +92,6 @@ public:
     : globalVarList(std::move(globalVarList)), exprList(std::move(exprList)) {}
     
     Value *codegen() override;
-
 };
 
 class LiteralExprAST: public ExprAST {
@@ -133,15 +144,40 @@ public:
 
 class VarRefExprAST: public ExprAST{
     int type;
-
 public:
+    int getType() { return this->type; }
+    void setType(int type) { this->type = type; }
     std::string name;
     VarRefExprAST(const std::string &name, int type) : name(name), type(type) {}
     const std::string &getName() const { return name; }
+    void setName(const std::string &name) { this->name = name; }
     Value *codegen() override;
 };
 
+class ArrayExprAST: public ExprAST {
+    int type;
+    std::string name;
+    int size;
+    
+public:
+    const std::string &getName() const { return name; }
+    const int getSize() const { return size; }
+    const int getType() const { return type; }
+    ArrayExprAST(int type, const std::string &name, int size) : type(type), name(name), size(size) {}
+    Value *codegen() override;
+};
 
+class ArraySubExprAST: public ExprAST {
+    std::string name;
+    
+public:
+    std::unique_ptr<VarRefExprAST> var;
+    std::unique_ptr<ExprAST> sub;
+    const std::string &getName() const { return name; }
+    ArraySubExprAST(std::unique_ptr<VarRefExprAST> var, std::unique_ptr<ExprAST> sub):
+    var(std::move(var)), sub(std::move(sub)) {this->name = this->var->getName();}
+    Value *codegen() override;
+};
 
 /// BinaryExprAST - Expression class for a binary operator.
 class BinaryExprAST : public ExprAST {
@@ -155,6 +191,20 @@ public:
             : op(op), lhs(std::move(lhs)), rhs(std::move(rhs)) {}
 
     Value *codegen() override;
+};
+
+class UnaryExprAST : public ExprAST {
+    std::string op;
+    std::string name;
+public:
+    int type;
+    std::unique_ptr<ExprAST> rhs;
+    int getType() { return type; }
+    std::string &getName() { return name; }
+    UnaryExprAST(const std::string &op, std::unique_ptr<ExprAST> rhs);
+    // : op(op), rhs(std::move(rhs)) {
+    // }
+      Value *codegen() override;
 };
 
 class ForExprAST : public ExprAST {
@@ -202,11 +252,10 @@ public:
 class FunctionDeclAST: public ExprAST {
     std::unique_ptr<PrototypeAST> prototype;
     std::unique_ptr<ExprAST> body;
-    std::unique_ptr<ExprAST> returnStmt;
     Function *codegen() override;
 
 public:
-    FunctionDeclAST(std::unique_ptr<PrototypeAST> prototype, std::unique_ptr<ExprAST> body, std::unique_ptr<ExprAST> returnStmt)
+    FunctionDeclAST(std::unique_ptr<PrototypeAST> prototype, std::unique_ptr<ExprAST> body)
     : prototype(std::move(prototype)), body(std::move(body)) {}
 };
 
@@ -215,7 +264,7 @@ class CompoundStmtExprAST: public ExprAST {
 public:
     std::vector<std::unique_ptr<ExprAST>> exprList;
     std::vector<bool> isReturnStmt;
-    CompoundStmtExprAST(std::vector<std::unique_ptr<ExprAST>> exprList, std::vector<bool> isReturnStmt): exprList(std::move(exprList)), isReturnStmt(isReturnStmt) {}
+    CompoundStmtExprAST(std::vector<std::unique_ptr<ExprAST>> exprList): exprList(std::move(exprList)) {}
     Value *codegen() override;
 };
 
@@ -274,3 +323,16 @@ class LLVMAST {
     ast_node_ptr node_ptr;
 };
 
+enum BinaryOpType {
+    ADD = 0,
+    SUB,
+    MUL, 
+    DIV,
+    EQ,
+    LT,
+    GT,
+    LE,
+    GE,
+    NE,
+    ASSIGN,
+};

@@ -26,20 +26,25 @@
 // #include "type_utils.h"
 #include "frontend.h"
 #include <bits/stdc++.h>
+#include <cstdlib>
+#include <exception>
 #include <iostream>
 #include <llvm/ADT/APInt.h>
 #include <llvm/ADT/StringRef.h>
 #include <memory>
+#include <string>
 #include <unistd.h>
 #include <fcntl.h>
 using namespace llvm;
 
 static std::unique_ptr<LLVMContext> llvmContext;
 static std::unique_ptr<Module> llvmModule;
-static std::map<std::string, AllocaInst *> NamedValues;
+static bool initializing;
+static Value* retPtr;
+static BasicBlock* retBlock;
+static std::stack<std::map<std::string, AllocaInst *>> NamedValues;
 static std::unique_ptr<IRBuilder<>> llvmBuilder;
 static std::map<std::string, std::unique_ptr<PrototypeAST>> functionProtos;
-
 
 inline void print(std::string a) { std::cout << a << std::endl; }
 
@@ -49,9 +54,21 @@ int getBinaryOpType(std::string binaryOp) {
     if(binaryOp == "*") return MUL;
     if(binaryOp == "/") return DIV;
     if(binaryOp == "<") return LT;
-    if(binaryOp == "=") return ASSIGN;
+    if(binaryOp == ">") return GT;
+    if(binaryOp == "<=") return LE;
+    if(binaryOp == ">=") return GE;    
     if(binaryOp == "==") return EQ;
+    if(binaryOp == "!=") return NE;
+    if(binaryOp == "=") return ASSIGN;
     return ADD;
+}
+
+int getUnaryOpType(std::string unaryOp) {
+    if(unaryOp == "+") return POS;
+    if(unaryOp == "-") return NEG;
+    if(unaryOp == "&") return REF;
+    if(unaryOp == "*") return DEREF;
+    return POS;
 }
 
 ASTNodeType getNodeType(std::string token) {
@@ -61,6 +78,7 @@ ASTNodeType getNodeType(std::string token) {
     if(token == "BinaryOperator") return BINARYOPERATOR;
     if(token == "Literal") return LITERAL;
     if(token == "CompoundStmt") return COMPOUNDSTMT;
+    if(token == "NullStmt") return NULLSTMT;
     if(token == "DeclRefExpr") return DECLREFEXPR;
     if(token == "ReturnStmt") return RETURNSTMT;
     if(token == "ForStmt") return FORSTMT;
@@ -70,6 +88,9 @@ ASTNodeType getNodeType(std::string token) {
     if(token == "DoStmt") return DOSTMT;
     if(token == "IfStmt") return IFSTMT;
     if(token == "ExplicitCastExpr") return CASTEXPR;
+    if(token == "UnaryOperator") return UNARYOPERATOR;
+    if(token == "ArrayDecl") return ARRAYDECL;
+    if(token == "ArraySubscriptExpr") return ARRAYSUBSCRIPTEXPR;
     return UNKNOWN;
 }
 
@@ -83,13 +104,6 @@ template<typename T> static std::string getLLVMTypeStr(T* value_or_type) {
     std::string str;
     raw_string_ostream stream(str);
     value_or_type->print(stream);
-    return str;
-}
-
-std::string getLLVMTypeStr(Value *value) {
-    std::string str;
-    raw_string_ostream stream(str);
-    value->getType()->print(stream);
     return str;
 }
 
@@ -111,7 +125,7 @@ bool isEqual(char *a, std::string b) {
 
 std::string filterString(std::string str){
     std::string buffer(str.size()+1, 0);
-    std::string cmd = "python -c 'print("+str+", end=\"\")'";
+    std::string cmd = "python3 -c 'print("+str+", end=\"\")'";
     FILE * f = popen(cmd.c_str(), "r"); assert(f);
     buffer.resize(fread(&buffer[0], 1, buffer.size()-1, f));
     pclose(f);
@@ -139,6 +153,8 @@ Constant *getInitVal(Type *type) {
     }
 }
 
+
+
 GlobalVariable *createGlob(Type *type, std::string name) {
     llvmModule->getOrInsertGlobal(name, type);
     GlobalVariable *gv = llvmModule->getNamedGlobal(name);
@@ -155,6 +171,32 @@ bool isValidBinaryOperand(Value *value) {
     return (value->getType()->isFloatingPointTy() || value->getType()->isIntegerTy());
 }
 
+int ptr2raw(int ptr) {
+    switch(ptr) {
+        case TYPEID_VOID_PTR:
+            return TYPEID_VOID;
+        case TYPEID_INT_PTR:
+            return TYPEID_INT;
+        case TYPEID_FLOAT_PTR:
+            return TYPEID_FLOAT;
+        case TYPEID_DOUBLE_PTR:
+            return TYPEID_DOUBLE;
+        case TYPEID_CHAR_PTR:
+            return TYPEID_CHAR;
+        case TYPEID_LONG_PTR:  
+            return TYPEID_LONG;
+        case TYPEID_SHORT_PTR:
+            return TYPEID_SHORT;
+        default:
+            return ptr;
+    }
+}
+
+template<typename TO, typename FROM>
+std::unique_ptr<TO> static_unique_pointer_cast (std::unique_ptr<FROM>&& old){
+    return std::unique_ptr<TO>{static_cast<TO*>(old.release())};
+    //conversion: unique_ptr<FROM>->FROM*->TO*->unique_ptr<TO>
+}
 
 Value *getBuiltinFunction(std::string callee, std::vector<std::unique_ptr<ExprAST>> &args) {
     if(llvmModule->getFunction(callee)){
@@ -170,7 +212,6 @@ Value *getBuiltinFunction(std::string callee, std::vector<std::unique_ptr<ExprAS
     if(callee == "__builtin_printf"){
         if(args.size() < 1){
             logErrorV("too few arguments to function call");
-            exit(1);
         }
         auto formatArgs = llvmBuilder->CreateGlobalStringPtr(
             (static_cast<LiteralExprAST *>(args[0].get()))->getValue()
@@ -215,7 +256,7 @@ Value *getBuiltinFunction(std::string callee, std::vector<std::unique_ptr<ExprAS
 }
 
 std::unique_ptr<ExprAST> generateBackendASTNode(ast_node_ptr root) {
-    // if (!root->n_child) return nullptr;
+    if (!root) return nullptr;
     ASTNodeType nodeType = getNodeType(std::string(root->token));
     print_node(root);
 
@@ -250,7 +291,7 @@ std::unique_ptr<ExprAST> generateBackendASTNode(ast_node_ptr root) {
             std::string name(val);    
             
             int param_end = root->n_child;
-            std::unique_ptr<ExprAST> returnStmt, compoundStmt;
+            std::unique_ptr<ExprAST> compoundStmt;
 
             if(param_end && isEqual(root->child[param_end-1]->token, "CompoundStmt")) {
                 compoundStmt = generateBackendASTNode(root->child[param_end - 1]);
@@ -273,7 +314,7 @@ std::unique_ptr<ExprAST> generateBackendASTNode(ast_node_ptr root) {
                 return prototype;
             }
             else {
-                auto funcExpr = std::make_unique<FunctionDeclAST>(std::move(prototype), std::move(compoundStmt), std::move(returnStmt));
+                auto funcExpr = std::make_unique<FunctionDeclAST>(std::move(prototype), std::move(compoundStmt));
                 return funcExpr;
             }
         }
@@ -296,6 +337,27 @@ std::unique_ptr<ExprAST> generateBackendASTNode(ast_node_ptr root) {
             return var;
         }
 
+        case ARRAYDECL: {
+            int arraySize = atoi(root->val);
+            auto node = generateBackendASTNode(root->child[0]);
+            // auto var = static_cast<VarExprAST *>(node.get());
+            auto var = static_unique_pointer_cast<VarExprAST>(std::move(node));
+            auto array = std::make_unique<ArrayExprAST>(ptr2raw(var->getType()), var->getName(), arraySize);
+            return array;
+        }
+
+        case ARRAYSUBSCRIPTEXPR: {
+            auto ref = generateBackendASTNode(root->child[0]);
+            auto sub = generateBackendASTNode(root->child[1]);
+            auto var = static_unique_pointer_cast<VarRefExprAST>(std::move(ref));
+            // auto Var = static_cast<VarRefExprAST *>(ref.get());
+            // auto var = std::unique_ptr<VarRefExprAST>(Var);
+            var->setType(ptr2raw(var->getType()));
+            std::cout << "Subscription: " << var->getName() << " " << var->getType() << std::endl;
+            auto array = std::make_unique<ArraySubExprAST>(std::move(var), std::move(sub));
+            return array;
+        }
+
         case LITERAL: {
             std::string literal(val);
             auto literalExpr = std::make_unique<LiteralExprAST>(root->type_id, literal);
@@ -305,19 +367,35 @@ std::unique_ptr<ExprAST> generateBackendASTNode(ast_node_ptr root) {
         case BINARYOPERATOR: {
             auto LHS = generateBackendASTNode(root->child[0]);
             auto RHS = generateBackendASTNode(root->child[1]);
+
             std::string op(val);
             auto binaryExpr = std::make_unique<BinaryExprAST>(op, std::move(LHS), std::move(RHS));
-            binaryExpr->type = root->type_id;
+            if (isEqual(root->child[0]->token, "UnaryOperator"))
+                binaryExpr->type = UNARYOP;
+            else if (isEqual(root->child[0]->token, "ArraySubscriptExpr"))
+                binaryExpr->type = ARRAYSUB;
+            else
+                binaryExpr->type = root->type_id;
             return binaryExpr;
+        }
+
+        case UNARYOPERATOR: {
+            auto rhs = generateBackendASTNode(root->child[0]);
+            std::string op(val);
+            auto unaryExpr = std::make_unique<UnaryExprAST>(op, std::move(rhs));
+            unaryExpr->type = root->type_id;
+            return unaryExpr;
         }
 
         case COMPOUNDSTMT: {
             std::vector<std::unique_ptr<ExprAST>> exprList;
-            std::vector<bool> isReturnStmt;
             for(int i=0;i<root->n_child;i++) exprList.push_back(generateBackendASTNode(root->child[i]));
-            for(int i=0;i<root->n_child;i++) isReturnStmt.push_back(isEqual(root->child[i]->token, "ReturnStmt"));
-            auto compound = std::make_unique<CompoundStmtExprAST>(std::move(exprList), isReturnStmt);
+            auto compound = std::make_unique<CompoundStmtExprAST>(std::move(exprList));
             return compound;
+        }
+
+        case NULLSTMT: {
+            return std::make_unique<NullStmtAST>();
         }
 
         case FORSTMT: {
@@ -367,7 +445,6 @@ std::unique_ptr<ExprAST> generateBackendASTNode(ast_node_ptr root) {
             return doExpr;
         }
 
-
         default:
             return nullptr;
     }
@@ -409,7 +486,6 @@ static void initializeBuiltinFunction() {
 
 
 Type *getVarType(LLVMContext &C, int type_id) {
-    std::cout << "Get var type: " << type_id << std::endl;
     switch(type_id) {
         case TYPEID_VOID:
             return Type::getVoidTy(C);
@@ -460,7 +536,7 @@ Function *getFunction(std::string name) {
 }
 
 Value *getVariable(std::string name, int &isGlobal) {
-    auto V = NamedValues[name];
+    auto V = NamedValues.top()[name];
     if(V) {
         std::cout << "Find local variable\n";
         return V;
@@ -469,7 +545,7 @@ Value *getVariable(std::string name, int &isGlobal) {
     auto key = llvmModule->getGlobalVariable(name);
     if (key) {
         isGlobal = 1;
-
+        std::cout << "Find global variable\n";
         return key;
     }
     std::string msg = "Unknown variable name: " + name;
@@ -478,54 +554,30 @@ Value *getVariable(std::string name, int &isGlobal) {
 
 /// CreateEntryBlockAlloca - Create an alloca instruction in the entry block of
 /// the function.  This is used for mutable variables etc.
-static AllocaInst *CreateEntryBlockAlloca(Function *TheFunction,
-                                          StringRef VarName) {
-    IRBuilder<> TmpB(&TheFunction->getEntryBlock(),
-                     TheFunction->getEntryBlock().begin());
-    return TmpB.CreateAlloca(Type::getDoubleTy(*llvmContext), nullptr, VarName);
+static AllocaInst *CreateEntryBlockAllocaWithTypeSize(StringRef VarName, Type* type, Value* size = nullptr, BasicBlock* Scope = llvmBuilder->GetInsertBlock(), BasicBlock::iterator Point =llvmBuilder->GetInsertPoint()) {
+    IRBuilder<> allocator(Scope, Point);
+    return allocator.CreateAlloca(type, size, VarName);
 }
 
-static AllocaInst *CreateEntryBlockAllocaWithType(Function *TheFunction,
-                                          StringRef VarName, int type_id) {
-    IRBuilder<> TmpB(&TheFunction->getEntryBlock(),
-                     TheFunction->getEntryBlock().begin());
-    return TmpB.CreateAlloca(getVarType(*llvmContext, type_id), nullptr, VarName);
+static AllocaInst *CreateEntryBlockAllocaWithTypeSize(StringRef VarName, int type_id, Value* size = nullptr, BasicBlock* Scope = llvmBuilder->GetInsertBlock(), BasicBlock::iterator Point =llvmBuilder->GetInsertPoint()) {
+    IRBuilder<> allocator(Scope, Point);
+    return allocator.CreateAlloca(getVarType(*llvmContext, type_id), size, VarName);
 }
 
-static AllocaInst *CreateEntryBlockAllocaWithType(Function *TheFunction,
-                                          StringRef VarName, Type *type) {
-    IRBuilder<> TmpB(&TheFunction->getEntryBlock(),
-                     TheFunction->getEntryBlock().begin());
-    return TmpB.CreateAlloca(type, nullptr, VarName);
-}
-
-static AllocaInst *CreateEntryBlockAllocaWithTypeSize(Function *TheFunction,
-                                          StringRef VarName, Type* type, Value* size) {
-    IRBuilder<> TmpB(&TheFunction->getEntryBlock(),
-                     TheFunction->getEntryBlock().begin());
-    return TmpB.CreateAlloca(type, size, VarName);
-}
-
-std::string getTypeString(Type *type) {
-    if (type->isFloatTy()) 
-        return "float";
-    if (type->isDoubleTy()) 
-        return "double";
-    if (type->isIntegerTy()) 
-        return "int_" + std::to_string(type->getIntegerBitWidth());
-    if (type->isFloatTy())
-        return "float";
-    if (type->isPtrOrPtrVectorTy())
-        return "Pointer";
-    return "Unknown type";
-}
 
 // 将value转成想要的type类型
 Value *createCast(Value *value, Type *type) {
+    if(!value) return nullptr;
+    std::cout << "val-type:" << getLLVMTypeStr(value) << " want-type: " << getLLVMTypeStr(type) << std::endl;
+    if(value->getType() == type){
+        print("No need to cast");
+        return value;
+    }
     auto val_type = value->getType();
     if(val_type->isFloatingPointTy()){
+        print("Val belongs to FloatingPoint");
         if(type->isFloatingPointTy()){
-            return value;
+            return llvmBuilder->CreateFPCast(value, type);
         }else if(type->isIntegerTy()){
             return llvmBuilder->CreateCast(Instruction::FPToSI, value, type);
         }else if(type->isPtrOrPtrVectorTy()){
@@ -533,15 +585,17 @@ Value *createCast(Value *value, Type *type) {
         }
     }
     if(val_type->isIntegerTy()){
+        print("Val belongs to Integer");
         if(type->isFloatingPointTy()){
             return llvmBuilder->CreateCast(Instruction::SIToFP, value, type);
         }else if(type->isIntegerTy()){
             return llvmBuilder->CreateSExtOrTrunc(value, type);
-        }else if(val_type->isPtrOrPtrVectorTy()){
+        }else if(type->isPtrOrPtrVectorTy()){
             return llvmBuilder->CreateCast(Instruction::IntToPtr, value, type);
         }
     }
     if(val_type->isPtrOrPtrVectorTy()){
+        print("Val belongs to Pointer");
         if(type->isFloatingPointTy()){
             return nullptr;
         }else if(type->isIntegerTy()){
@@ -556,35 +610,26 @@ Value *createCast(Value *value, Type *type) {
 
 Value *TranslationUnitExprAST::codegen() {
     print("TranslationUnit");
-
-    FunctionType *initFuncType = FunctionType::get(llvmBuilder->getVoidTy(), false);
-    Function *initFunc = Function::Create(initFuncType, Function::ExternalLinkage, "__global_var_init", llvmModule.get());
-    llvmBuilder->SetInsertPoint(BasicBlock::Create(*llvmContext, "entry", initFunc));
-
-    // auto theBB = BasicBlock::Create(*llvmContext, "entry", llvmBuilder->GetInsertBlock()->getParent());
-    // llvmBuilder->SetInsertPoint(theBB);
-
     int globalVar_len = globalVarList.size();
     int expr_len = exprList.size();
-    print("Global vars: "+ std::to_string(globalVar_len) + " Exprs: " + std::to_string(expr_len));
+    print("Global vars: "+ std::to_string(globalVar_len) + "\nExprs: " + std::to_string(expr_len));
+    print("Global(s) Initializing Pass......");
+    initializing = true;
+    for (int i=0; i < globalVar_len; i++) {
+        globalVarList[i]->codegen();
+    }
+    initializing = false;
+    print("Global(s) Initializing End......");
 
-    for (int i=0;i<globalVar_len;i++) globalVarList[i]->codegen();
-    llvmBuilder->CreateRetVoid();
-    verifyFunction(*initFunc, &llvm::errs());
-
-    // llvmBuilder->CreateCall(getFunction("__global_var_init"));
-
-    for (int i=0;i<expr_len;i++) exprList[i]->codegen();
-
-    
-
+    for (int i=0; i < expr_len; i++) {
+        exprList[i]->codegen();
+    }
     return nullptr;
 }
 
 Value *VarExprAST::codegen() {
     print("VarExpr, typeid: " + std::to_string(type));
     Function *currFunction = llvmBuilder->GetInsertBlock()->getParent();
-
     auto varType = getVarType(*llvmContext, this->getType());
 
     Value *initVal;
@@ -593,19 +638,46 @@ Value *VarExprAST::codegen() {
     } else {
         initVal = getInitVal(varType);
     }
-    std::cout << "initial-val-type:" << getTypeString(initVal->getType()) << " node-val-type: " << getTypeString(varType) << std::endl;
     auto castedVal = createCast(initVal, varType);
-    std::cout << "casted-val-type:" << getTypeString(castedVal->getType()) << " node-val-type: " << getTypeString(varType) << std::endl;
-    AllocaInst *alloca = CreateEntryBlockAllocaWithType(currFunction, name, type);
+    if(!castedVal){
+        logErrorV((std::string("Unsupported initializatin from "+ getLLVMTypeStr(initVal->getType()) +" to " + getLLVMTypeStr(varType)).c_str()));
+    }
+    AllocaInst *alloca = CreateEntryBlockAllocaWithTypeSize(name, varType);
     if(type == TYPEID_CHAR_PTR){
         auto ArraySize = llvmBuilder->getInt32(1000);
-        AllocaInst * arrayspace = CreateEntryBlockAllocaWithTypeSize(currFunction, name, llvmBuilder->getInt8Ty(), ArraySize);
+        AllocaInst * arrayspace = CreateEntryBlockAllocaWithTypeSize(name, llvmBuilder->getInt8Ty(), ArraySize);
         llvmBuilder->CreateStore(arrayspace, alloca);
     }else{
         llvmBuilder->CreateStore(castedVal, alloca);
     }
-    NamedValues[name] = alloca;
+    NamedValues.top()[name] = alloca;
     return castedVal;
+}
+
+Value *ArrayExprAST::codegen() {
+    int isGlobal = 0;
+    auto val = getVariable(name, isGlobal);
+    if (val) {
+        std::string errorMsg = "Variable " + name + " is already defined";
+        return logErrorV(errorMsg.c_str());
+    }
+
+    auto varType = getVarType(*llvmContext, this->getType());
+    print("ArrayExpr, typeid: " + std::to_string(type));
+
+    auto alloca = CreateEntryBlockAllocaWithTypeSize(name, varType);
+    auto arrayType = ArrayType::get(varType, size);
+    // auto arrayPtr = CreateEntryBlockAllocaWithTypeSize(name, arrayType);
+    // llvmBuilder->CreateStore(arrayPtr, alloca);
+    auto arrayPtr = llvmBuilder->CreateAlloca(arrayType);
+    NamedValues.top()[name] = arrayPtr;
+    // auto defaultValue = getInitVal(varType);
+    // for (int i=0; i < size; i++) {
+    //     auto index = llvmBuilder->getInt32(i);
+    //     auto arrayElem = llvmBuilder->CreateGEP(arrayPtr, index);
+    //     llvmBuilder->CreateStore(defaultValue, arrayElem);
+    // }
+    return arrayPtr;
 }
 
 Value *VarRefExprAST::codegen() {
@@ -615,15 +687,17 @@ Value *VarRefExprAST::codegen() {
     if (!V) return V;
     if(isGlobal) {
         std::cout << "Find global var: " << name << std::endl;
-        return llvmBuilder->CreateLoad(V);
-        // return V;
+        GlobalVariable *gV = static_cast<GlobalVariable *>(V);
+        if(gV->isConstant() || initializing)
+            return gV->getInitializer();
+        else
+            return llvmBuilder->CreateLoad(V);
     }
 
     std::cout << "Value of varRef: " + getLLVMTypeStr(V) << std::endl;
-    // std::cout << "Type of varRef: " << this->type << std::endl;
-    // Value *nextVar = llvmBuilder->CreateLoad(valType, alloca, varName.c_str());
+
     auto type = getVarType(*llvmContext, this->type);
-    std::cout << "Type: " << getLLVMTypeStr(type) << " thisType: " << this->type << " Name: " << this->name << std::endl;
+    std::cout << "Type: " << getLLVMTypeStr(type) << " Type-id: " << this->type << " Name: " << this->name << std::endl;
     auto retVal = llvmBuilder->CreateLoad(type, V, name.c_str());
 
     std::cout << "Value of load: " + getLLVMTypeStr(retVal) << std::endl;
@@ -631,29 +705,46 @@ Value *VarRefExprAST::codegen() {
 }
 
 Value *GlobalVarExprAST::codegen() {
-    print("GlobalVarExpr, typeid: " + std::to_string(type));
-    Function *currFunction = llvmBuilder->GetInsertBlock()->getParent();
-
-    auto varType = getVarType(*llvmContext, this->type);
+    auto varType = getVarType(*llvmContext, this->init->getType());
+    print("GlobalVarExpr, Name: " + init->name + " Type: " + getLLVMTypeStr(varType));
 
     Value *initVal;
 
     if(init->init) {
         initVal = init->init->codegen();
-        std::cout << getTypeString(initVal->getType()) << " " << getTypeString(varType) << " " << getLLVMTypeStr(initVal) << std::endl;
         initVal = createCast(initVal, varType);
-
-        if(!initVal) return nullptr;
-    }
-    else {
+        if(!initVal) 
+            return nullptr;
+    }else{
         std::cout << "No init val, using default" << std::endl;
         initVal = getInitVal(varType);
     }
 
-    auto globalVar = createGlob(getVarType(*llvmContext, type), name);
+    auto globalVar = createGlob(varType, init->name);
     globalVar->setInitializer(dyn_cast<Constant>(initVal));
     return initVal;
 }
+
+Value *ArraySubExprAST::codegen() {
+    print("ArraySubExpr, name: " + name);
+    auto rhs = sub->codegen();
+    if (!rhs) return nullptr;
+
+    int isGlobal = 0;
+    auto alloca = getVariable(name, isGlobal);
+    if (!alloca) return nullptr;
+
+    
+    auto index = dyn_cast<ConstantInt>(rhs);
+    
+    if (!index) return logErrorV("Array index must be an integer");
+    std::cout << getLLVMTypeStr(index) << std::endl;
+
+    auto zero = llvmBuilder->getInt64(0);
+    auto castIndex = createCast(index, Type::getInt64Ty(*llvmContext));
+    auto elementPtr = llvmBuilder->CreateGEP(alloca, {zero, castIndex} );
+    return llvmBuilder->CreateLoad(elementPtr);
+};
 
 
 Value *LiteralExprAST::codegen() {
@@ -711,7 +802,63 @@ Value *LiteralExprAST::codegen() {
     }
 }
 
+UnaryExprAST::UnaryExprAST(const std::string &op, std::unique_ptr<ExprAST> rhs) {
+    this->op = op;
+    this->rhs = std::move(rhs);
 
+    try {
+        auto r = static_cast<VarRefExprAST *>(this->rhs.get());
+        auto name = r->getName();
+        this->name = name;
+    } catch (std::exception &e) {
+        logErrorV("Invalid reference declaration");
+        logErrorV(e.what());
+    }
+}
+
+Value *UnaryExprAST::codegen() {
+    int opType = getUnaryOpType(op);
+    print("Unary op: " + op + " " + std::to_string(opType));
+    Value *right = rhs->codegen();
+    if (!right) return nullptr;
+    std::cout << "Right type: " << getLLVMTypeStr(right) << std::endl;
+
+    switch (opType) {
+        case POS: {
+            return right;
+        }
+        case NEG: {
+            if (right->getType()->isFloatingPointTy())
+                return llvmBuilder->CreateFNeg(right);
+            else 
+                return llvmBuilder->CreateNeg(right);
+        }
+        case REF: {            
+            // if (right->getType()->isPtrOrPtrVectorTy()) 
+            //     return logErrorV("Unsupported reference operation for pointer type");
+            int isGlobal = 0;
+            auto V = getVariable(name, isGlobal);
+            
+            // V = llvmBuilder->CreateBitCast(V, V->getType()->getPointerTo());
+            return V;
+            
+            // return nullptr;
+        }
+        case DEREF: {
+            // if (!right->getType()->isPtrOrPtrVectorTy()) 
+            //     return logErrorV("Unsupported reference operation for non-pointer type");
+
+            auto V = llvmBuilder->CreateLoad(right);
+            std::cout << "Unary ptr type: " << getLLVMTypeStr(V) << std::endl;
+            return V;
+        }
+        default: {
+            auto errorMsg = "Invalid unary op" + op;
+            return logErrorV(errorMsg.c_str());
+        }
+    }
+
+}
 
 Value *BinaryExprAST::codegen() {
     print("Binary op: " + op);
@@ -719,49 +866,90 @@ Value *BinaryExprAST::codegen() {
 
     
     if (opType == ASSIGN) {
-        VarRefExprAST *lhse = static_cast<VarRefExprAST *>(lhs.get());
-        Value *val = rhs->codegen();
-        if (!val) return nullptr;
+        std::string name;
+        Value *variable;
+        if(type == UNARYOP) {
+            UnaryExprAST *lhse = static_cast<UnaryExprAST *>(lhs.get());
+            name = lhse->getName();
+            // only for pointer type
+            int isGlobal = 0;
+            variable = getVariable(name, isGlobal);
+            if(!variable) return nullptr;
+            variable = llvmBuilder->CreateLoad(variable);
+        }
+        else if (type == ARRAYSUB) {
+            ArraySubExprAST *lhse = static_cast<ArraySubExprAST *>(lhs.get());
+            name = lhse->getName();
+            
+            auto rhs = lhse->sub->codegen();
+            if (!rhs) return nullptr;
+
+            int isGlobal = 0;
+            auto alloca = getVariable(name, isGlobal);
+            if (!alloca) return nullptr;
+
+            auto index = dyn_cast<ConstantInt>(rhs);
+    
+            if (!index) return logErrorV("Array index must be an integer");
+            std::cout << getLLVMTypeStr(index) << std::endl;
+
+            auto zero = llvmBuilder->getInt64(0);
+            auto castIndex = createCast(index, Type::getInt64Ty(*llvmContext));
+
+
+            variable = llvmBuilder->CreateGEP(alloca, {zero, castIndex} );
+            std::cout << getLLVMTypeStr(variable) << std::endl;
+            if (!variable) return nullptr;
+        }
+        else {
+            VarRefExprAST *lhse = static_cast<VarRefExprAST *>(lhs.get());
+            name = lhse->getName();
+            int isGlobal = 0;
+            variable = getVariable(name, isGlobal);
+            if (!variable) return nullptr;
+        }
+        
+        Value *val =rhs->codegen();
+        if (!val) {
+            return logErrorV("Invaild Reference");
+        }
         // Value *variable = NamedValues[lhse->getName()];
 
-        int isGlobal = 0;
-        auto variable = getVariable(lhse->getName(), isGlobal);
-        if (!variable) return variable;
+        // int isGlobal = 0;
+        // auto variable = getVariable(lhse->getName(), isGlobal);
+        // if (!variable) return variable;
 
-
+        auto castedVal = createCast(val, variable->getType()->getPointerElementType());
+        if (!castedVal){
+            return logErrorV((std::string("Unsupported assign from "+ getLLVMTypeStr(val->getType()) +" to " + getLLVMTypeStr(variable->getType()->getPointerElementType())).c_str()));
+        }
+        val = castedVal;
         std::cout << getLLVMTypeStr(val) << std::endl;
         llvmBuilder->CreateStore(val, variable);
         return val;
     }
 
-    // cast value: only support (int, double), (double, double), (double, int)
-    
 
     Value *left = lhs->codegen();
     std::cout << "Value on lhs: " + getLLVMTypeStr(left) << std::endl;
     Value *right = rhs->codegen();
     std::cout << "Value on rhs: " + getLLVMTypeStr(right) << std::endl;
 
-    // std::string t;
-    // raw_string_ostream stream(t);
-    // left->getType()->print(stream);
-    // std::cout << t << std::endl;
 
     if (!left || !right) {
         return logErrorV("lhs / rhs is not valid");
     }
 
-    right = createCast(right, left->getType());
-
-    if (!right) {
-        std::string error_msg("Invalid binary operand! left: ");
-        error_msg += getLLVMTypeStr(left);
-        error_msg += ", right: ";
-        error_msg += getLLVMTypeStr(right);
-        return logErrorV(error_msg.c_str());
-    }
-
-    if(left->getType()->isFloatingPointTy()) {
+    if(left->getType()->isFloatingPointTy() || right->getType()->isFloatingPointTy()) {
+        // always cast int to FP
+        auto FPleft = createCast(left, Type::getDoubleTy(*llvmContext));
+        auto FPright = createCast(right, Type::getDoubleTy(*llvmContext));
+        if(!FPleft || !FPright){
+            return logErrorV(std::string("Unsupported operand between "+ getLLVMTypeStr(left->getType()) +" and " + getLLVMTypeStr(right->getType())).c_str());
+        }else{
+            left = FPleft;
+            right = FPright;
+        }
         switch(opType) {
             case ADD:
                 return llvmBuilder->CreateFAdd(left, right, "fadd");
@@ -769,19 +957,29 @@ Value *BinaryExprAST::codegen() {
                 return llvmBuilder->CreateFSub(left, right, "fsub");
             case MUL:
                 return llvmBuilder->CreateFMul(left, right, "fmul");
-            case LT:
-                left = llvmBuilder->CreateFCmpULT(left, right, "flt");
-                return llvmBuilder->CreateUIToFP(left, Type::getDoubleTy(*llvmContext), "booltmp");
             case DIV:
-                return llvmBuilder->CreateFDiv(left, right);
+                return llvmBuilder->CreateFDiv(left, right, "fdiv");
+            case LT:
+                return llvmBuilder->CreateFCmpOLT(left, right, "flt");
+            case GT:
+                return llvmBuilder->CreateFCmpOGT(left, right, "fgt");
             case EQ:
-                left = llvmBuilder->CreateFCmpUEQ(left, right, "flt");
-                return llvmBuilder->CreateUIToFP(left, Type::getDoubleTy(*llvmContext), "booltmp");
-
+                return llvmBuilder->CreateFCmpOEQ(left, right, "feq");
+            case NE:
+                return llvmBuilder->CreateFCmpUNE(left, right, "fne");
+            case LE:
+                return llvmBuilder->CreateFCmpOLE(left, right, "fle");
+            case GE:
+                return llvmBuilder->CreateFCmpOGE(left, right, "fge");
             default:
                 return logErrorV("Invalid binary operator");
         }
     }else{
+        // Otherwise, always try to convert right to left!
+        right = createCast(right, left->getType());
+        if(!right){
+            return logErrorV((std::string("Unsupported operand between "+ getLLVMTypeStr(left->getType()) +" : " + getLLVMTypeStr(right->getType())).c_str()));
+        }
         switch(opType) {
             case ADD:
                 return llvmBuilder->CreateAdd(left, right, "iadd");
@@ -792,19 +990,18 @@ Value *BinaryExprAST::codegen() {
             case DIV:
                 return llvmBuilder->CreateSDiv(left, right, "idiv");
             case LT:
-                left = llvmBuilder->CreateICmpSLT(left, right, "ilt");
-                // left = llvmBuilder->CreateSIToFP(left, getVarType(*llvmContext, TYPEID_DOUBLE));
-                // left = llvmBuilder->CreateFPToSI(left, getVarType(*llvmContext, TYPEID_INT));
-                return left;
-            
+                return llvmBuilder->CreateICmpSLT(left, right, "ilt");
+            case GT:
+                return llvmBuilder->CreateICmpSGT(left, right, "igt");
+            case LE:
+                return llvmBuilder->CreateICmpSLE(left, right, "ile");
+            case GE:
+                return llvmBuilder->CreateICmpSGE(left, right, "ige");
+            case NE:
+                return llvmBuilder->CreateICmpNE(left, right, "ine");
             case EQ:
-                left = llvmBuilder->CreateICmpEQ(left, right, "ilt");
-                // left = llvmBuilder->CreateSIToFP(left, getVarType(*llvmContext, TYPEID_DOUBLE));
-                // left = llvmBuilder->CreateFPToSI(left, getVarType(*llvmContext, TYPEID_INT));
-                return left;
-                
+                return llvmBuilder->CreateICmpEQ(left, right, "ieq");
             default:
-                // llvmBuilder->CreateI
                 return logErrorV("Invalid binary operator");
         }
     }
@@ -831,82 +1028,99 @@ Function *PrototypeAST::codegen() {
 
 Function *FunctionDeclAST::codegen() {
     std::cout << "FunctionDeclAST: " << prototype->getName() << std::endl;
-    // std::cout << prototype.get() << std::endl;
+    retPtr = retBlock = nullptr;
     auto &p = *prototype;
     functionProtos[p.getName()] = std::move(prototype);
     Function *currFunction = getFunction(p.getName());
-    if (!currFunction) return logErrorF(("Unknown function referenced" + p.getName()).c_str());
-
-    BasicBlock *BB = BasicBlock::Create(*llvmContext, "entry", currFunction);
-    llvmBuilder->SetInsertPoint(BB);
-
-    NamedValues.clear();
-    for (auto &arg : currFunction->args()) {
-        AllocaInst *alloca = CreateEntryBlockAllocaWithType(currFunction, arg.getName(), arg.getType());
-        llvmBuilder->CreateStore(&arg, alloca);
-        NamedValues[std::string(arg.getName())] = alloca;
+    if (!currFunction) {
+        return logErrorF(("Unknown function referenced" + p.getName()).c_str());
     }
-
+    BasicBlock* entryBlock = BasicBlock::Create(*llvmContext, "entry", currFunction);
+    llvmBuilder->SetInsertPoint(entryBlock);
+    // if not void, ret value should be a variable!
     Type *retType = getVarType(*llvmContext, p.retVal);
-    // std::cout << "return type: " << getTypeString(retType) << std::endl;
-    auto compoundStmt = static_cast<CompoundStmtExprAST *>(body.get());
-    bool final_return = true;
-    auto expr_len = compoundStmt->exprList.size();
-
-    for(int i=0;i<expr_len;i++) {
-        std::cout << "Expr: " << i << std::endl;
-        auto val = compoundStmt->exprList[i]->codegen();
-        // auto isReturn = compoundStmt->isReturnStmt[i];
-        if(!val) {
-            // error reading body
-            currFunction->eraseFromParent();
-            return logErrorF("Error reading body");
-        }
-        // final_return = false;
-        // if (isReturn) {
-        //     val = createCast(val, retType);
-        //     llvmBuilder->CreateRet(val);
-        //     final_return = true;
-        // }
+    std::cout << "return type: " << getLLVMTypeStr(retType) << std::endl;
+    if(!retType->isVoidTy()){
+        retPtr = CreateEntryBlockAllocaWithTypeSize("ret_val", retType);
+        llvmBuilder->CreateStore(getInitVal(retType), retPtr);
     }
 
-    if(p.getRetVal() == TYPEID_VOID) llvmBuilder->CreateRetVoid();
-    else if(!final_return) llvmBuilder->CreateRet(getInitVal(retType));
+    NamedValues.empty();
+    std::map<std::string, AllocaInst *> local_vals;
+    NamedValues.push(local_vals);
+    for (auto &arg : currFunction->args()) {
+        AllocaInst *alloca = CreateEntryBlockAllocaWithTypeSize(arg.getName(), arg.getType());
+        llvmBuilder->CreateStore(&arg, alloca);
+        NamedValues.top()[std::string(arg.getName())] = alloca;
+    }
+
+    llvmBuilder->SetInsertPoint(entryBlock);
+    retBlock = BasicBlock::Create(*llvmContext, "ret", currFunction);
+
+    llvmBuilder->SetInsertPoint(retBlock);
+    if(retPtr){
+        llvmBuilder->CreateRet(llvmBuilder->CreateLoad(retType, retPtr, "final_ret"));
+    }else{
+        llvmBuilder->CreateRetVoid();
+    }
+    
+    // Create Function Body
+    llvmBuilder->SetInsertPoint(entryBlock);
+    auto compoundStmt = static_cast<CompoundStmtExprAST *>(body.get());
+    auto val = compoundStmt->codegen();
+    if(!val) {
+        currFunction->eraseFromParent();
+        return logErrorF("Error reading body");
+    }
+    print("Build Successfully");
+    // Create default terminator if not(add a default return for all empty labels)
+    auto iter = currFunction->getBasicBlockList().begin();
+    auto end = currFunction->getBasicBlockList().end();
+    print("Check If Terminated");
+    for(;iter != end ;++iter){
+        std::cout << iter->getName().data() << std::endl;
+        if(!iter->getTerminator()){
+            llvmBuilder->SetInsertPoint(dyn_cast<BasicBlock>(iter));
+            llvmBuilder->CreateBr(retBlock);
+        }
+    }
     verifyFunction(*currFunction, &errs());
     return currFunction;
-    
-    // Value *bodyVal = body->codegen();
-    // print(getTypeString(bodyVal->getType()) + " " + std::to_string(p.retVal));
-    // if(bodyVal) {
-    //     if(p.getRetVal() == TYPEID_VOID) llvmBuilder->CreateRetVoid();
-    //     else llvmBuilder->CreateRet(
-    //         createCast(bodyVal, retType)
-    //         );
-    //     verifyFunction(*currFunction, &llvm::errs());
-    //     return currFunction;
-    // }
-    // TODO 没有明确指定的时候返回默认值
-
 }
 
 Value *CompoundStmtExprAST::codegen() {
-    Function *currFunction = llvmBuilder->GetInsertBlock()->getParent();
-    // BasicBlock *BB = BasicBlock::Create(*llvmContext, "compoundBB", currFunction);
-    // // currFunction->getBasicBlockList().push_back(BB);
+    print("New scope declared!");
+    std::map<std::string, AllocaInst *> Scope = NamedValues.top();
+    NamedValues.push(Scope);
+    // Function *currFunction = llvmBuilder->GetInsertBlock()->getParent();
+    // BasicBlock *BB = BasicBlock::Create(*llvmContext, "compoundBB", currFunction, retBlock);
     // llvmBuilder->SetInsertPoint(BB);
 
-    Value *retVal;
-    for (auto &expr: exprList) retVal = expr->codegen();
-    
+    Value *retVal = llvmBuilder->getTrue();
+    for (auto &expr: exprList){
+        retVal = expr->codegen();
+        if(!retVal) return nullptr;
+    }
+    print("Back to previous scope!");
+    NamedValues.pop();
     return retVal;
 }
 
 Value *ReturnStmtExprAST::codegen() {
     print("Find return stmt");
+    Function *currFunction = llvmBuilder->GetInsertBlock()->getParent();
+    if(!retPtr){
+        return llvmBuilder->CreateBr(retBlock);
+    }
+
+    if (!body) return logErrorV("No ret val");
     Value *retVal = body->codegen();
-    llvmBuilder->CreateRet(retVal);
-    std::cout << "Get return value: " << getLLVMTypeStr(retVal) << std::endl;
+    retVal = createCast(retVal, currFunction->getReturnType());
     if (!retVal) return logErrorV("No ret val");
+    std::cout << "Get return value: " << getLLVMTypeStr(retVal) << std::endl;
+    llvmBuilder->CreateStore(retVal, retPtr);
+    
+    llvmBuilder->CreateBr(retBlock);
     return retVal;
 }
 
@@ -920,10 +1134,7 @@ Value *ForExprAST::codegen() {
     Value *startVal = start->codegen();
     if (!startVal) return nullptr;
     auto valType = startVal->getType();
-    AllocaInst *alloca = CreateEntryBlockAllocaWithType(currFunction, varName.c_str(), valType); // TODO
-
-    // print(varName);
-    
+    AllocaInst *alloca = CreateEntryBlockAllocaWithTypeSize(varName.c_str(), valType); 
     llvmBuilder->CreateStore(startVal, alloca);
 
     // BasicBlock *headerBlock = llvmBuilder->GetInsertBlock();
@@ -934,7 +1145,7 @@ Value *ForExprAST::codegen() {
     llvmBuilder->CreateBr(loopBlock);
     llvmBuilder->SetInsertPoint(loopBlock);
 
-    NamedValues[varName] = alloca;
+    NamedValues.top()[varName] = alloca;
 
     Value *endVal = end->codegen();
     if (!endVal) return nullptr;
@@ -949,7 +1160,6 @@ Value *ForExprAST::codegen() {
     llvmBuilder->SetInsertPoint(bodyBlock);
     if (!body->codegen()) return nullptr;
     
-    
 
     Value *stepVar = step->codegen();
     if (!stepVar) return nullptr;
@@ -961,13 +1171,6 @@ Value *ForExprAST::codegen() {
                 << " "
                 << getLLVMTypeStr(stepVar) 
                 << std::endl;
-    // std::cout   << "Type in for: "
-    //             << getTypeString(startVal->getType()) 
-    //             << " " 
-    //             << getTypeString(endVal->getType())
-    //             << " "
-    //             << getTypeString(stepVar->getType()) 
-    //             << std::endl;
 
     Value *nextVar = llvmBuilder->CreateLoad(valType, alloca, varName.c_str());
     llvmBuilder->CreateBr(loopBlock);
@@ -1003,61 +1206,50 @@ Value *CallExprAST::codegen() {
 Value *IfExprAST::codegen() {
     Value *condValue = cond->codegen();
     if (!condValue) return nullptr;
-
-    // condValue = llvmBuilder->CreateFCmpONE(
-    //         condValue, ConstantFP::get(*llvmContext, APFloat(0.0)), "if_cond");
     auto condType = condValue->getType();
 
     std::cout << "Cond type: " << getLLVMTypeStr(condType) << std::endl;
-
-    Value *condVal;
+    Value * condVal;
     if(condType->isFloatingPointTy())
         condVal = llvmBuilder->CreateFCmpONE(condValue, getInitVal(condType), "if_comp");
     else
         condVal = llvmBuilder->CreateICmpNE(condValue, getInitVal(condType), "if_comp");
-    
+
     std::cout << "type of condval: " << getLLVMTypeStr(condVal) << std::endl;
     Function *currFunction = llvmBuilder->GetInsertBlock()->getParent();
-    BasicBlock *thenBlock = BasicBlock::Create(*llvmContext, "then_case", currFunction);
-    BasicBlock *finalBlock = BasicBlock::Create(*llvmContext, "final");
-
-    if(else_case) {
-        BasicBlock *elseBlock = BasicBlock::Create(*llvmContext, "else_case");
+    BasicBlock *endifBlock = BasicBlock::Create(*llvmContext, "endif", currFunction, retBlock);
+    BasicBlock *thenBlock = BasicBlock::Create(*llvmContext, "then_case", currFunction, endifBlock);
+    if(else_case){
+        BasicBlock *elseBlock = BasicBlock::Create(*llvmContext, "else_case", currFunction, endifBlock);
         llvmBuilder->CreateCondBr(condVal, thenBlock, elseBlock);
-        llvmBuilder->SetInsertPoint(elseBlock);
 
+        llvmBuilder->SetInsertPoint(thenBlock);
         Value *thenValue = then_case->codegen();
         if (!thenValue) return nullptr;
+        if(!thenBlock->getTerminator()){
+            llvmBuilder->CreateBr(endifBlock);
+        }
 
-        currFunction->getBasicBlockList().push_back(elseBlock);
         llvmBuilder->SetInsertPoint(elseBlock);
-
         Value *elseValue = else_case->codegen();
         if (!elseValue) return nullptr;
+        if(!elseBlock->getTerminator()){
+            llvmBuilder->CreateBr(endifBlock);
+        }
 
-        llvmBuilder->CreateBr(finalBlock);
-        elseBlock = llvmBuilder->GetInsertBlock();
-
-        currFunction->getBasicBlockList().push_back(finalBlock);
-        llvmBuilder->SetInsertPoint(finalBlock);
-        PHINode *PN = llvmBuilder->CreatePHI(Type::getDoubleTy(*llvmContext), 2, "if");
-
-        PN->addIncoming(thenValue, thenBlock);
-        PN->addIncoming(elseValue, elseBlock);
-        return PN;
-    }
-    
-    else{
-        llvmBuilder->CreateCondBr(condValue, thenBlock, finalBlock);
+        llvmBuilder->SetInsertPoint(endifBlock);
+        return condValue;
+    }else{
+        llvmBuilder->CreateCondBr(condVal, thenBlock, endifBlock);
         llvmBuilder->SetInsertPoint(thenBlock);
 
         Value *thenValue = then_case->codegen();
         if (!thenValue) return nullptr;
         std::cout << "Return value of then value: " << getLLVMTypeStr(thenValue) << std::endl;
-
-        currFunction->getBasicBlockList().push_back(finalBlock);
-        // llvmBuilder->CreateBr(finalBlock);
-        llvmBuilder->SetInsertPoint(finalBlock);
+        if(!thenBlock->getTerminator()){
+            llvmBuilder->CreateBr(endifBlock);
+        }
+        llvmBuilder->SetInsertPoint(endifBlock);
         return condValue;
     }
 }
@@ -1084,7 +1276,7 @@ Value *WhileExprAST::codegen() {
     std::cout << "Type in while: " 
             << getLLVMTypeStr(condVal) 
             << " "
-            << getTypeString(condVal->getType())
+            << getLLVMTypeStr(condVal->getType())
             << std::endl;
     // std::cout << condVal->getType() << std::endl;
     // condVal = getInitVal(Type::getDoubleTy(*llvmContext));
@@ -1131,7 +1323,7 @@ Value *DoExprAST::codegen() {
     std::cout << "Type in do_while: " 
             << getLLVMTypeStr(condVal) 
             << " "
-            << getTypeString(condVal->getType())
+            << getLLVMTypeStr(condVal->getType())
             << std::endl;
 
 
@@ -1148,6 +1340,9 @@ Value *DoExprAST::codegen() {
     return Constant::getNullValue(Type::getDoubleTy(*llvmContext));
 }
 
+Value * NullStmtAST::codegen(){
+    return llvmBuilder->getTrue();
+}
 
 static std::unique_ptr<ExprAST> ast;
 void run_lib_backend(int argc, const char **argv) {
@@ -1208,7 +1403,7 @@ void save() {
         std::ofstream outFile;
         outFile.open(fileName);
         outFile << IRText;
-        std::cout << "IR code saved to " + fileName;
+        std::cout << "IR code saved to " + fileName << std::endl;
         outFile.close();
     #endif
 }
@@ -1227,12 +1422,13 @@ int main(int argc, const char **argv) {
     // llvmModule->print(errs(), nullptr);
 
     #ifndef IRONLY
+        save();
         int status_code = compile();
         std::cout << "Compile end with status code: " << status_code << std::endl << std::endl;
     #else
         close(devnull);
     	dup2(stdout_fd, STDOUT_FILENO);
+        save();
     #endif
-    save();
     return 0;
 }
