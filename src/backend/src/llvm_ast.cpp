@@ -41,7 +41,7 @@ static std::unique_ptr<Module> llvmModule;
 static bool initializing;
 static Value* retPtr;
 static BasicBlock* retBlock;
-static std::map<std::string, AllocaInst *> NamedValues;
+static std::stack<std::map<std::string, AllocaInst *>> NamedValues;
 static std::unique_ptr<IRBuilder<>> llvmBuilder;
 static std::map<std::string, std::unique_ptr<PrototypeAST>> functionProtos;
 
@@ -484,7 +484,7 @@ Function *getFunction(std::string name) {
 }
 
 Value *getVariable(std::string name, int &isGlobal) {
-    auto V = NamedValues[name];
+    auto V = NamedValues.top()[name];
     if(V) {
         std::cout << "Find local variable\n";
         return V;
@@ -598,7 +598,7 @@ Value *VarExprAST::codegen() {
     }else{
         llvmBuilder->CreateStore(castedVal, alloca);
     }
-    NamedValues[name] = alloca;
+    NamedValues.top()[name] = alloca;
     return castedVal;
 }
 
@@ -923,11 +923,13 @@ Function *FunctionDeclAST::codegen() {
         llvmBuilder->CreateStore(getInitVal(retType), retPtr);
     }
 
-    NamedValues.clear();
+    NamedValues.empty();
+    std::map<std::string, AllocaInst *> local_vals;
+    NamedValues.push(local_vals);
     for (auto &arg : currFunction->args()) {
         AllocaInst *alloca = CreateEntryBlockAllocaWithTypeSize(arg.getName(), arg.getType());
         llvmBuilder->CreateStore(&arg, alloca);
-        NamedValues[std::string(arg.getName())] = alloca;
+        NamedValues.top()[std::string(arg.getName())] = alloca;
     }
 
     llvmBuilder->SetInsertPoint(entryBlock);
@@ -965,7 +967,9 @@ Function *FunctionDeclAST::codegen() {
 }
 
 Value *CompoundStmtExprAST::codegen() {
-    print("New Scope Declared!");
+    print("New scope declared!");
+    std::map<std::string, AllocaInst *> Scope = NamedValues.top();
+    NamedValues.push(Scope);
     // Function *currFunction = llvmBuilder->GetInsertBlock()->getParent();
     // BasicBlock *BB = BasicBlock::Create(*llvmContext, "compoundBB", currFunction, retBlock);
     // llvmBuilder->SetInsertPoint(BB);
@@ -975,6 +979,8 @@ Value *CompoundStmtExprAST::codegen() {
         retVal = expr->codegen();
         if(!retVal) return nullptr;
     }
+    print("Back to previous scope!");
+    NamedValues.pop();
     return retVal;
 }
 
@@ -1006,10 +1012,7 @@ Value *ForExprAST::codegen() {
     Value *startVal = start->codegen();
     if (!startVal) return nullptr;
     auto valType = startVal->getType();
-    AllocaInst *alloca = CreateEntryBlockAllocaWithTypeSize(varName.c_str(), valType); // TODO
-
-    // print(varName);
-    
+    AllocaInst *alloca = CreateEntryBlockAllocaWithTypeSize(varName.c_str(), valType); 
     llvmBuilder->CreateStore(startVal, alloca);
 
     // BasicBlock *headerBlock = llvmBuilder->GetInsertBlock();
@@ -1020,7 +1023,7 @@ Value *ForExprAST::codegen() {
     llvmBuilder->CreateBr(loopBlock);
     llvmBuilder->SetInsertPoint(loopBlock);
 
-    NamedValues[varName] = alloca;
+    NamedValues.top()[varName] = alloca;
 
     Value *endVal = end->codegen();
     if (!endVal) return nullptr;
