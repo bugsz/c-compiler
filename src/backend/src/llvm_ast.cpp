@@ -948,7 +948,7 @@ Function *FunctionDeclAST::codegen() {
         currFunction->eraseFromParent();
         return logErrorF("Error reading body");
     }
-
+    print("Build Successfully");
     // Create default terminator if not(add a default return for all empty labels)
     auto iter = currFunction->getBasicBlockList().begin();
     auto end = currFunction->getBasicBlockList().end();
@@ -970,9 +970,10 @@ Value *CompoundStmtExprAST::codegen() {
     // BasicBlock *BB = BasicBlock::Create(*llvmContext, "compoundBB", currFunction, retBlock);
     // llvmBuilder->SetInsertPoint(BB);
 
-    Value *retVal;
+    Value *retVal = llvmBuilder->getTrue();
     for (auto &expr: exprList){
         retVal = expr->codegen();
+        if(!retVal) return nullptr;
     }
     return retVal;
 }
@@ -1215,7 +1216,6 @@ Value *DoExprAST::codegen() {
 }
 
 Value * NullStmtAST::codegen(){
-    print("FindNullStmt!");
     return llvmBuilder->getTrue();
 }
 
