@@ -39,6 +39,7 @@ enum ASTNodeType {
     LITERAL,
     VARDECL,
     COMPOUNDSTMT,
+    NULLSTMT,
     DECLREFEXPR,
     RETURNSTMT,
     FORSTMT,
@@ -70,6 +71,10 @@ public:
     virtual Value *codegen() = 0;
 };
 
+class NullStmtAST: public ExprAST{
+    Value *codegen() override;
+};
+
 class TranslationUnitExprAST: public ExprAST {
     std::vector<std::unique_ptr<ExprAST>> globalVarList;
     std::vector<std::unique_ptr<ExprAST>> exprList;
@@ -79,7 +84,6 @@ public:
     : globalVarList(std::move(globalVarList)), exprList(std::move(exprList)) {}
     
     Value *codegen() override;
-
 };
 
 class LiteralExprAST: public ExprAST {
@@ -215,11 +219,10 @@ public:
 class FunctionDeclAST: public ExprAST {
     std::unique_ptr<PrototypeAST> prototype;
     std::unique_ptr<ExprAST> body;
-    std::unique_ptr<ExprAST> returnStmt;
     Function *codegen() override;
 
 public:
-    FunctionDeclAST(std::unique_ptr<PrototypeAST> prototype, std::unique_ptr<ExprAST> body, std::unique_ptr<ExprAST> returnStmt)
+    FunctionDeclAST(std::unique_ptr<PrototypeAST> prototype, std::unique_ptr<ExprAST> body)
     : prototype(std::move(prototype)), body(std::move(body)) {}
 };
 
@@ -228,7 +231,7 @@ class CompoundStmtExprAST: public ExprAST {
 public:
     std::vector<std::unique_ptr<ExprAST>> exprList;
     std::vector<bool> isReturnStmt;
-    CompoundStmtExprAST(std::vector<std::unique_ptr<ExprAST>> exprList, std::vector<bool> isReturnStmt): exprList(std::move(exprList)), isReturnStmt(isReturnStmt) {}
+    CompoundStmtExprAST(std::vector<std::unique_ptr<ExprAST>> exprList): exprList(std::move(exprList)) {}
     Value *codegen() override;
 };
 

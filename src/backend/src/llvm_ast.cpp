@@ -77,6 +77,7 @@ ASTNodeType getNodeType(std::string token) {
     if(token == "BinaryOperator") return BINARYOPERATOR;
     if(token == "Literal") return LITERAL;
     if(token == "CompoundStmt") return COMPOUNDSTMT;
+    if(token == "NullStmt") return NULLSTMT;
     if(token == "DeclRefExpr") return DECLREFEXPR;
     if(token == "ReturnStmt") return RETURNSTMT;
     if(token == "ForStmt") return FORSTMT;
@@ -261,7 +262,7 @@ std::unique_ptr<ExprAST> generateBackendASTNode(ast_node_ptr root) {
             std::string name(val);    
             
             int param_end = root->n_child;
-            std::unique_ptr<ExprAST> returnStmt, compoundStmt;
+            std::unique_ptr<ExprAST> compoundStmt;
 
             if(param_end && isEqual(root->child[param_end-1]->token, "CompoundStmt")) {
                 compoundStmt = generateBackendASTNode(root->child[param_end - 1]);
@@ -284,7 +285,7 @@ std::unique_ptr<ExprAST> generateBackendASTNode(ast_node_ptr root) {
                 return prototype;
             }
             else {
-                auto funcExpr = std::make_unique<FunctionDeclAST>(std::move(prototype), std::move(compoundStmt), std::move(returnStmt));
+                auto funcExpr = std::make_unique<FunctionDeclAST>(std::move(prototype), std::move(compoundStmt));
                 return funcExpr;
             }
         }
@@ -336,11 +337,13 @@ std::unique_ptr<ExprAST> generateBackendASTNode(ast_node_ptr root) {
 
         case COMPOUNDSTMT: {
             std::vector<std::unique_ptr<ExprAST>> exprList;
-            std::vector<bool> isReturnStmt;
             for(int i=0;i<root->n_child;i++) exprList.push_back(generateBackendASTNode(root->child[i]));
-            for(int i=0;i<root->n_child;i++) isReturnStmt.push_back(isEqual(root->child[i]->token, "ReturnStmt"));
-            auto compound = std::make_unique<CompoundStmtExprAST>(std::move(exprList), isReturnStmt);
+            auto compound = std::make_unique<CompoundStmtExprAST>(std::move(exprList));
             return compound;
+        }
+
+        case NULLSTMT: {
+            return std::make_unique<NullStmtAST>();
         }
 
         case FORSTMT: {
@@ -389,7 +392,6 @@ std::unique_ptr<ExprAST> generateBackendASTNode(ast_node_ptr root) {
             auto doExpr = std::make_unique<DoExprAST>(std::move(cond), std::move(body));
             return doExpr;
         }
-
 
         default:
             return nullptr;
@@ -938,17 +940,15 @@ Function *FunctionDeclAST::codegen() {
         llvmBuilder->CreateRetVoid();
     }
     
+    // Create Function Body
     llvmBuilder->SetInsertPoint(entryBlock);
     auto compoundStmt = static_cast<CompoundStmtExprAST *>(body.get());
-    auto expr_len = compoundStmt->exprList.size();
-    for(int i=0;i<expr_len;i++) {
-        std::cout << "Expr: " << i << std::endl;
-        auto val = compoundStmt->exprList[i]->codegen();
-        if(!val) {
-            currFunction->eraseFromParent();
-            return logErrorF("Error reading body");
-        }
+    auto val = compoundStmt->codegen();
+    if(!val) {
+        currFunction->eraseFromParent();
+        return logErrorF("Error reading body");
     }
+
     // Create default terminator if not(add a default return for all empty labels)
     auto iter = currFunction->getBasicBlockList().begin();
     auto end = currFunction->getBasicBlockList().end();
@@ -965,14 +965,15 @@ Function *FunctionDeclAST::codegen() {
 }
 
 Value *CompoundStmtExprAST::codegen() {
-    // print("New Scope Declared!");
+    print("New Scope Declared!");
     // Function *currFunction = llvmBuilder->GetInsertBlock()->getParent();
     // BasicBlock *BB = BasicBlock::Create(*llvmContext, "compoundBB", currFunction, retBlock);
     // llvmBuilder->SetInsertPoint(BB);
 
     Value *retVal;
-    for (auto &expr: exprList) retVal = expr->codegen();
-    
+    for (auto &expr: exprList){
+        retVal = expr->codegen();
+    }
     return retVal;
 }
 
@@ -1209,6 +1210,10 @@ Value *DoExprAST::codegen() {
     return Constant::getNullValue(Type::getDoubleTy(*llvmContext));
 }
 
+Value * NullStmtAST::codegen(){
+    print("FindNullStmt!");
+    return llvmBuilder->getTrue();
+}
 
 static std::unique_ptr<ExprAST> ast;
 void run_lib_backend(int argc, const char **argv) {
