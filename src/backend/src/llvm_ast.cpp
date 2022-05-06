@@ -687,7 +687,7 @@ Value *ArrayExprAST::codegen() {
     // auto arrayPtr = CreateEntryBlockAllocaWithTypeSize(name, arrayType);
     // llvmBuilder->CreateStore(arrayPtr, alloca);
     auto arrayPtr = llvmBuilder->CreateAlloca(arrayType);
-    NamedValues[name] = arrayPtr;
+    NamedValues.top()[name] = arrayPtr;
     // auto defaultValue = getInitVal(varType);
     // for (int i=0; i < size; i++) {
     //     auto index = llvmBuilder->getInt32(i);
