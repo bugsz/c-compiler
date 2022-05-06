@@ -1083,7 +1083,11 @@ Value *IfExprAST::codegen() {
     auto condType = condValue->getType();
 
     std::cout << "Cond type: " << getLLVMTypeStr(condType) << std::endl;
-    Value *condVal = llvmBuilder->CreateICmpNE(condValue, getInitVal(condType), "if_comp");
+    Value * condVal;
+    if(condType->isFloatingPointTy())
+        condVal = llvmBuilder->CreateFCmpONE(condValue, getInitVal(condType), "if_comp");
+    else
+        condVal = llvmBuilder->CreateICmpNE(condValue, getInitVal(condType), "if_comp");
 
     std::cout << "type of condval: " << getLLVMTypeStr(condVal) << std::endl;
     Function *currFunction = llvmBuilder->GetInsertBlock()->getParent();
