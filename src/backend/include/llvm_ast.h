@@ -1,4 +1,5 @@
 #include<bits/stdc++.h>
+#include <memory>
 
 
 #include "llvm/ADT/APFloat.h"
@@ -38,6 +39,7 @@ enum ASTNodeType {
     IFSTMT,
     LITERAL,
     VARDECL,
+    ARRAYDECL,
     COMPOUNDSTMT,
     NULLSTMT,
     DECLREFEXPR,
@@ -48,6 +50,7 @@ enum ASTNodeType {
     WHILESTMT,
     DOSTMT,
     CASTEXPR,
+    ARRAYSUBSCRIPTEXPR,
     UNKNOWN
 };
 
@@ -57,6 +60,11 @@ enum UnaryOpType {
     NEG,
     DEREF,
     REF,
+};
+
+enum BinaryLHSType {
+    UNARYOP = -1,
+    ARRAYSUB = -2,
 };
 
 ASTNodeType getNodeType(std::string token);
@@ -136,15 +144,40 @@ public:
 
 class VarRefExprAST: public ExprAST{
     int type;
-
 public:
+    int getType() { return this->type; }
+    void setType(int type) { this->type = type; }
     std::string name;
     VarRefExprAST(const std::string &name, int type) : name(name), type(type) {}
     const std::string &getName() const { return name; }
+    void setName(const std::string &name) { this->name = name; }
     Value *codegen() override;
 };
 
+class ArrayExprAST: public ExprAST {
+    int type;
+    std::string name;
+    int size;
+    
+public:
+    const std::string &getName() const { return name; }
+    const int getSize() const { return size; }
+    const int getType() const { return type; }
+    ArrayExprAST(int type, const std::string &name, int size) : type(type), name(name), size(size) {}
+    Value *codegen() override;
+};
 
+class ArraySubExprAST: public ExprAST {
+    std::string name;
+    
+public:
+    std::unique_ptr<VarRefExprAST> var;
+    std::unique_ptr<ExprAST> sub;
+    const std::string &getName() const { return name; }
+    ArraySubExprAST(std::unique_ptr<VarRefExprAST> var, std::unique_ptr<ExprAST> sub):
+    var(std::move(var)), sub(std::move(sub)) {this->name = this->var->getName();}
+    Value *codegen() override;
+};
 
 /// BinaryExprAST - Expression class for a binary operator.
 class BinaryExprAST : public ExprAST {

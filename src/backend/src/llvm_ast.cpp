@@ -26,6 +26,7 @@
 // #include "type_utils.h"
 #include "frontend.h"
 #include <bits/stdc++.h>
+#include <cstdlib>
 #include <exception>
 #include <iostream>
 #include <llvm/ADT/APInt.h>
@@ -88,6 +89,8 @@ ASTNodeType getNodeType(std::string token) {
     if(token == "IfStmt") return IFSTMT;
     if(token == "ExplicitCastExpr") return CASTEXPR;
     if(token == "UnaryOperator") return UNARYOPERATOR;
+    if(token == "ArrayDecl") return ARRAYDECL;
+    if(token == "ArraySubscriptExpr") return ARRAYSUBSCRIPTEXPR;
     return UNKNOWN;
 }
 
@@ -168,6 +171,32 @@ bool isValidBinaryOperand(Value *value) {
     return (value->getType()->isFloatingPointTy() || value->getType()->isIntegerTy());
 }
 
+int ptr2raw(int ptr) {
+    switch(ptr) {
+        case TYPEID_VOID_PTR:
+            return TYPEID_VOID;
+        case TYPEID_INT_PTR:
+            return TYPEID_INT;
+        case TYPEID_FLOAT_PTR:
+            return TYPEID_FLOAT;
+        case TYPEID_DOUBLE_PTR:
+            return TYPEID_DOUBLE;
+        case TYPEID_CHAR_PTR:
+            return TYPEID_CHAR;
+        case TYPEID_LONG_PTR:  
+            return TYPEID_LONG;
+        case TYPEID_SHORT_PTR:
+            return TYPEID_SHORT;
+        default:
+            return ptr;
+    }
+}
+
+template<typename TO, typename FROM>
+std::unique_ptr<TO> static_unique_pointer_cast (std::unique_ptr<FROM>&& old){
+    return std::unique_ptr<TO>{static_cast<TO*>(old.release())};
+    //conversion: unique_ptr<FROM>->FROM*->TO*->unique_ptr<TO>
+}
 
 Value *getBuiltinFunction(std::string callee, std::vector<std::unique_ptr<ExprAST>> &args) {
     if(llvmModule->getFunction(callee)){
@@ -308,6 +337,27 @@ std::unique_ptr<ExprAST> generateBackendASTNode(ast_node_ptr root) {
             return var;
         }
 
+        case ARRAYDECL: {
+            int arraySize = atoi(root->val);
+            auto node = generateBackendASTNode(root->child[0]);
+            // auto var = static_cast<VarExprAST *>(node.get());
+            auto var = static_unique_pointer_cast<VarExprAST>(std::move(node));
+            auto array = std::make_unique<ArrayExprAST>(ptr2raw(var->getType()), var->getName(), arraySize);
+            return array;
+        }
+
+        case ARRAYSUBSCRIPTEXPR: {
+            auto ref = generateBackendASTNode(root->child[0]);
+            auto sub = generateBackendASTNode(root->child[1]);
+            auto var = static_unique_pointer_cast<VarRefExprAST>(std::move(ref));
+            // auto Var = static_cast<VarRefExprAST *>(ref.get());
+            // auto var = std::unique_ptr<VarRefExprAST>(Var);
+            var->setType(ptr2raw(var->getType()));
+            std::cout << "Subscription: " << var->getName() << " " << var->getType() << std::endl;
+            auto array = std::make_unique<ArraySubExprAST>(std::move(var), std::move(sub));
+            return array;
+        }
+
         case LITERAL: {
             std::string literal(val);
             auto literalExpr = std::make_unique<LiteralExprAST>(root->type_id, literal);
@@ -321,7 +371,9 @@ std::unique_ptr<ExprAST> generateBackendASTNode(ast_node_ptr root) {
             std::string op(val);
             auto binaryExpr = std::make_unique<BinaryExprAST>(op, std::move(LHS), std::move(RHS));
             if (isEqual(root->child[0]->token, "UnaryOperator"))
-                binaryExpr->type = -1;
+                binaryExpr->type = UNARYOP;
+            else if (isEqual(root->child[0]->token, "ArraySubscriptExpr"))
+                binaryExpr->type = ARRAYSUB;
             else
                 binaryExpr->type = root->type_id;
             return binaryExpr;
@@ -602,6 +654,32 @@ Value *VarExprAST::codegen() {
     return castedVal;
 }
 
+Value *ArrayExprAST::codegen() {
+    int isGlobal = 0;
+    auto val = getVariable(name, isGlobal);
+    if (val) {
+        std::string errorMsg = "Variable " + name + " is already defined";
+        return logErrorV(errorMsg.c_str());
+    }
+
+    auto varType = getVarType(*llvmContext, this->getType());
+    print("ArrayExpr, typeid: " + std::to_string(type));
+
+    auto alloca = CreateEntryBlockAllocaWithTypeSize(name, varType);
+    auto arrayType = ArrayType::get(varType, size);
+    // auto arrayPtr = CreateEntryBlockAllocaWithTypeSize(name, arrayType);
+    // llvmBuilder->CreateStore(arrayPtr, alloca);
+    auto arrayPtr = llvmBuilder->CreateAlloca(arrayType);
+    NamedValues[name] = arrayPtr;
+    // auto defaultValue = getInitVal(varType);
+    // for (int i=0; i < size; i++) {
+    //     auto index = llvmBuilder->getInt32(i);
+    //     auto arrayElem = llvmBuilder->CreateGEP(arrayPtr, index);
+    //     llvmBuilder->CreateStore(defaultValue, arrayElem);
+    // }
+    return arrayPtr;
+}
+
 Value *VarRefExprAST::codegen() {
     print("VarRefExpr");
     int isGlobal = 0;
@@ -646,6 +724,27 @@ Value *GlobalVarExprAST::codegen() {
     globalVar->setInitializer(dyn_cast<Constant>(initVal));
     return initVal;
 }
+
+Value *ArraySubExprAST::codegen() {
+    print("ArraySubExpr, name: " + name);
+    auto rhs = sub->codegen();
+    if (!rhs) return nullptr;
+
+    int isGlobal = 0;
+    auto alloca = getVariable(name, isGlobal);
+    if (!alloca) return nullptr;
+
+    
+    auto index = dyn_cast<ConstantInt>(rhs);
+    
+    if (!index) return logErrorV("Array index must be an integer");
+    std::cout << getLLVMTypeStr(index) << std::endl;
+
+    auto zero = llvmBuilder->getInt64(0);
+    auto castIndex = createCast(index, Type::getInt64Ty(*llvmContext));
+    auto elementPtr = llvmBuilder->CreateGEP(alloca, {zero, castIndex} );
+    return llvmBuilder->CreateLoad(elementPtr);
+};
 
 
 Value *LiteralExprAST::codegen() {
@@ -769,15 +868,7 @@ Value *BinaryExprAST::codegen() {
     if (opType == ASSIGN) {
         std::string name;
         Value *variable;
-        if(type != -1) {
-            VarRefExprAST *lhse = static_cast<VarRefExprAST *>(lhs.get());
-            name = lhse->getName();
-
-            int isGlobal = 0;
-            variable = getVariable(name, isGlobal);
-            if (!variable) return nullptr;
-        }
-        else {
+        if(type == UNARYOP) {
             UnaryExprAST *lhse = static_cast<UnaryExprAST *>(lhs.get());
             name = lhse->getName();
             // only for pointer type
@@ -785,6 +876,37 @@ Value *BinaryExprAST::codegen() {
             variable = getVariable(name, isGlobal);
             if(!variable) return nullptr;
             variable = llvmBuilder->CreateLoad(variable);
+        }
+        else if (type == ARRAYSUB) {
+            ArraySubExprAST *lhse = static_cast<ArraySubExprAST *>(lhs.get());
+            name = lhse->getName();
+            
+            auto rhs = lhse->sub->codegen();
+            if (!rhs) return nullptr;
+
+            int isGlobal = 0;
+            auto alloca = getVariable(name, isGlobal);
+            if (!alloca) return nullptr;
+
+            auto index = dyn_cast<ConstantInt>(rhs);
+    
+            if (!index) return logErrorV("Array index must be an integer");
+            std::cout << getLLVMTypeStr(index) << std::endl;
+
+            auto zero = llvmBuilder->getInt64(0);
+            auto castIndex = createCast(index, Type::getInt64Ty(*llvmContext));
+
+
+            variable = llvmBuilder->CreateGEP(alloca, {zero, castIndex} );
+            std::cout << getLLVMTypeStr(variable) << std::endl;
+            if (!variable) return nullptr;
+        }
+        else {
+            VarRefExprAST *lhse = static_cast<VarRefExprAST *>(lhs.get());
+            name = lhse->getName();
+            int isGlobal = 0;
+            variable = getVariable(name, isGlobal);
+            if (!variable) return nullptr;
         }
         
         Value *val =rhs->codegen();
