@@ -1291,7 +1291,5 @@ int main(int argc, const char **argv) {
         save();
     #endif
     save();
-    std::cout << "Finish processing IR code\n\n";
-    std::cout << "-------------------------\n";
     return 0;
 }
