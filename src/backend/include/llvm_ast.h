@@ -34,6 +34,7 @@ enum ASTNodeType {
     TRANSLATIONUNIT = 0,
     FUNCTIONDECL,
     BINARYOPERATOR,
+    UNARYOPERATOR,
     IFSTMT,
     LITERAL,
     VARDECL,
@@ -49,18 +50,12 @@ enum ASTNodeType {
     UNKNOWN
 };
 
-enum BinaryOpType {
-    ADD = 0,
-    SUB,
-    MUL, 
-    DIV,
-    EQ,
-    LT,
-    GT,
-    LE,
-    GE,
-    NE,
-    ASSIGN,
+
+enum UnaryOpType {
+    POS = 0,
+    NEG,
+    DEREF,
+    REF,
 };
 
 ASTNodeType getNodeType(std::string token);
@@ -126,7 +121,11 @@ class GlobalVarExprAST: public ExprAST {
     std::unique_ptr<VarExprAST> init;
 public:
     GlobalVarExprAST(std::unique_ptr<VarExprAST> init)
-    : init(std::move(init)) {
+    : init(std::move(init)) { 
+        std::cout << "global var" << std::endl;
+        type = this->init->getType(); 
+        name = this->init->getName();
+        std::cout << type << " " << name << std::endl; 
     }
     Value *codegen() override;
 };
@@ -155,6 +154,20 @@ public:
             : op(op), lhs(std::move(lhs)), rhs(std::move(rhs)) {}
 
     Value *codegen() override;
+};
+
+class UnaryExprAST : public ExprAST {
+    std::string op;
+    std::string name;
+public:
+    int type;
+    std::unique_ptr<ExprAST> rhs;
+    int getType() { return type; }
+    std::string &getName() { return name; }
+    UnaryExprAST(const std::string &op, std::unique_ptr<ExprAST> rhs);
+    // : op(op), rhs(std::move(rhs)) {
+    // }
+      Value *codegen() override;
 };
 
 class ForExprAST : public ExprAST {
@@ -274,3 +287,16 @@ class LLVMAST {
     ast_node_ptr node_ptr;
 };
 
+enum BinaryOpType {
+    ADD = 0,
+    SUB,
+    MUL, 
+    DIV,
+    EQ,
+    LT,
+    GT,
+    LE,
+    GE,
+    NE,
+    ASSIGN,
+};

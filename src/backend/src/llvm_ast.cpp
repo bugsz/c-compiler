@@ -26,20 +26,24 @@
 // #include "type_utils.h"
 #include "frontend.h"
 #include <bits/stdc++.h>
+#include <exception>
 #include <iostream>
 #include <llvm/ADT/APInt.h>
 #include <llvm/ADT/StringRef.h>
 #include <memory>
+#include <string>
 #include <unistd.h>
 #include <fcntl.h>
 using namespace llvm;
 
 static std::unique_ptr<LLVMContext> llvmContext;
 static std::unique_ptr<Module> llvmModule;
+static bool initializing;
+static Value* retPtr;
+static BasicBlock* retBlock;
 static std::map<std::string, AllocaInst *> NamedValues;
 static std::unique_ptr<IRBuilder<>> llvmBuilder;
 static std::map<std::string, std::unique_ptr<PrototypeAST>> functionProtos;
-static bool initializing;
 
 inline void print(std::string a) { std::cout << a << std::endl; }
 
@@ -58,6 +62,14 @@ int getBinaryOpType(std::string binaryOp) {
     return ADD;
 }
 
+int getUnaryOpType(std::string unaryOp) {
+    if(unaryOp == "+") return POS;
+    if(unaryOp == "-") return NEG;
+    if(unaryOp == "&") return REF;
+    if(unaryOp == "*") return DEREF;
+    return POS;
+}
+
 ASTNodeType getNodeType(std::string token) {
     if(token == "TranslationUnitDecl") return TRANSLATIONUNIT;
     if(token == "FunctionDecl") return FUNCTIONDECL;
@@ -74,6 +86,7 @@ ASTNodeType getNodeType(std::string token) {
     if(token == "DoStmt") return DOSTMT;
     if(token == "IfStmt") return IFSTMT;
     if(token == "ExplicitCastExpr") return CASTEXPR;
+    if(token == "UnaryOperator") return UNARYOPERATOR;
     return UNKNOWN;
 }
 
@@ -108,7 +121,7 @@ bool isEqual(char *a, std::string b) {
 
 std::string filterString(std::string str){
     std::string buffer(str.size()+1, 0);
-    std::string cmd = "python -c 'print("+str+", end=\"\")'";
+    std::string cmd = "python3 -c 'print("+str+", end=\"\")'";
     FILE * f = popen(cmd.c_str(), "r"); assert(f);
     buffer.resize(fread(&buffer[0], 1, buffer.size()-1, f));
     pclose(f);
@@ -135,6 +148,8 @@ Constant *getInitVal(Type *type) {
         return ConstantExpr::getIntToPtr(llvmBuilder->getInt64(0), type);
     }
 }
+
+
 
 GlobalVariable *createGlob(Type *type, std::string name) {
     llvmModule->getOrInsertGlobal(name, type);
@@ -167,7 +182,6 @@ Value *getBuiltinFunction(std::string callee, std::vector<std::unique_ptr<ExprAS
     if(callee == "__builtin_printf"){
         if(args.size() < 1){
             logErrorV("too few arguments to function call");
-            exit(1);
         }
         auto formatArgs = llvmBuilder->CreateGlobalStringPtr(
             (static_cast<LiteralExprAST *>(args[0].get()))->getValue()
@@ -302,10 +316,22 @@ std::unique_ptr<ExprAST> generateBackendASTNode(ast_node_ptr root) {
         case BINARYOPERATOR: {
             auto LHS = generateBackendASTNode(root->child[0]);
             auto RHS = generateBackendASTNode(root->child[1]);
+
             std::string op(val);
             auto binaryExpr = std::make_unique<BinaryExprAST>(op, std::move(LHS), std::move(RHS));
-            binaryExpr->type = root->type_id;
+            if (isEqual(root->child[0]->token, "UnaryOperator"))
+                binaryExpr->type = -1;
+            else
+                binaryExpr->type = root->type_id;
             return binaryExpr;
+        }
+
+        case UNARYOPERATOR: {
+            auto rhs = generateBackendASTNode(root->child[0]);
+            std::string op(val);
+            auto unaryExpr = std::make_unique<UnaryExprAST>(op, std::move(rhs));
+            unaryExpr->type = root->type_id;
+            return unaryExpr;
         }
 
         case COMPOUNDSTMT: {
@@ -406,7 +432,6 @@ static void initializeBuiltinFunction() {
 
 
 Type *getVarType(LLVMContext &C, int type_id) {
-    std::cout << "Get var type: " << type_id << std::endl;
     switch(type_id) {
         case TYPEID_VOID:
             return Type::getVoidTy(C);
@@ -466,6 +491,7 @@ Value *getVariable(std::string name, int &isGlobal) {
     auto key = llvmModule->getGlobalVariable(name);
     if (key) {
         isGlobal = 1;
+        std::cout << "Find global variable\n";
         return key;
     }
     std::string msg = "Unknown variable name: " + name;
@@ -474,32 +500,14 @@ Value *getVariable(std::string name, int &isGlobal) {
 
 /// CreateEntryBlockAlloca - Create an alloca instruction in the entry block of
 /// the function.  This is used for mutable variables etc.
-static AllocaInst *CreateEntryBlockAlloca(Function *TheFunction,
-                                          StringRef VarName) {
-    IRBuilder<> TmpB(&TheFunction->getEntryBlock(),
-                     TheFunction->getEntryBlock().begin());
-    return TmpB.CreateAlloca(Type::getDoubleTy(*llvmContext), nullptr, VarName);
+static AllocaInst *CreateEntryBlockAllocaWithTypeSize(StringRef VarName, Type* type, Value* size = nullptr, BasicBlock* Scope = llvmBuilder->GetInsertBlock(), BasicBlock::iterator Point =llvmBuilder->GetInsertPoint()) {
+    IRBuilder<> allocator(Scope, Point);
+    return allocator.CreateAlloca(type, size, VarName);
 }
 
-static AllocaInst *CreateEntryBlockAllocaWithType(Function *TheFunction,
-                                          StringRef VarName, int type_id) {
-    IRBuilder<> TmpB(&TheFunction->getEntryBlock(),
-                     TheFunction->getEntryBlock().begin());
-    return TmpB.CreateAlloca(getVarType(*llvmContext, type_id), nullptr, VarName);
-}
-
-static AllocaInst *CreateEntryBlockAllocaWithType(Function *TheFunction,
-                                          StringRef VarName, Type *type) {
-    IRBuilder<> TmpB(&TheFunction->getEntryBlock(),
-                     TheFunction->getEntryBlock().begin());
-    return TmpB.CreateAlloca(type, nullptr, VarName);
-}
-
-static AllocaInst *CreateEntryBlockAllocaWithTypeSize(Function *TheFunction,
-                                          StringRef VarName, Type* type, Value* size) {
-    IRBuilder<> TmpB(&TheFunction->getEntryBlock(),
-                     TheFunction->getEntryBlock().begin());
-    return TmpB.CreateAlloca(type, size, VarName);
+static AllocaInst *CreateEntryBlockAllocaWithTypeSize(StringRef VarName, int type_id, Value* size = nullptr, BasicBlock* Scope = llvmBuilder->GetInsertBlock(), BasicBlock::iterator Point =llvmBuilder->GetInsertPoint()) {
+    IRBuilder<> allocator(Scope, Point);
+    return allocator.CreateAlloca(getVarType(*llvmContext, type_id), size, VarName);
 }
 
 
@@ -567,7 +575,6 @@ Value *TranslationUnitExprAST::codegen() {
 Value *VarExprAST::codegen() {
     print("VarExpr, typeid: " + std::to_string(type));
     Function *currFunction = llvmBuilder->GetInsertBlock()->getParent();
-
     auto varType = getVarType(*llvmContext, this->getType());
 
     Value *initVal;
@@ -580,10 +587,10 @@ Value *VarExprAST::codegen() {
     if(!castedVal){
         logErrorV((std::string("Unsupported initializatin from "+ getLLVMTypeStr(initVal->getType()) +" to " + getLLVMTypeStr(varType)).c_str()));
     }
-    AllocaInst *alloca = CreateEntryBlockAllocaWithType(currFunction, name, type);
+    AllocaInst *alloca = CreateEntryBlockAllocaWithTypeSize(name, varType);
     if(type == TYPEID_CHAR_PTR){
         auto ArraySize = llvmBuilder->getInt32(1000);
-        AllocaInst * arrayspace = CreateEntryBlockAllocaWithTypeSize(currFunction, name, llvmBuilder->getInt8Ty(), ArraySize);
+        AllocaInst * arrayspace = CreateEntryBlockAllocaWithTypeSize(name, llvmBuilder->getInt8Ty(), ArraySize);
         llvmBuilder->CreateStore(arrayspace, alloca);
     }else{
         llvmBuilder->CreateStore(castedVal, alloca);
@@ -607,8 +614,7 @@ Value *VarRefExprAST::codegen() {
     }
 
     std::cout << "Value of varRef: " + getLLVMTypeStr(V) << std::endl;
-    // std::cout << "Type of varRef: " << this->type << std::endl;
-    // Value *nextVar = llvmBuilder->CreateLoad(valType, alloca, varName.c_str());
+
     auto type = getVarType(*llvmContext, this->type);
     std::cout << "Type: " << getLLVMTypeStr(type) << " Type-id: " << this->type << " Name: " << this->name << std::endl;
     auto retVal = llvmBuilder->CreateLoad(type, V, name.c_str());
@@ -694,7 +700,63 @@ Value *LiteralExprAST::codegen() {
     }
 }
 
+UnaryExprAST::UnaryExprAST(const std::string &op, std::unique_ptr<ExprAST> rhs) {
+    this->op = op;
+    this->rhs = std::move(rhs);
 
+    try {
+        auto r = static_cast<VarRefExprAST *>(this->rhs.get());
+        auto name = r->getName();
+        this->name = name;
+    } catch (std::exception &e) {
+        logErrorV("Invalid reference declaration");
+        logErrorV(e.what());
+    }
+}
+
+Value *UnaryExprAST::codegen() {
+    int opType = getUnaryOpType(op);
+    print("Unary op: " + op + " " + std::to_string(opType));
+    Value *right = rhs->codegen();
+    if (!right) return nullptr;
+    std::cout << "Right type: " << getLLVMTypeStr(right) << std::endl;
+
+    switch (opType) {
+        case POS: {
+            return right;
+        }
+        case NEG: {
+            if (right->getType()->isFloatingPointTy())
+                return llvmBuilder->CreateFNeg(right);
+            else 
+                return llvmBuilder->CreateNeg(right);
+        }
+        case REF: {            
+            // if (right->getType()->isPtrOrPtrVectorTy()) 
+            //     return logErrorV("Unsupported reference operation for pointer type");
+            int isGlobal = 0;
+            auto V = getVariable(name, isGlobal);
+            
+            // V = llvmBuilder->CreateBitCast(V, V->getType()->getPointerTo());
+            return V;
+            
+            // return nullptr;
+        }
+        case DEREF: {
+            // if (!right->getType()->isPtrOrPtrVectorTy()) 
+            //     return logErrorV("Unsupported reference operation for non-pointer type");
+
+            auto V = llvmBuilder->CreateLoad(right);
+            std::cout << "Unary ptr type: " << getLLVMTypeStr(V) << std::endl;
+            return V;
+        }
+        default: {
+            auto errorMsg = "Invalid unary op" + op;
+            return logErrorV(errorMsg.c_str());
+        }
+    }
+
+}
 
 Value *BinaryExprAST::codegen() {
     print("Binary op: " + op);
@@ -702,22 +764,39 @@ Value *BinaryExprAST::codegen() {
 
     
     if (opType == ASSIGN) {
-        VarRefExprAST *lhse = static_cast<VarRefExprAST *>(lhs.get());
+        std::string name;
+        Value *variable;
+        if(type != -1) {
+            VarRefExprAST *lhse = static_cast<VarRefExprAST *>(lhs.get());
+            name = lhse->getName();
+
+            int isGlobal = 0;
+            variable = getVariable(name, isGlobal);
+            if (!variable) return nullptr;
+        }
+        else {
+            UnaryExprAST *lhse = static_cast<UnaryExprAST *>(lhs.get());
+            name = lhse->getName();
+            // only for pointer type
+            int isGlobal = 0;
+            variable = getVariable(name, isGlobal);
+            if(!variable) return nullptr;
+            variable = llvmBuilder->CreateLoad(variable);
+        }
+        
         Value *val =rhs->codegen();
         if (!val) {
-            logErrorV("Invaild Reference");
-            return nullptr;
+            return logErrorV("Invaild Reference");
         }
         // Value *variable = NamedValues[lhse->getName()];
 
-        int isGlobal = 0;
-        auto variable = getVariable(lhse->getName(), isGlobal);
-        if (!variable) return variable;
+        // int isGlobal = 0;
+        // auto variable = getVariable(lhse->getName(), isGlobal);
+        // if (!variable) return variable;
 
         auto castedVal = createCast(val, variable->getType()->getPointerElementType());
         if (!castedVal){
-            logErrorV((std::string("Unsupported assign from "+ getLLVMTypeStr(val->getType()) +" to " + getLLVMTypeStr(variable->getType()->getPointerElementType())).c_str()));
-            return nullptr;
+            return logErrorV((std::string("Unsupported assign from "+ getLLVMTypeStr(val->getType()) +" to " + getLLVMTypeStr(variable->getType()->getPointerElementType())).c_str()));
         }
         val = castedVal;
         std::cout << getLLVMTypeStr(val) << std::endl;
@@ -725,8 +804,6 @@ Value *BinaryExprAST::codegen() {
         return val;
     }
 
-    // cast value: only support (int, double), (double, double), (double, int)
-    
 
     Value *left = lhs->codegen();
     std::cout << "Value on lhs: " + getLLVMTypeStr(left) << std::endl;
@@ -743,8 +820,7 @@ Value *BinaryExprAST::codegen() {
         auto FPleft = createCast(left, Type::getDoubleTy(*llvmContext));
         auto FPright = createCast(right, Type::getDoubleTy(*llvmContext));
         if(!FPleft || !FPright){
-            logErrorV(std::string("Unsupported operand between "+ getLLVMTypeStr(left->getType()) +" and " + getLLVMTypeStr(right->getType())).c_str());
-            return nullptr;
+            return logErrorV(std::string("Unsupported operand between "+ getLLVMTypeStr(left->getType()) +" and " + getLLVMTypeStr(right->getType())).c_str());
         }else{
             left = FPleft;
             right = FPright;
@@ -777,7 +853,7 @@ Value *BinaryExprAST::codegen() {
         // Otherwise, always try to convert right to left!
         right = createCast(right, left->getType());
         if(!right){
-            logErrorV((std::string("Unsupported operand between "+ getLLVMTypeStr(left->getType()) +" : " + getLLVMTypeStr(right->getType())).c_str()));
+            return logErrorV((std::string("Unsupported operand between "+ getLLVMTypeStr(left->getType()) +" : " + getLLVMTypeStr(right->getType())).c_str()));
         }
         switch(opType) {
             case ADD:
@@ -827,67 +903,70 @@ Function *PrototypeAST::codegen() {
 
 Function *FunctionDeclAST::codegen() {
     std::cout << "FunctionDeclAST: " << prototype->getName() << std::endl;
+    retPtr = retBlock = nullptr;
     auto &p = *prototype;
     functionProtos[p.getName()] = std::move(prototype);
     Function *currFunction = getFunction(p.getName());
-    if (!currFunction) return logErrorF(("Unknown function referenced" + p.getName()).c_str());
-
-    BasicBlock *BB = BasicBlock::Create(*llvmContext, "entry", currFunction);
-    llvmBuilder->SetInsertPoint(BB);
+    if (!currFunction) {
+        return logErrorF(("Unknown function referenced" + p.getName()).c_str());
+    }
+    BasicBlock* entryBlock = BasicBlock::Create(*llvmContext, "entry", currFunction);
+    llvmBuilder->SetInsertPoint(entryBlock);
+    // if not void, ret value should be a variable!
+    Type *retType = getVarType(*llvmContext, p.retVal);
+    std::cout << "return type: " << getLLVMTypeStr(retType) << std::endl;
+    if(!retType->isVoidTy()){
+        retPtr = CreateEntryBlockAllocaWithTypeSize("ret_val", retType);
+        llvmBuilder->CreateStore(getInitVal(retType), retPtr);
+    }
 
     NamedValues.clear();
     for (auto &arg : currFunction->args()) {
-        AllocaInst *alloca = CreateEntryBlockAllocaWithType(currFunction, arg.getName(), arg.getType());
+        AllocaInst *alloca = CreateEntryBlockAllocaWithTypeSize(arg.getName(), arg.getType());
         llvmBuilder->CreateStore(&arg, alloca);
         NamedValues[std::string(arg.getName())] = alloca;
     }
 
-    Type *retType = getVarType(*llvmContext, p.retVal);
-    // std::cout << "return type: " << getLLVMTypeStr(retType) << std::endl;
-    auto compoundStmt = static_cast<CompoundStmtExprAST *>(body.get());
-    bool final_return = true;
-    auto expr_len = compoundStmt->exprList.size();
+    llvmBuilder->SetInsertPoint(entryBlock);
+    retBlock = BasicBlock::Create(*llvmContext, "ret", currFunction);
 
+    llvmBuilder->SetInsertPoint(retBlock);
+    if(retPtr){
+        llvmBuilder->CreateRet(llvmBuilder->CreateLoad(retType, retPtr, "final_ret"));
+    }else{
+        llvmBuilder->CreateRetVoid();
+    }
+    
+    llvmBuilder->SetInsertPoint(entryBlock);
+    auto compoundStmt = static_cast<CompoundStmtExprAST *>(body.get());
+    auto expr_len = compoundStmt->exprList.size();
     for(int i=0;i<expr_len;i++) {
         std::cout << "Expr: " << i << std::endl;
         auto val = compoundStmt->exprList[i]->codegen();
-        // auto isReturn = compoundStmt->isReturnStmt[i];
         if(!val) {
-            // error reading body
             currFunction->eraseFromParent();
             return logErrorF("Error reading body");
         }
-        // final_return = false;
-        // if (isReturn) {
-        //     val = createCast(val, retType);
-        //     llvmBuilder->CreateRet(val);
-        //     final_return = true;
-        // }
     }
-
-    if(p.getRetVal() == TYPEID_VOID) llvmBuilder->CreateRetVoid();
-    else if(!final_return) llvmBuilder->CreateRet(getInitVal(retType));
+    // Create default terminator if not(add a default return for all empty labels)
+    auto iter = currFunction->getBasicBlockList().begin();
+    auto end = currFunction->getBasicBlockList().end();
+    print("Check If Terminated");
+    for(;iter != end ;++iter){
+        std::cout << iter->getName().data() << std::endl;
+        if(!iter->getTerminator()){
+            llvmBuilder->SetInsertPoint(dyn_cast<BasicBlock>(iter));
+            llvmBuilder->CreateBr(retBlock);
+        }
+    }
     verifyFunction(*currFunction, &errs());
     return currFunction;
-    
-    // Value *bodyVal = body->codegen();
-    // print(getLLVMTypeStr(bodyVal->getType()) + " " + std::to_string(p.retVal));
-    // if(bodyVal) {
-    //     if(p.getRetVal() == TYPEID_VOID) llvmBuilder->CreateRetVoid();
-    //     else llvmBuilder->CreateRet(
-    //         createCast(bodyVal, retType)
-    //         );
-    //     verifyFunction(*currFunction, &llvm::errs());
-    //     return currFunction;
-    // }
-    // TODO 没有明确指定的时候返回默认值
-
 }
 
 Value *CompoundStmtExprAST::codegen() {
-    Function *currFunction = llvmBuilder->GetInsertBlock()->getParent();
-    // BasicBlock *BB = BasicBlock::Create(*llvmContext, "compoundBB", currFunction);
-    // // currFunction->getBasicBlockList().push_back(BB);
+    // print("New Scope Declared!");
+    // Function *currFunction = llvmBuilder->GetInsertBlock()->getParent();
+    // BasicBlock *BB = BasicBlock::Create(*llvmContext, "compoundBB", currFunction, retBlock);
     // llvmBuilder->SetInsertPoint(BB);
 
     Value *retVal;
@@ -898,10 +977,14 @@ Value *CompoundStmtExprAST::codegen() {
 
 Value *ReturnStmtExprAST::codegen() {
     print("Find return stmt");
+    Function *currFunction = llvmBuilder->GetInsertBlock()->getParent();
     Value *retVal = body->codegen();
-    llvmBuilder->CreateRet(retVal);
     std::cout << "Get return value: " << getLLVMTypeStr(retVal) << std::endl;
-    if (!retVal) return logErrorV("No ret val");
+    if (!retVal) 
+        return logErrorV("No ret val");
+    if(retPtr)
+        llvmBuilder->CreateStore(retVal, retPtr);
+    llvmBuilder->CreateBr(retBlock);
     return retVal;
 }
 
@@ -915,7 +998,7 @@ Value *ForExprAST::codegen() {
     Value *startVal = start->codegen();
     if (!startVal) return nullptr;
     auto valType = startVal->getType();
-    AllocaInst *alloca = CreateEntryBlockAllocaWithType(currFunction, varName.c_str(), valType); // TODO
+    AllocaInst *alloca = CreateEntryBlockAllocaWithTypeSize(varName.c_str(), valType); // TODO
 
     // print(varName);
     
@@ -944,7 +1027,6 @@ Value *ForExprAST::codegen() {
     llvmBuilder->SetInsertPoint(bodyBlock);
     if (!body->codegen()) return nullptr;
     
-    
 
     Value *stepVar = step->codegen();
     if (!stepVar) return nullptr;
@@ -956,13 +1038,6 @@ Value *ForExprAST::codegen() {
                 << " "
                 << getLLVMTypeStr(stepVar) 
                 << std::endl;
-    // std::cout   << "Type in for: "
-    //             << getLLVMTypeStr(startVal->getType()) 
-    //             << " " 
-    //             << getLLVMTypeStr(endVal->getType())
-    //             << " "
-    //             << getLLVMTypeStr(stepVar->getType()) 
-    //             << std::endl;
 
     Value *nextVar = llvmBuilder->CreateLoad(valType, alloca, varName.c_str());
     llvmBuilder->CreateBr(loopBlock);
@@ -1005,9 +1080,8 @@ Value *IfExprAST::codegen() {
 
     std::cout << "type of condval: " << getLLVMTypeStr(condVal) << std::endl;
     Function *currFunction = llvmBuilder->GetInsertBlock()->getParent();
-    BasicBlock *thenBlock = BasicBlock::Create(*llvmContext, "then_case", currFunction);
-    BasicBlock *endifBlock = BasicBlock::Create(*llvmContext, "endif", currFunction);
-
+    BasicBlock *endifBlock = BasicBlock::Create(*llvmContext, "endif", currFunction, retBlock);
+    BasicBlock *thenBlock = BasicBlock::Create(*llvmContext, "then_case", currFunction, endifBlock);
     if(else_case){
         BasicBlock *elseBlock = BasicBlock::Create(*llvmContext, "else_case", currFunction, endifBlock);
         llvmBuilder->CreateCondBr(condVal, thenBlock, elseBlock);
@@ -1015,12 +1089,16 @@ Value *IfExprAST::codegen() {
         llvmBuilder->SetInsertPoint(thenBlock);
         Value *thenValue = then_case->codegen();
         if (!thenValue) return nullptr;
-        llvmBuilder->CreateBr(endifBlock);
+        if(!thenBlock->getTerminator()){
+            llvmBuilder->CreateBr(endifBlock);
+        }
 
         llvmBuilder->SetInsertPoint(elseBlock);
         Value *elseValue = else_case->codegen();
         if (!elseValue) return nullptr;
-        llvmBuilder->CreateBr(endifBlock);
+        if(!elseBlock->getTerminator()){
+            llvmBuilder->CreateBr(endifBlock);
+        }
 
         llvmBuilder->SetInsertPoint(endifBlock);
         return condValue;
@@ -1031,7 +1109,9 @@ Value *IfExprAST::codegen() {
         Value *thenValue = then_case->codegen();
         if (!thenValue) return nullptr;
         std::cout << "Return value of then value: " << getLLVMTypeStr(thenValue) << std::endl;
-        llvmBuilder->CreateBr(endifBlock);
+        if(!thenBlock->getTerminator()){
+            llvmBuilder->CreateBr(endifBlock);
+        }
         llvmBuilder->SetInsertPoint(endifBlock);
         return condValue;
     }
@@ -1183,7 +1263,7 @@ void save() {
         std::ofstream outFile;
         outFile.open(fileName);
         outFile << IRText;
-        std::cout << "IR code saved to " + fileName;
+        std::cout << "IR code saved to " + fileName << std::endl;
         outFile.close();
     #endif
 }
@@ -1210,5 +1290,8 @@ int main(int argc, const char **argv) {
     	dup2(stdout_fd, STDOUT_FILENO);
         save();
     #endif
+    save();
+    std::cout << "Finish processing IR code\n\n";
+    std::cout << "-------------------------\n";
     return 0;
 }
