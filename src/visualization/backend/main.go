@@ -94,8 +94,12 @@ func main() {
 		llvmJIT.Stderr = buffer
 		genIR.Start()
 		bytes, err := llvmJIT.Output()
+
 		if err != nil {
-			c.Data(400, "plaintext", buffer.b.Bytes())
+			stdout := append([]byte("stdout:\n"), bytes...)
+			stderr := append([]byte("\nstderr:\n"), buffer.b.Bytes()...)
+			errMsg := append(append(stdout, stderr...), err.Error()...)
+			c.Data(400, "plaintext", errMsg)
 			return
 		}
 		c.Data(200, "plaintext", bytes)
