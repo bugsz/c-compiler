@@ -27,6 +27,11 @@ func (b *Buffer) Write(p []byte) (n int, err error) {
 	return b.b.Write(p)
 }
 
+type RunCodeRequest struct {
+	Code  string `json:"code"`
+	Input string `json:"input"`
+}
+
 func Cors() gin.HandlerFunc {
 	return func(context *gin.Context) {
 		method := context.Request.Method
@@ -78,9 +83,11 @@ func main() {
 	})
 
 	r.POST("/GetRunningResult", func(c *gin.Context) {
+		var req RunCodeRequest
+		c.BindJSON(&req)
 		buffer := new(Buffer)
 		genIR := exec.Command("./llvm_wrapper", "-stdin")
-		genIR.Stdin = c.Request.Body
+		genIR.Stdin = bytes.NewReader([]byte(req.Code))
 		genIR.Stderr = buffer
 		llvmJIT := exec.Command("lli")
 		llvmJIT.Stdin, _ = genIR.StdoutPipe()

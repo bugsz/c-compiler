@@ -1290,6 +1290,5 @@ int main(int argc, const char **argv) {
     	dup2(stdout_fd, STDOUT_FILENO);
         save();
     #endif
-    save();
     return 0;
 }

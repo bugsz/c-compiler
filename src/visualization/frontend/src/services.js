@@ -16,12 +16,12 @@ const getAST = async (code) => {
     }
 }
 
-const getRunningResult = async (code) => {
+const getRunningResult = async (data) => {
     let res = await axios(
             url+'/GetRunningResult',
             {
                 method: "POST",
-                data: code,
+                data: data,
                 transformResponse: (resp) => resp
             }
         )

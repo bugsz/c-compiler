@@ -1,6 +1,6 @@
 import React, {useEffect, useRef, useState } from 'react';
 import ResizeObserver from 'rc-resize-observer';
-import { Layout, Button, Space,  Select, Modal } from 'antd';
+import { Layout, Button, Space,  Select, Modal, Input } from 'antd';
 import { DeleteTwoTone } from '@ant-design/icons';
 import ProCard from '@ant-design/pro-card';
 import Editor from "@monaco-editor/react";
@@ -18,6 +18,7 @@ import '@ant-design/pro-card/dist/card.css';
 import '@ant-design/pro-layout/dist/layout.css';
 import './App.css'
 
+const { TextArea } = Input;
 const { Header, Content } = Layout;
 const { Option } = Select;
 const convert = new Convert({newline: true})
@@ -25,6 +26,7 @@ const convert = new Convert({newline: true})
 function App() {
   const graphRef = useRef(null)
   const editorRef = useRef(null)
+  const inputRef = useRef(null)
   const bottomRef = useRef(null)
   const [data, setData] = useState({id: '1', label: 'c-compiler', type: 'circle'})
   const [output, setOutput] = useState("<span><h3>[INFO] Welcome to c-compiler</h3></span>")
@@ -88,8 +90,12 @@ function App() {
 
   const handleRunCode = async () => {
     var code = editorRef.current.getValue()
+    var input = inputRef.current.resizableTextArea.props.value
     try {
-      let resp = await getRunningResult(code)
+      let resp = await getRunningResult({
+        code : code,
+        input: input
+      })
       logger.Debug(JSON.stringify(resp))
       if(resp.success){
         logger.Info("Run Success\n" + convert.toHtml(resp.data))
@@ -190,6 +196,14 @@ function App() {
                 {whiteSpace: 'pre-line', overflow:'auto', maxHeight: '85vh', fontFamily: 'consolas,monospace'}
               }
               >
+                <TextArea
+                  bordered={true}
+                  allowClear={true}
+                  rows={5}
+                  placeholder="Input:"
+                  height="50%"
+                  ref={inputRef}
+                />
                 {
                   parse(output)
                 }
