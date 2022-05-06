@@ -245,6 +245,23 @@ Value *getBuiltinFunction(std::string callee, std::vector<std::unique_ptr<ExprAS
             {Type::getInt8PtrTy(mod->getContext()), Type::getInt8PtrTy(mod->getContext())},
             true
         );
+    }else if(callee == "__builtin_scanf") {
+        if(args.size() < 1){
+            logErrorV("too few arguments to function call");
+        }
+        auto formatArgs = llvmBuilder->CreateGlobalStringPtr(
+            (static_cast<LiteralExprAST *>(args[0].get()))->getValue()
+        );
+        varArgs.push_back(formatArgs);
+        for (int i = 1; i < args.size(); i++) {
+            auto arg = args[i]->codegen();
+            varArgs.push_back(arg);
+        }
+        funcType = FunctionType::get(
+            Type::getInt32Ty(mod->getContext()), 
+            {Type::getInt8PtrTy(mod->getContext())},
+            true
+        );
     }
     
     if(external_func){
