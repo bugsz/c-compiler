@@ -226,7 +226,7 @@ Value *getBuiltinFunction(std::string callee, std::vector<std::unique_ptr<ExprAS
 }
 
 std::unique_ptr<ExprAST> generateBackendASTNode(ast_node_ptr root) {
-    // if (!root->n_child) return nullptr;
+    if (!root) return nullptr;
     ASTNodeType nodeType = getNodeType(std::string(root->token));
     print_node(root);
 
@@ -513,6 +513,7 @@ static AllocaInst *CreateEntryBlockAllocaWithTypeSize(StringRef VarName, int typ
 
 // 将value转成想要的type类型
 Value *createCast(Value *value, Type *type) {
+    if(!value) return nullptr;
     std::cout << "val-type:" << getLLVMTypeStr(value) << " want-type: " << getLLVMTypeStr(type) << std::endl;
     if(value->getType() == type){
         print("No need to cast");
@@ -978,12 +979,17 @@ Value *CompoundStmtExprAST::codegen() {
 Value *ReturnStmtExprAST::codegen() {
     print("Find return stmt");
     Function *currFunction = llvmBuilder->GetInsertBlock()->getParent();
+    if(!retPtr){
+        return llvmBuilder->CreateBr(retBlock);
+    }
+
+    if (!body) return logErrorV("No ret val");
     Value *retVal = body->codegen();
+    retVal = createCast(retVal, currFunction->getReturnType());
+    if (!retVal) return logErrorV("No ret val");
     std::cout << "Get return value: " << getLLVMTypeStr(retVal) << std::endl;
-    if (!retVal) 
-        return logErrorV("No ret val");
-    if(retPtr)
-        llvmBuilder->CreateStore(retVal, retPtr);
+    llvmBuilder->CreateStore(retVal, retPtr);
+    
     llvmBuilder->CreateBr(retBlock);
     return retVal;
 }
@@ -1103,7 +1109,7 @@ Value *IfExprAST::codegen() {
         llvmBuilder->SetInsertPoint(endifBlock);
         return condValue;
     }else{
-        llvmBuilder->CreateCondBr(condValue, thenBlock, endifBlock);
+        llvmBuilder->CreateCondBr(condVal, thenBlock, endifBlock);
         llvmBuilder->SetInsertPoint(thenBlock);
 
         Value *thenValue = then_case->codegen();
