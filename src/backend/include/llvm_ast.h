@@ -60,12 +60,10 @@ enum UnaryOpType {
     NEG,
     DEREF,
     REF,
+    CAST
 };
 
-enum BinaryLHSType {
-    UNARYOP = -1,
-    ARRAYSUB = -2,
-};
+
 
 ASTNodeType getNodeType(std::string token);
 int getBinaryOpType(std::string binaryOp);
@@ -74,13 +72,12 @@ std::string filterString(std::string str);
 
 class ExprAST {
 public:
-    // int type = UNKNOWN;
     virtual ~ExprAST() = default;
-    virtual Value *codegen() = 0;
+    virtual Value *codegen(bool wantPtr = false) = 0;
 };
 
 class NullStmtAST: public ExprAST{
-    Value *codegen() override;
+    Value *codegen(bool wantPtr = false) override;
 };
 
 class TranslationUnitExprAST: public ExprAST {
@@ -91,7 +88,7 @@ public:
     TranslationUnitExprAST(std::vector<std::unique_ptr<ExprAST>> globalVarList, std::vector<std::unique_ptr<ExprAST>> exprList) 
     : globalVarList(std::move(globalVarList)), exprList(std::move(exprList)) {}
     
-    Value *codegen() override;
+    Value *codegen(bool wantPtr = false) override;
 };
 
 class LiteralExprAST: public ExprAST {
@@ -106,7 +103,7 @@ public:
             this->value = filterString(value);
         }
     }
-    Value *codegen() override;
+    Value *codegen(bool wantPtr = false) override;
 
     void setType(int type) { this->type = type; }
     int getType() { return this->type; }
@@ -120,7 +117,7 @@ public:
     std::unique_ptr<ExprAST> init;
     VarExprAST(const std::string &name, int type, std::unique_ptr<ExprAST> init)
     : name(name), type(type), init(std::move(init)) {}
-    Value *codegen() override;
+    Value *codegen(bool wantPtr = false) override;
 
     void setType(int type) { this->type = type; }
     int getType() { return this->type; }
@@ -139,10 +136,11 @@ public:
         name = this->init->getName();
         std::cout << type << " " << name << std::endl; 
     }
-    Value *codegen() override;
+    Value *codegen(bool wantPtr = false) override;
 };
 
-class VarRefExprAST: public ExprAST{
+class 
+VarRefExprAST: public ExprAST{
     int type;
 public:
     int getType() { return this->type; }
@@ -151,7 +149,7 @@ public:
     VarRefExprAST(const std::string &name, int type) : name(name), type(type) {}
     const std::string &getName() const { return name; }
     void setName(const std::string &name) { this->name = name; }
-    Value *codegen() override;
+    Value *codegen(bool wantPtr = false) override;
 };
 
 class ArrayExprAST: public ExprAST {
@@ -164,19 +162,18 @@ public:
     const int getSize() const { return size; }
     const int getType() const { return type; }
     ArrayExprAST(int type, const std::string &name, int size) : type(type), name(name), size(size) {}
-    Value *codegen() override;
+    Value *codegen(bool wantPtr = false) override;
 };
 
 class ArraySubExprAST: public ExprAST {
     std::string name;
-    
 public:
     std::unique_ptr<VarRefExprAST> var;
     std::unique_ptr<ExprAST> sub;
     const std::string &getName() const { return name; }
     ArraySubExprAST(std::unique_ptr<VarRefExprAST> var, std::unique_ptr<ExprAST> sub):
     var(std::move(var)), sub(std::move(sub)) {this->name = this->var->getName();}
-    Value *codegen() override;
+    Value *codegen(bool wantPtr = false) override;
 };
 
 /// BinaryExprAST - Expression class for a binary operator.
@@ -184,27 +181,23 @@ class BinaryExprAST : public ExprAST {
     std::string op;
     
 public:
-    int type;
     std::unique_ptr<ExprAST> lhs, rhs;
     BinaryExprAST(const std::string &op, std::unique_ptr<ExprAST> lhs,
                   std::unique_ptr<ExprAST> rhs)
             : op(op), lhs(std::move(lhs)), rhs(std::move(rhs)) {}
 
-    Value *codegen() override;
+    Value *codegen(bool wantPtr = false) override;
 };
 
 class UnaryExprAST : public ExprAST {
-    std::string op;
-    std::string name;
-public:
     int type;
+    std::string op;
+public:
     std::unique_ptr<ExprAST> rhs;
+    void setType(int type_id) { this->type = type_id; }
     int getType() { return type; }
-    std::string &getName() { return name; }
-    UnaryExprAST(const std::string &op, std::unique_ptr<ExprAST> rhs);
-    // : op(op), rhs(std::move(rhs)) {
-    // }
-      Value *codegen() override;
+    UnaryExprAST(const std::string &op, std::unique_ptr<ExprAST> rhs):op(op), rhs(std::move(rhs)){};
+    Value *codegen(bool wantPtr = false) override;
 };
 
 class ForExprAST : public ExprAST {
@@ -224,7 +217,7 @@ public :
             step(std::move(step)), 
             body(std::move(body)) { this->varName = getVarName(); }
 
-    Value *codegen() override;
+    Value *codegen(bool wantPtr = false) override;
 
     std::string getVarName() {
         auto ss = static_cast<BinaryExprAST *>(start.get());
@@ -243,7 +236,7 @@ public:
     int retVal;
     PrototypeAST(std::string &name, int retVal, std::map<std::string, int> args)
     : name(name), retVal(retVal), args(std::move(args)) {}
-    Function *codegen();
+    Function *codegen(bool wantPtr = false);
 
     std::string &getName() { return name; }
     int getRetVal() { return retVal; }
@@ -252,7 +245,7 @@ public:
 class FunctionDeclAST: public ExprAST {
     std::unique_ptr<PrototypeAST> prototype;
     std::unique_ptr<ExprAST> body;
-    Function *codegen() override;
+    Function *codegen(bool wantPtr = false) override;
 
 public:
     FunctionDeclAST(std::unique_ptr<PrototypeAST> prototype, std::unique_ptr<ExprAST> body)
@@ -265,7 +258,7 @@ public:
     std::vector<std::unique_ptr<ExprAST>> exprList;
     std::vector<bool> isReturnStmt;
     CompoundStmtExprAST(std::vector<std::unique_ptr<ExprAST>> exprList): exprList(std::move(exprList)) {}
-    Value *codegen() override;
+    Value *codegen(bool wantPtr = false) override;
 };
 
 class ReturnStmtExprAST: public ExprAST {
@@ -273,7 +266,7 @@ class ReturnStmtExprAST: public ExprAST {
 public:
     ReturnStmtExprAST(std::unique_ptr<ExprAST> body)
     : body(std::move(body)) {}
-    Value *codegen() override;
+    Value *codegen(bool wantPtr = false) override;
 };
 
 class CallExprAST : public ExprAST {
@@ -284,7 +277,7 @@ public:
     CallExprAST(const std::string &callee, std::vector<std::unique_ptr<ExprAST>> args)
     : callee(callee), args(std::move(args)) {}
 
-    Value *codegen() override;
+    Value *codegen(bool wantPtr = false) override;
 };
 
 class IfExprAST : public ExprAST {
@@ -296,7 +289,7 @@ public:
               std::unique_ptr<ExprAST> else_case)
             : cond(std::move(cond)), then_case(std::move(then_case)), else_case(std::move(else_case)) {}
 
-    Value *codegen() override;
+    Value *codegen(bool wantPtr = false) override;
 };
 
 class WhileExprAST : public ExprAST {
@@ -305,7 +298,7 @@ class WhileExprAST : public ExprAST {
 public:
     WhileExprAST(std::unique_ptr<ExprAST>cond, std::unique_ptr<ExprAST>body)
     : cond(std::move(cond)), body(std::move(body)) {}
-    Value *codegen() override;
+    Value *codegen(bool wantPtr = false) override;
 };
 
 class DoExprAST : public ExprAST {
@@ -314,10 +307,8 @@ class DoExprAST : public ExprAST {
 public:
     DoExprAST(std::unique_ptr<ExprAST>cond, std::unique_ptr<ExprAST>body)
     : cond(std::move(cond)), body(std::move(body)) {}
-    Value *codegen() override;
+    Value *codegen(bool wantPtr = false) override;
 };
-
-
 
 class LLVMAST {
     ast_node_ptr node_ptr;
