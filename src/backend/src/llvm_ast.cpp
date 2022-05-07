@@ -409,7 +409,7 @@ std::unique_ptr<ExprAST> generateBackendASTNode(ast_node_ptr root) {
             auto RHS = generateBackendASTNode(root->child[1]);
             if(op_type == ASSIGNPLUS){
                 auto left = generateBackendASTNode(root->child[0]);
-                auto right = std::make_unique<BinaryExprAST>(getBinaryOpType(std::string(1, val[1])), std::move(LHS), std::move(RHS));
+                auto right = std::make_unique<BinaryExprAST>(getBinaryOpType(std::string(1, val[0])), std::move(LHS), std::move(RHS));
                 return std::make_unique<BinaryExprAST>(ASSIGN, std::move(left), std::move(right));
             }else{
                 return std::make_unique<BinaryExprAST>(op_type, std::move(LHS), std::move(RHS));
@@ -1152,15 +1152,11 @@ Value *ForExprAST::codegen(bool wantPtr) {
     Value *startVal = start->codegen();
     if (!startVal) return nullptr;
     auto valType = startVal->getType();
-    // AllocaInst *alloca;
-    // AllocaInst *alloca = NamedValues.top()[varName];
 
     auto alloca = getVariable(varName);
 
     if (!alloca) {
         return logErrorV("Unknown variable referenced in for loop");
-        // alloca = CreateEntryBlockAllocaWithTypeSize(varName.c_str(), valType); 
-        // llvmBuilder->CreateStore(startVal, alloca);
     }
     
 
@@ -1203,9 +1199,7 @@ Value *ForExprAST::codegen(bool wantPtr) {
 
     Value *nextVar = llvmBuilder->CreateLoad(valType, alloca, varName.c_str());
     llvmBuilder->CreateBr(loopBlock);
-   
     llvmBuilder->SetInsertPoint(afterBlock);
-
     popBlockForControl();
     return Constant::getNullValue(valType);
 }

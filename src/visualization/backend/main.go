@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/gofrs/uuid"
 )
 
 type Buffer struct {
@@ -54,7 +55,7 @@ func Cors() gin.HandlerFunc {
 }
 
 func main() {
-	ticker := time.NewTicker(time.Second * 30)
+	ticker := time.NewTicker(time.Second * 5)
 
 	go func() {
 		for {
@@ -107,8 +108,7 @@ func main() {
 		genIR := exec.Command("./llvm_wrapper", "-stdin")
 		genIR.Stdin = bytes.NewReader([]byte(req.Code))
 		genIR.Stderr = buffer
-		filename := fmt.Sprintf("tmp_%d", time.Now().Unix())
-
+		filename := uuid.Must(uuid.NewV4()).String()
 		llvmAs := exec.Command("llvm-as", "-o", filename)
 		llvmAs.Stdin, _ = genIR.StdoutPipe()
 		llvmAs.Stderr = buffer
