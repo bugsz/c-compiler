@@ -49,10 +49,10 @@ static std::map<std::string, std::unique_ptr<PrototypeAST>> functionProtos;
 inline void print(std::string a) { std::cout << a << std::endl; }
 
 int getBinaryOpType(std::string binaryOp) {
-    if(binaryOp == "+") return ADD;
-    if(binaryOp == "-") return SUB;
-    if(binaryOp == "*") return MUL;
-    if(binaryOp == "/") return DIV;
+    if(binaryOp == "+" || binaryOp =="+=") return ADD;
+    if(binaryOp == "-" || binaryOp =="-=") return SUB;
+    if(binaryOp == "*" || binaryOp =="*=") return MUL;
+    if(binaryOp == "/" || binaryOp =="/=") return DIV;
     if(binaryOp == "<") return LT;
     if(binaryOp == ">") return GT;
     if(binaryOp == "<=") return LE;
@@ -325,6 +325,7 @@ std::unique_ptr<ExprAST> generateBackendASTNode(ast_node_ptr root) {
             auto var = std::make_unique<VarRefExprAST>(varName, type);
             return var;
         }
+        
         case VARDECL: {
             std::string varName(val);
             int type = root->type_id;
@@ -350,8 +351,6 @@ std::unique_ptr<ExprAST> generateBackendASTNode(ast_node_ptr root) {
             auto ref = generateBackendASTNode(root->child[0]);
             auto sub = generateBackendASTNode(root->child[1]);
             auto var = static_unique_pointer_cast<VarRefExprAST>(std::move(ref));
-            // auto Var = static_cast<VarRefExprAST *>(ref.get());
-            // auto var = std::unique_ptr<VarRefExprAST>(Var);
             var->setType(ptr2raw(var->getType()));
             std::cout << "Subscription: " << var->getName() << " " << var->getType() << std::endl;
             auto array = std::make_unique<ArraySubExprAST>(std::move(var), std::move(sub));
@@ -370,12 +369,6 @@ std::unique_ptr<ExprAST> generateBackendASTNode(ast_node_ptr root) {
 
             std::string op(val);
             auto binaryExpr = std::make_unique<BinaryExprAST>(op, std::move(LHS), std::move(RHS));
-            if (isEqual(root->child[0]->token, "UnaryOperator"))
-                binaryExpr->type = UNARYOP;
-            else if (isEqual(root->child[0]->token, "ArraySubscriptExpr"))
-                binaryExpr->type = ARRAYSUB;
-            else
-                binaryExpr->type = root->type_id;
             return binaryExpr;
         }
 
@@ -485,44 +478,44 @@ static void initializeBuiltinFunction() {
 }
 
 
-Type *getVarType(LLVMContext &C, int type_id) {
+Type *getVarType(int type_id) {
     switch(type_id) {
         case TYPEID_VOID:
-            return Type::getVoidTy(C);
+            return Type::getVoidTy(*llvmContext);
         case TYPEID_CHAR:
-            return Type::getInt8Ty(C);
+            return Type::getInt8Ty(*llvmContext);
         case TYPEID_SHORT:
-            return Type::getInt16Ty(C);
+            return Type::getInt16Ty(*llvmContext);
         case TYPEID_INT:
             if(INTEGER_BITWIDTH == 32) 
-                return Type::getInt32Ty(C);
+                return Type::getInt32Ty(*llvmContext);
             else 
-                return Type::getInt64Ty(C);
+                return Type::getInt64Ty(*llvmContext);
         case TYPEID_LONG:
-            return Type::getInt64Ty(C);
+            return Type::getInt64Ty(*llvmContext);
         case TYPEID_FLOAT:
-            return Type::getFloatTy(C);
+            return Type::getFloatTy(*llvmContext);
         case TYPEID_DOUBLE:
-            return Type::getDoubleTy(C);
+            return Type::getDoubleTy(*llvmContext);
         case TYPEID_STR:
-            return Type::getInt8PtrTy(C);
+            return Type::getInt8PtrTy(*llvmContext);
         case TYPEID_VOID_PTR:
             return nullptr;
         case TYPEID_CHAR_PTR:
-            return Type::getInt8PtrTy(C);
+            return Type::getInt8PtrTy(*llvmContext);
         case TYPEID_SHORT_PTR:
-            return Type::getInt16PtrTy(C);        
+            return Type::getInt16PtrTy(*llvmContext);        
         case TYPEID_INT_PTR:
             if(INTEGER_BITWIDTH == 32) 
-                return Type::getInt32PtrTy(C);
+                return Type::getInt32PtrTy(*llvmContext);
             else 
-                return Type::getInt64PtrTy(C);
+                return Type::getInt64PtrTy(*llvmContext);
         case TYPEID_LONG_PTR:
-            return Type::getInt64PtrTy(C);        
+            return Type::getInt64PtrTy(*llvmContext);        
         case TYPEID_FLOAT_PTR:
-            return Type::getFloatPtrTy(C);        
+            return Type::getFloatPtrTy(*llvmContext);        
         case TYPEID_DOUBLE_PTR:
-            return Type::getDoublePtrTy(C);        
+            return Type::getDoublePtrTy(*llvmContext);        
         default:
             return nullptr;
     }
@@ -535,21 +528,29 @@ Function *getFunction(std::string name) {
     return nullptr;
 }
 
+Value *getVariable(std::string name) {
+    auto V = NamedValues.top()[name];
+    if(V) {
+        return V;
+    }
+    auto key = llvmModule->getGlobalVariable(name);
+    if (key) {
+        return key;
+    }
+    return nullptr;
+}
+
 Value *getVariable(std::string name, int &isGlobal) {
     auto V = NamedValues.top()[name];
     if(V) {
-        std::cout << "Find local variable\n";
         return V;
     }
-
     auto key = llvmModule->getGlobalVariable(name);
     if (key) {
         isGlobal = 1;
-        std::cout << "Find global variable\n";
         return key;
     }
-    std::string msg = "Unknown variable name: " + name;
-    return logErrorV(msg.c_str());
+    return nullptr;
 }
 
 /// CreateEntryBlockAlloca - Create an alloca instruction in the entry block of
@@ -561,7 +562,7 @@ static AllocaInst *CreateEntryBlockAllocaWithTypeSize(StringRef VarName, Type* t
 
 static AllocaInst *CreateEntryBlockAllocaWithTypeSize(StringRef VarName, int type_id, Value* size = nullptr, BasicBlock* Scope = llvmBuilder->GetInsertBlock(), BasicBlock::iterator Point =llvmBuilder->GetInsertPoint()) {
     IRBuilder<> allocator(Scope, Point);
-    return allocator.CreateAlloca(getVarType(*llvmContext, type_id), size, VarName);
+    return allocator.CreateAlloca(getVarType(type_id), size, VarName);
 }
 
 
@@ -608,7 +609,7 @@ Value *createCast(Value *value, Type *type) {
     return nullptr;
 }
 
-Value *TranslationUnitExprAST::codegen() {
+Value *TranslationUnitExprAST::codegen(bool wantPtr) {
     print("TranslationUnit");
     int globalVar_len = globalVarList.size();
     int expr_len = exprList.size();
@@ -627,10 +628,10 @@ Value *TranslationUnitExprAST::codegen() {
     return nullptr;
 }
 
-Value *VarExprAST::codegen() {
+Value *VarExprAST::codegen(bool wantPtr) {
     print("VarExpr, typeid: " + std::to_string(type));
     Function *currFunction = llvmBuilder->GetInsertBlock()->getParent();
-    auto varType = getVarType(*llvmContext, this->getType());
+    auto varType = getVarType(this->getType());
 
     Value *initVal;
     if(init) {
@@ -654,22 +655,16 @@ Value *VarExprAST::codegen() {
     return castedVal;
 }
 
-Value *ArrayExprAST::codegen() {
-    int isGlobal = 0;
-    auto val = getVariable(name, isGlobal);
+Value *ArrayExprAST::codegen(bool wantPtr) {
+    auto val = getVariable(name);
     if (val) {
         std::string errorMsg = "Variable " + name + " is already defined";
         return logErrorV(errorMsg.c_str());
     }
 
-    auto varType = getVarType(*llvmContext, this->getType());
-    print("ArrayExpr, typeid: " + std::to_string(type));
-
-    auto alloca = CreateEntryBlockAllocaWithTypeSize(name, varType);
+    auto varType = getVarType(this->getType());
     auto arrayType = ArrayType::get(varType, size);
-    // auto arrayPtr = CreateEntryBlockAllocaWithTypeSize(name, arrayType);
-    // llvmBuilder->CreateStore(arrayPtr, alloca);
-    auto arrayPtr = llvmBuilder->CreateAlloca(arrayType);
+    auto arrayPtr = llvmBuilder->CreateAlloca(arrayType, nullptr, name);
     NamedValues.top()[name] = arrayPtr;
     // auto defaultValue = getInitVal(varType);
     // for (int i=0; i < size; i++) {
@@ -680,32 +675,33 @@ Value *ArrayExprAST::codegen() {
     return arrayPtr;
 }
 
-Value *VarRefExprAST::codegen() {
+Value *VarRefExprAST::codegen(bool wantPtr) {
     print("VarRefExpr");
     int isGlobal = 0;
     auto V = getVariable(name, isGlobal);
-    if (!V) return V;
+    if (!V) {
+        return nullptr;
+    }
+    if(wantPtr) {
+        return V;
+    }
     if(isGlobal) {
         std::cout << "Find global var: " << name << std::endl;
         GlobalVariable *gV = static_cast<GlobalVariable *>(V);
         if(gV->isConstant() || initializing)
             return gV->getInitializer();
         else
-            return llvmBuilder->CreateLoad(V);
+            return llvmBuilder->CreateLoad(V->getType()->getPointerElementType(), V);
     }
-
-    std::cout << "Value of varRef: " + getLLVMTypeStr(V) << std::endl;
-
-    auto type = getVarType(*llvmContext, this->type);
-    std::cout << "Type: " << getLLVMTypeStr(type) << " Type-id: " << this->type << " Name: " << this->name << std::endl;
-    auto retVal = llvmBuilder->CreateLoad(type, V, name.c_str());
-
-    std::cout << "Value of load: " + getLLVMTypeStr(retVal) << std::endl;
-    return retVal;
+    if(V->getType()->getPointerElementType()->isArrayTy()){
+        return llvmBuilder->CreateGEP(V->getType()->getPointerElementType(), V, {llvmBuilder->getInt64(0), llvmBuilder->getInt64(0)});
+    }else{
+        return llvmBuilder->CreateLoad(getVarType(this->type), V, name.c_str());
+    }
 }
 
-Value *GlobalVarExprAST::codegen() {
-    auto varType = getVarType(*llvmContext, this->init->getType());
+Value *GlobalVarExprAST::codegen(bool wantPtr) {
+    auto varType = getVarType(this->init->getType());
     print("GlobalVarExpr, Name: " + init->name + " Type: " + getLLVMTypeStr(varType));
 
     Value *initVal;
@@ -725,7 +721,7 @@ Value *GlobalVarExprAST::codegen() {
     return initVal;
 }
 
-Value *ArraySubExprAST::codegen() {
+Value *ArraySubExprAST::codegen(bool wantPtr) {
     print("ArraySubExpr, name: " + name);
     auto rhs = sub->codegen();
     if (!rhs) return nullptr;
@@ -733,21 +729,22 @@ Value *ArraySubExprAST::codegen() {
     int isGlobal = 0;
     auto alloca = getVariable(name, isGlobal);
     if (!alloca) return nullptr;
-
-    
     auto index = dyn_cast<ConstantInt>(rhs);
     
     if (!index) return logErrorV("Array index must be an integer");
-    std::cout << getLLVMTypeStr(index) << std::endl;
 
     auto zero = llvmBuilder->getInt64(0);
     auto castIndex = createCast(index, Type::getInt64Ty(*llvmContext));
-    auto elementPtr = llvmBuilder->CreateGEP(alloca, {zero, castIndex} );
-    return llvmBuilder->CreateLoad(elementPtr);
+    auto elementPtr = llvmBuilder->CreateGEP(alloca->getType()->getScalarType()->getPointerElementType(), alloca, {zero, castIndex} );
+    if(wantPtr){
+        print("xxxx");
+        return elementPtr;
+    }
+    return llvmBuilder->CreateLoad(alloca->getType()->getPointerElementType()->getArrayElementType(), elementPtr);
 };
 
 
-Value *LiteralExprAST::codegen() {
+Value *LiteralExprAST::codegen(bool wantPtr) {
     print("LiteralExpr, typeid: " + std::to_string(this->getType()));
     switch(this->getType()) {
         case TYPEID_INT: {
@@ -760,14 +757,9 @@ Value *LiteralExprAST::codegen() {
         }
         case TYPEID_STR: {
             std::cout << "Creating string literal: " << value << std::endl;
-            
-            // auto strCode = ConstantDataArray::getString(*llvmContext, value, true);
-            // // auto globalVar = GlobalVariable(*llvmModule, strCode->getType(), true, GlobalValue::PrivateLinkage, strCode);
-
 
             auto str = this->value;
             auto charType = llvm::IntegerType::get(*llvmContext, 8);
-
 
             //1. Initialize chars vector
             std::vector<llvm::Constant *> chars(str.length());
@@ -789,42 +781,23 @@ Value *LiteralExprAST::codegen() {
             globalDeclaration->setLinkage(llvm::GlobalValue::LinkageTypes::PrivateLinkage);
             globalDeclaration->setUnnamedAddr (llvm::GlobalValue::UnnamedAddr::Global);
 
-
-
             //4. Return a cast to an i8*
             return llvm::ConstantExpr::getBitCast(globalDeclaration, charType->getPointerTo());
-
-            // return strCode;
-        }
+       }
 
         default:
             return logErrorV("Invalid type!");
     }
 }
 
-UnaryExprAST::UnaryExprAST(const std::string &op, std::unique_ptr<ExprAST> rhs) {
-    this->op = op;
-    this->rhs = std::move(rhs);
-
-    try {
-        auto r = static_cast<VarRefExprAST *>(this->rhs.get());
-        auto name = r->getName();
-        this->name = name;
-    } catch (std::exception &e) {
-        logErrorV("Invalid reference declaration");
-        logErrorV(e.what());
-    }
-}
-
-Value *UnaryExprAST::codegen() {
+Value *UnaryExprAST::codegen(bool wantPtr) {
     int opType = getUnaryOpType(op);
     print("Unary op: " + op + " " + std::to_string(opType));
-    Value *right = rhs->codegen();
-    if (!right) return nullptr;
-    std::cout << "Right type: " << getLLVMTypeStr(right) << std::endl;
+    Value *right;    
 
     switch (opType) {
         case POS: {
+            Value *right = rhs->codegen();
             return right;
         }
         case NEG: {
@@ -833,98 +806,55 @@ Value *UnaryExprAST::codegen() {
             else 
                 return llvmBuilder->CreateNeg(right);
         }
-        case REF: {            
-            // if (right->getType()->isPtrOrPtrVectorTy()) 
-            //     return logErrorV("Unsupported reference operation for pointer type");
-            int isGlobal = 0;
-            auto V = getVariable(name, isGlobal);
-            
-            // V = llvmBuilder->CreateBitCast(V, V->getType()->getPointerTo());
-            return V;
-            
-            // return nullptr;
-        }
-        case DEREF: {
-            // if (!right->getType()->isPtrOrPtrVectorTy()) 
-            //     return logErrorV("Unsupported reference operation for non-pointer type");
+        case REF: {
+            try {
+                // if it is a VarRef
+                auto r = static_cast<VarRefExprAST *>(this->rhs.get());
+                auto name = r->getName();
+                auto V = getVariable(name);
+                if (V) return V;
+            } catch (std::exception &e) {
+            }
 
-            auto V = llvmBuilder->CreateLoad(right);
+            try {      
+                auto r = static_cast<ArraySubExprAST *>(this->rhs.get());
+                Value *indexPtr = r->codegen(true);          
+                if (indexPtr) return indexPtr;
+            } catch (std::exception &e) {
+            }    
+            return logErrorV("Referring to a undefined variable");
+        }
+
+        case DEREF: {
+            Value *right = rhs->codegen(wantPtr);
+            auto V = llvmBuilder->CreateLoad(right->getType()->getPointerElementType(), right);
             std::cout << "Unary ptr type: " << getLLVMTypeStr(V) << std::endl;
             return V;
         }
+
         default: {
             auto errorMsg = "Invalid unary op" + op;
             return logErrorV(errorMsg.c_str());
         }
     }
-
 }
 
-Value *BinaryExprAST::codegen() {
+Value *BinaryExprAST::codegen(bool wantPtr) {
     print("Binary op: " + op);
     int opType = getBinaryOpType(op);
 
-    
     if (opType == ASSIGN) {
         std::string name;
-        Value *variable;
-        if(type == UNARYOP) {
-            UnaryExprAST *lhse = static_cast<UnaryExprAST *>(lhs.get());
-            name = lhse->getName();
-            // only for pointer type
-            int isGlobal = 0;
-            variable = getVariable(name, isGlobal);
-            if(!variable) return nullptr;
-            variable = llvmBuilder->CreateLoad(variable);
-        }
-        else if (type == ARRAYSUB) {
-            ArraySubExprAST *lhse = static_cast<ArraySubExprAST *>(lhs.get());
-            name = lhse->getName();
-            
-            auto rhs = lhse->sub->codegen();
-            if (!rhs) return nullptr;
-
-            int isGlobal = 0;
-            auto alloca = getVariable(name, isGlobal);
-            if (!alloca) return nullptr;
-
-            auto index = dyn_cast<ConstantInt>(rhs);
-    
-            if (!index) return logErrorV("Array index must be an integer");
-            std::cout << getLLVMTypeStr(index) << std::endl;
-
-            auto zero = llvmBuilder->getInt64(0);
-            auto castIndex = createCast(index, Type::getInt64Ty(*llvmContext));
-
-
-            variable = llvmBuilder->CreateGEP(alloca, {zero, castIndex} );
-            std::cout << getLLVMTypeStr(variable) << std::endl;
-            if (!variable) return nullptr;
-        }
-        else {
-            VarRefExprAST *lhse = static_cast<VarRefExprAST *>(lhs.get());
-            name = lhse->getName();
-            int isGlobal = 0;
-            variable = getVariable(name, isGlobal);
-            if (!variable) return nullptr;
-        }
-        
-        Value *val =rhs->codegen();
-        if (!val) {
+        Value * variable = lhs->codegen(true);
+        Value * val = rhs->codegen();
+        if (!variable || !val) {
             return logErrorV("Invaild Reference");
         }
-        // Value *variable = NamedValues[lhse->getName()];
-
-        // int isGlobal = 0;
-        // auto variable = getVariable(lhse->getName(), isGlobal);
-        // if (!variable) return variable;
-
         auto castedVal = createCast(val, variable->getType()->getPointerElementType());
         if (!castedVal){
             return logErrorV((std::string("Unsupported assign from "+ getLLVMTypeStr(val->getType()) +" to " + getLLVMTypeStr(variable->getType()->getPointerElementType())).c_str()));
         }
         val = castedVal;
-        std::cout << getLLVMTypeStr(val) << std::endl;
         llvmBuilder->CreateStore(val, variable);
         return val;
     }
@@ -1007,12 +937,12 @@ Value *BinaryExprAST::codegen() {
     }
 }
 
-Function *PrototypeAST::codegen() {
+Function *PrototypeAST::codegen(bool wantPtr) {
     std::vector<Type *> llvmArgs;
     for (auto arg: args) 
-        llvmArgs.push_back(getVarType(*llvmContext, arg.second));
+        llvmArgs.push_back(getVarType(arg.second));
     
-    FunctionType *functionType = FunctionType::get(getVarType(*llvmContext, retVal), llvmArgs, false);
+    FunctionType *functionType = FunctionType::get(getVarType(retVal), llvmArgs, false);
 
     Function *F = Function::Create(functionType, Function::ExternalLinkage, name, llvmModule.get());
 
@@ -1026,7 +956,7 @@ Function *PrototypeAST::codegen() {
     return F;
 }
 
-Function *FunctionDeclAST::codegen() {
+Function *FunctionDeclAST::codegen(bool wantPtr) {
     std::cout << "FunctionDeclAST: " << prototype->getName() << std::endl;
     retPtr = retBlock = nullptr;
     auto &p = *prototype;
@@ -1038,7 +968,7 @@ Function *FunctionDeclAST::codegen() {
     BasicBlock* entryBlock = BasicBlock::Create(*llvmContext, "entry", currFunction);
     llvmBuilder->SetInsertPoint(entryBlock);
     // if not void, ret value should be a variable!
-    Type *retType = getVarType(*llvmContext, p.retVal);
+    Type *retType = getVarType(p.retVal);
     std::cout << "return type: " << getLLVMTypeStr(retType) << std::endl;
     if(!retType->isVoidTy()){
         retPtr = CreateEntryBlockAllocaWithTypeSize("ret_val", retType);
@@ -1088,14 +1018,10 @@ Function *FunctionDeclAST::codegen() {
     return currFunction;
 }
 
-Value *CompoundStmtExprAST::codegen() {
+Value *CompoundStmtExprAST::codegen(bool wantPtr) {
     print("New scope declared!");
     std::map<std::string, AllocaInst *> Scope = NamedValues.top();
     NamedValues.push(Scope);
-    // Function *currFunction = llvmBuilder->GetInsertBlock()->getParent();
-    // BasicBlock *BB = BasicBlock::Create(*llvmContext, "compoundBB", currFunction, retBlock);
-    // llvmBuilder->SetInsertPoint(BB);
-
     Value *retVal = llvmBuilder->getTrue();
     for (auto &expr: exprList){
         retVal = expr->codegen();
@@ -1106,7 +1032,7 @@ Value *CompoundStmtExprAST::codegen() {
     return retVal;
 }
 
-Value *ReturnStmtExprAST::codegen() {
+Value *ReturnStmtExprAST::codegen(bool wantPtr) {
     print("Find return stmt");
     Function *currFunction = llvmBuilder->GetInsertBlock()->getParent();
     if(!retPtr){
@@ -1124,7 +1050,7 @@ Value *ReturnStmtExprAST::codegen() {
     return retVal;
 }
 
-Value *ForExprAST::codegen() {
+Value *ForExprAST::codegen(bool wantPtr) {
     /*
      * phi node: i {label: value}
      * entry, loop, after_loop
@@ -1180,7 +1106,7 @@ Value *ForExprAST::codegen() {
     return Constant::getNullValue(valType);
 }
 
-Value *CallExprAST::codegen() {
+Value *CallExprAST::codegen(bool wantPtr) {
     std::cout << "Call to: " + callee << std::endl;
     // 如果是builtin function
     if(callee.find("__builtin_") == 0){
@@ -1203,7 +1129,7 @@ Value *CallExprAST::codegen() {
     return llvmBuilder->CreateCall(calleeFunction, argsValue);
 }
 
-Value *IfExprAST::codegen() {
+Value *IfExprAST::codegen(bool wantPtr) {
     Value *condValue = cond->codegen();
     if (!condValue) return nullptr;
     auto condType = condValue->getType();
@@ -1254,10 +1180,8 @@ Value *IfExprAST::codegen() {
     }
 }
 
-Value *WhileExprAST::codegen() {
-    // TODO
+Value *WhileExprAST::codegen(bool wantPtr) {
     print("Generate for while expr");
-    
 
     Function *currFunction = llvmBuilder->GetInsertBlock()->getParent();
     BasicBlock *entryBlock = BasicBlock::Create(*llvmContext, "entry", currFunction);
@@ -1278,10 +1202,6 @@ Value *WhileExprAST::codegen() {
             << " "
             << getLLVMTypeStr(condVal->getType())
             << std::endl;
-    // std::cout << condVal->getType() << std::endl;
-    // condVal = getInitVal(Type::getDoubleTy(*llvmContext));
-    // endVal = llvmBuilder->CreateFCmpONE(condVal, getInitVal(Type::getDoubleTy(*llvmContext)), "while_comp");
-    // TODO 这个应该用什么类型
 
 
     if(condType->isFloatingPointTy())
@@ -1300,7 +1220,7 @@ Value *WhileExprAST::codegen() {
     return Constant::getNullValue(condType);
 }
 
-Value *DoExprAST::codegen() {
+Value *DoExprAST::codegen(bool wantPtr) {
     print("Generate for while expr");
     
 
@@ -1340,7 +1260,7 @@ Value *DoExprAST::codegen() {
     return Constant::getNullValue(Type::getDoubleTy(*llvmContext));
 }
 
-Value * NullStmtAST::codegen(){
+Value * NullStmtAST::codegen(bool wantPtr){
     return llvmBuilder->getTrue();
 }
 
