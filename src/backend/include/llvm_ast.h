@@ -60,6 +60,7 @@ enum UnaryOpType {
     NEG,
     DEREF,
     REF,
+    CAST
 };
 
 
@@ -189,13 +190,12 @@ public:
 };
 
 class UnaryExprAST : public ExprAST {
-    std::string op;
-    std::string name;
-public:
     int type;
+    std::string op;
+public:
     std::unique_ptr<ExprAST> rhs;
+    void setType(int type_id) { this->type = type_id; }
     int getType() { return type; }
-    std::string &getName() { return name; }
     UnaryExprAST(const std::string &op, std::unique_ptr<ExprAST> rhs):op(op), rhs(std::move(rhs)){};
     Value *codegen(bool wantPtr = false) override;
 };

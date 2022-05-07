@@ -68,6 +68,7 @@ int getUnaryOpType(std::string unaryOp) {
     if(unaryOp == "-") return NEG;
     if(unaryOp == "&") return REF;
     if(unaryOp == "*") return DEREF;
+    if(unaryOp == "()") return CAST;
     return POS;
 }
 
@@ -341,7 +342,6 @@ std::unique_ptr<ExprAST> generateBackendASTNode(ast_node_ptr root) {
         case ARRAYDECL: {
             int arraySize = atoi(root->val);
             auto node = generateBackendASTNode(root->child[0]);
-            // auto var = static_cast<VarExprAST *>(node.get());
             auto var = static_unique_pointer_cast<VarExprAST>(std::move(node));
             auto array = std::make_unique<ArrayExprAST>(ptr2raw(var->getType()), var->getName(), arraySize);
             return array;
@@ -372,11 +372,18 @@ std::unique_ptr<ExprAST> generateBackendASTNode(ast_node_ptr root) {
             return binaryExpr;
         }
 
+        case CASTEXPR: {
+            auto rhs = generateBackendASTNode(root->child[0]);
+            auto unaryExpr = std::make_unique<UnaryExprAST>("()", std::move(rhs));
+            unaryExpr->setType(root->type_id);
+            return unaryExpr;
+        }
+
         case UNARYOPERATOR: {
             auto rhs = generateBackendASTNode(root->child[0]);
             std::string op(val);
             auto unaryExpr = std::make_unique<UnaryExprAST>(op, std::move(rhs));
-            unaryExpr->type = root->type_id;
+            unaryExpr->setType(root->type_id);
             return unaryExpr;
         }
 
@@ -808,15 +815,22 @@ Value *UnaryExprAST::codegen(bool wantPtr) {
         
         case REF: {
             Value * ptr = rhs->codegen(true);          
-            if (ptr) return ptr;
-            return logErrorV("Referring to a undefined variable");
+            if (!ptr) return logErrorV("Referring to a undefined variable");
+            return ptr;
         }
 
         case DEREF: {
             Value *right = rhs->codegen(wantPtr);
             auto V = llvmBuilder->CreateLoad(right->getType()->getPointerElementType(), right);
-            std::cout << "Unary ptr type: " << getLLVMTypeStr(V) << std::endl;
+            if (!V) return logErrorV("Unable to do dereferring");
             return V;
+        }
+
+        case CAST: {
+            Value * right = rhs->codegen();
+            Value * casted = createCast(right, getVarType(type));
+            if(!casted) return logErrorV("Unsupported Cast");
+            return casted;
         }
 
         default: {
