@@ -158,16 +158,13 @@ int main(){
         id: 9,
         name: 'Type System',
         code: `int main() {
-    bool a = false;
-    byte b = 0o3;
-    short c = 0x3;
-    int d = 0b1011;
-    long f = 0xcafebabe;
-
-    float g = 0.5;
-    double h = 0.25;
-
-    return a;
+    char c;
+    short d;
+    int e;
+    long f;
+    float g;
+    double h;
+    return 0;
 }`
     },
     {
@@ -202,7 +199,7 @@ int main(){
         code: `int main() {
     int i;
     int j;
-    char* buf;
+    char buf[100];
     for(i = 0; i < 16; i=i+1){
         for(j = 0; j < 16; j=j+1){
             int code = i*16+j;
