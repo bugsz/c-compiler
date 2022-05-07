@@ -46,6 +46,11 @@ static std::stack<std::map<std::string, AllocaInst *>> NamedValues;
 static std::unique_ptr<IRBuilder<>> llvmBuilder;
 static std::map<std::string, std::unique_ptr<PrototypeAST>> functionProtos;
 
+// static BasicBlock *BlockForBreak;
+// static BasicBlock *BlockForContinue;
+static std::stack<BasicBlock *> BlockForBreak;
+static std::stack<BasicBlock *> BlockForContinue;
+
 inline void print(std::string a) { std::cout << a << std::endl; }
 
 int getBinaryOpType(std::string binaryOp) {
@@ -92,6 +97,8 @@ ASTNodeType getNodeType(std::string token) {
     if(token == "UnaryOperator") return UNARYOPERATOR;
     if(token == "ArrayDecl") return ARRAYDECL;
     if(token == "ArraySubscriptExpr") return ARRAYSUBSCRIPTEXPR;
+    if(token == "BreakStmt") return BREAKSTMT;
+    if(token == "ContinueStmt") return CONTINUESTMT;
     return UNKNOWN;
 }
 
@@ -170,6 +177,16 @@ void print_node(ast_node_ptr node) {
 
 bool isValidBinaryOperand(Value *value) {
     return (value->getType()->isFloatingPointTy() || value->getType()->isIntegerTy());
+}
+
+void popBlockForControl() {
+    BlockForBreak.pop();
+    BlockForContinue.pop();
+}
+
+void resetBlockForControl() {
+    BlockForBreak.empty();
+    BlockForContinue.empty();
 }
 
 int ptr2raw(int ptr) {
@@ -382,7 +399,7 @@ std::unique_ptr<ExprAST> generateBackendASTNode(ast_node_ptr root) {
             std::string op(val);
             auto LHS = generateBackendASTNode(root->child[0]);
             auto RHS = generateBackendASTNode(root->child[1]);
-            if(op.length() > 1){
+            if(op.length() > 1 && op != "=="){
                 auto left = generateBackendASTNode(root->child[0]);
                 auto right = std::make_unique<BinaryExprAST>(op.substr(0, 1), std::move(LHS), std::move(RHS));
                 return std::make_unique<BinaryExprAST>(op, std::move(left), std::move(right));
@@ -424,6 +441,14 @@ std::unique_ptr<ExprAST> generateBackendASTNode(ast_node_ptr root) {
             auto body = generateBackendASTNode(root->child[4]);
             auto forStmt = std::make_unique<ForExprAST>(std::move(start), std::move(end), std::move(step), std::move(body));
             return forStmt;
+        }
+
+        case BREAKSTMT: {
+            return std::make_unique<BreakExprAST>();
+        }
+
+        case CONTINUESTMT: {
+            return std::make_unique<ContinueExprAST>();
         }
 
         case RETURNSTMT: {
@@ -868,6 +893,7 @@ Value *BinaryExprAST::codegen(bool wantPtr) {
     int opType = getBinaryOpType(op);
 
     if (opType == ASSIGN) {
+        std::cout << "Assigning" << std::endl;
         std::string name;
         Value * variable = lhs->codegen(true);
         Value * val = rhs->codegen();
@@ -1024,7 +1050,7 @@ Function *FunctionDeclAST::codegen(bool wantPtr) {
         retPtr = CreateEntryBlockAllocaWithTypeSize("ret_val", retType);
         llvmBuilder->CreateStore(getInitVal(retType), retPtr);
     }
-
+    resetBlockForControl();
     NamedValues.empty();
     std::map<std::string, AllocaInst *> local_vals;
     NamedValues.push(local_vals);
@@ -1065,6 +1091,7 @@ Function *FunctionDeclAST::codegen(bool wantPtr) {
         }
     }
     verifyFunction(*currFunction, &errs());
+    resetBlockForControl();
     return currFunction;
 }
 
@@ -1110,18 +1137,28 @@ Value *ForExprAST::codegen(bool wantPtr) {
     Value *startVal = start->codegen();
     if (!startVal) return nullptr;
     auto valType = startVal->getType();
-    AllocaInst *alloca = CreateEntryBlockAllocaWithTypeSize(varName.c_str(), valType); 
-    llvmBuilder->CreateStore(startVal, alloca);
+    // AllocaInst *alloca;
+    // AllocaInst *alloca = NamedValues.top()[varName];
 
-    // BasicBlock *headerBlock = llvmBuilder->GetInsertBlock();
+    auto alloca = getVariable(varName);
+
+    if (!alloca) {
+        return logErrorV("Unknown variable referenced in for loop");
+        // alloca = CreateEntryBlockAllocaWithTypeSize(varName.c_str(), valType); 
+        // llvmBuilder->CreateStore(startVal, alloca);
+    }
+    
+
     BasicBlock *loopBlock = BasicBlock::Create(*llvmContext, "for_loop", currFunction);
-    BasicBlock *afterBlock = BasicBlock::Create(*llvmContext, "after_for_loop", currFunction);
     BasicBlock *bodyBlock = BasicBlock::Create(*llvmContext, "for_body", currFunction);
+    BasicBlock *stepBlock = BasicBlock::Create(*llvmContext, "for_step", currFunction);
+    BasicBlock *afterBlock = BasicBlock::Create(*llvmContext, "after_for_loop", currFunction);
+
+    BlockForBreak.push(afterBlock);
+    BlockForContinue.push(stepBlock);
 
     llvmBuilder->CreateBr(loopBlock);
     llvmBuilder->SetInsertPoint(loopBlock);
-
-    NamedValues.top()[varName] = alloca;
 
     Value *endVal = end->codegen();
     if (!endVal) return nullptr;
@@ -1136,7 +1173,8 @@ Value *ForExprAST::codegen(bool wantPtr) {
     llvmBuilder->SetInsertPoint(bodyBlock);
     if (!body->codegen()) return nullptr;
     
-
+    llvmBuilder->CreateBr(stepBlock);
+    llvmBuilder->SetInsertPoint(stepBlock);
     Value *stepVar = step->codegen();
     if (!stepVar) return nullptr;
 
@@ -1153,6 +1191,7 @@ Value *ForExprAST::codegen(bool wantPtr) {
    
     llvmBuilder->SetInsertPoint(afterBlock);
 
+    popBlockForControl();
     return Constant::getNullValue(valType);
 }
 
@@ -1238,8 +1277,10 @@ Value *WhileExprAST::codegen(bool wantPtr) {
     BasicBlock *loopBlock = BasicBlock::Create(*llvmContext, "while_loop_body", currFunction);
     BasicBlock *endBlock = BasicBlock::Create(*llvmContext, "while_loop_end", currFunction);
 
-    llvmBuilder->CreateBr(entryBlock);
+    BlockForBreak.push(endBlock);
+    BlockForContinue.push(loopBlock);
 
+    llvmBuilder->CreateBr(entryBlock);
     llvmBuilder->SetInsertPoint(entryBlock);
     Value *endVal;
 
@@ -1266,7 +1307,7 @@ Value *WhileExprAST::codegen(bool wantPtr) {
     llvmBuilder->CreateBr(entryBlock);
     llvmBuilder->SetInsertPoint(endBlock);
 
-    // TODO 应该返回什么值
+    popBlockForControl();
     return Constant::getNullValue(condType);
 }
 
@@ -1278,6 +1319,9 @@ Value *DoExprAST::codegen(bool wantPtr) {
     // BasicBlock *entryBlock = BasicBlock::Create(*llvmContext, "entry", currFunction);
     BasicBlock *loopBlock = BasicBlock::Create(*llvmContext, "do_while_loop_body", currFunction);
     BasicBlock *endBlock = BasicBlock::Create(*llvmContext, "do_while_loop_end", currFunction);
+
+    BlockForBreak.push(endBlock);
+    BlockForContinue.push(loopBlock);
 
     llvmBuilder->CreateBr(loopBlock);
     llvmBuilder->SetInsertPoint(loopBlock);
@@ -1305,9 +1349,24 @@ Value *DoExprAST::codegen(bool wantPtr) {
     llvmBuilder->CreateCondBr(endVal, loopBlock, endBlock);
     llvmBuilder->SetInsertPoint(endBlock);
 
-
-    // TODO 应该返回什么值
+    popBlockForControl();
     return Constant::getNullValue(Type::getDoubleTy(*llvmContext));
+}
+
+Value *BreakExprAST::codegen(bool wantPtr) {
+    print("Generate for break expr");
+    if(BlockForBreak.empty()){
+        return logErrorV("Break statement not in loop");
+    }
+    return llvmBuilder->CreateBr(BlockForBreak.top());
+}
+
+Value *ContinueExprAST::codegen(bool wantPtr) {
+    print("Generate for continue expr");
+    if(BlockForContinue.empty()){
+        return logErrorV("Continue statement not in loop");
+    }
+    return llvmBuilder->CreateBr(BlockForContinue.top());
 }
 
 Value * NullStmtAST::codegen(bool wantPtr){

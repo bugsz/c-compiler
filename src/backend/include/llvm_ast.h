@@ -51,6 +51,8 @@ enum ASTNodeType {
     DOSTMT,
     CASTEXPR,
     ARRAYSUBSCRIPTEXPR,
+    BREAKSTMT,
+    CONTINUESTMT,
     UNKNOWN
 };
 
@@ -223,6 +225,19 @@ public :
         return lhs->getName();
     }
 };
+
+class BreakExprAST : public ExprAST {
+public:
+    BreakExprAST() {}
+    Value *codegen(bool wantPtr = false) override;
+};
+
+class ContinueExprAST : public ExprAST {
+public:
+    ContinueExprAST() {}
+    Value *codegen(bool wantPtr = false) override;
+};
+
 
 
 class PrototypeAST : public ExprAST {
