@@ -737,7 +737,6 @@ Value *ArraySubExprAST::codegen(bool wantPtr) {
     auto castIndex = createCast(index, Type::getInt64Ty(*llvmContext));
     auto elementPtr = llvmBuilder->CreateGEP(alloca->getType()->getScalarType()->getPointerElementType(), alloca, {zero, castIndex} );
     if(wantPtr){
-        print("xxxx");
         return elementPtr;
     }
     return llvmBuilder->CreateLoad(alloca->getType()->getPointerElementType()->getArrayElementType(), elementPtr);
@@ -806,22 +805,10 @@ Value *UnaryExprAST::codegen(bool wantPtr) {
             else 
                 return llvmBuilder->CreateNeg(right);
         }
+        
         case REF: {
-            try {
-                // if it is a VarRef
-                auto r = static_cast<VarRefExprAST *>(this->rhs.get());
-                auto name = r->getName();
-                auto V = getVariable(name);
-                if (V) return V;
-            } catch (std::exception &e) {
-            }
-
-            try {      
-                auto r = static_cast<ArraySubExprAST *>(this->rhs.get());
-                Value *indexPtr = r->codegen(true);          
-                if (indexPtr) return indexPtr;
-            } catch (std::exception &e) {
-            }    
+            Value * ptr = rhs->codegen(true);          
+            if (ptr) return ptr;
             return logErrorV("Referring to a undefined variable");
         }
 
