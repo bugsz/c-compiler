@@ -44,28 +44,27 @@ enum radix_type {
 #define PRINTF_BYTE_TO_BINARY_INT64(i) \
     PRINTF_BYTE_TO_BINARY_INT32((i) >> 32), PRINTF_BYTE_TO_BINARY_INT32(i)
 
-char* builtin_itoa(int n, int base) {
-    assert(sizeof(int) == 4);
-    char* buf = new char[40];
+char* builtin_itoa(long n, int base) {
+    char* buf = new char[80];
     if (base == BIN) {
-        char* temp = new char[35];
+        char* temp = new char[80];
         sprintf(temp, PRINTF_BINARY_PATTERN_INT32, PRINTF_BYTE_TO_BINARY_INT32(n));
         sprintf(buf, "\"0b%d\"", stoi(temp));
         delete [] temp;
     } else if (base == OCT) {
-        sprintf(buf, "\"0%o\"", n);
+        sprintf(buf, "\"0%lo\"", n);
     } else if (base == DEC) {
-        sprintf(buf, "\"%d\"", n);
+        sprintf(buf, "\"%ld\"", n);
     } else if (base == HEX) {
-        sprintf(buf, "\"0x%X\"", n);
+        sprintf(buf, "\"0x%lX\"", n);
     } else {
         assert(false);
     }
     return buf;
 }
 
-int builtin_atoi(const char* str, int base) {
-    return stoi(str, 0, base);
+long builtin_atoi(const char* str, int base) {
+    return stol(str, 0, base);
 }
 
 const char* builtin_strcat(const char* str1, const char* str2) {
