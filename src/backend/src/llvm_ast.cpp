@@ -21,6 +21,12 @@
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetOptions.h"
 
+#include "llvm/Transforms/InstCombine/InstCombine.h"
+#include "llvm/Transforms/Scalar.h"
+#include "llvm/Transforms/Scalar/GVN.h"
+#include "llvm/Transforms/Utils.h"
+#include "llvm/Transforms/Utils/PromoteMemToReg.h"
+
 
 #include "llvm_ast.h"
 // #include "type_utils.h"
@@ -44,6 +50,7 @@ static Value* retPtr;
 static BasicBlock* retBlock;
 static std::stack<std::map<std::string, AllocaInst *>> NamedValues;
 static std::unique_ptr<IRBuilder<>> llvmBuilder;
+static std::unique_ptr<legacy::FunctionPassManager> llvmFPM;
 static std::map<std::string, std::unique_ptr<PrototypeAST>> functionProtos;
 
 // static BasicBlock *BlockForBreak;
@@ -506,6 +513,15 @@ static void initializeModule() {
     llvmContext = std::make_unique<LLVMContext>();
     llvmModule = std::make_unique<Module>("JIT", *llvmContext);
     llvmBuilder = std::make_unique<IRBuilder<>>(*llvmContext);
+    llvmFPM = std::make_unique<legacy::FunctionPassManager>(llvmModule.get());
+    llvmFPM->add(createInstructionCombiningPass());
+    llvmFPM->add(createReassociatePass());
+    llvmFPM->add(createGVNPass());
+    llvmFPM->add(createCFGSimplificationPass());
+    llvmFPM->add(llvm::createPromoteMemoryToRegisterPass());
+    llvmFPM->add(llvm::createInstructionCombiningPass());
+    llvmFPM->add(llvm::createReassociatePass());
+    llvmFPM->doInitialization();
 }
 
 static void initializeBuiltinFunction() {
@@ -1092,6 +1108,7 @@ Function *FunctionDeclAST::codegen(bool wantPtr) {
     }
     verifyFunction(*currFunction, &errs());
     resetBlockForControl();
+    llvmFPM->run(*currFunction);
     return currFunction;
 }
 
