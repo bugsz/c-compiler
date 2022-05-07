@@ -135,6 +135,7 @@ func main() {
 			c.Data(400, "plaintext", errMsg)
 			return
 		}
+		os.Remove(filename)
 		c.Data(200, "plaintext", bytes)
 	})
 

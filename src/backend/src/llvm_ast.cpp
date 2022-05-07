@@ -514,15 +514,15 @@ static void initializeModule() {
     llvmContext = std::make_unique<LLVMContext>();
     llvmModule = std::make_unique<Module>("JIT", *llvmContext);
     llvmBuilder = std::make_unique<IRBuilder<>>(*llvmContext);
-    llvmFPM = std::make_unique<legacy::FunctionPassManager>(llvmModule.get());
-    llvmFPM->add(createInstructionCombiningPass());
-    llvmFPM->add(createReassociatePass());
-    llvmFPM->add(createGVNPass());
-    llvmFPM->add(createCFGSimplificationPass());
-    llvmFPM->add(llvm::createPromoteMemoryToRegisterPass());
-    llvmFPM->add(llvm::createInstructionCombiningPass());
-    llvmFPM->add(llvm::createReassociatePass());
-    llvmFPM->doInitialization();
+    // llvmFPM = std::make_unique<legacy::FunctionPassManager>(llvmModule.get());
+    // llvmFPM->add(createInstructionCombiningPass());
+    // llvmFPM->add(createReassociatePass());
+    // llvmFPM->add(createGVNPass());
+    // llvmFPM->add(createCFGSimplificationPass());
+    // llvmFPM->add(llvm::createPromoteMemoryToRegisterPass());
+    // llvmFPM->add(llvm::createInstructionCombiningPass());
+    // llvmFPM->add(llvm::createReassociatePass());
+    // llvmFPM->doInitialization();
 }
 
 static void initializeBuiltinFunction() {
@@ -864,6 +864,7 @@ Value *LiteralExprAST::codegen(bool wantPtr) {
 Value *UnaryExprAST::codegen(bool wantPtr) {
     int opType = getUnaryOpType(op);
     print("Unary op: " + op);
+    auto varType = getVarType(type);
     Value *right;    
 
     switch (opType) {
@@ -886,6 +887,20 @@ Value *UnaryExprAST::codegen(bool wantPtr) {
 
         case DEREF: {
             Value *right = rhs->codegen(wantPtr);
+            if (!right) return logErrorV("Unable to do dereferring");
+            if(wantPtr && right->getType()->getPointerElementType() == varType){
+                /* 
+                    this indicates right is already a ptr to char, int, double, etc...
+                    use to handle the special case that *(ptr + offset) as left part
+                    of an assign statement, in this case, we know that since
+                    ptr + offset don't actually refer to a variable in context, it is
+                    meaningless to create load from it.
+                */
+                return right;
+            }
+            std::cout << getLLVMTypeStr(right) << std::endl;
+            std::cout << getLLVMTypeStr(right->getType()) << std::endl;
+            std::cout << getLLVMTypeStr(right->getType()->getPointerElementType()) << std::endl;
             auto V = llvmBuilder->CreateLoad(right->getType()->getPointerElementType(), right);
             if (!V) return logErrorV("Unable to do dereferring");
             return V;
@@ -1106,7 +1121,7 @@ Function *FunctionDeclAST::codegen(bool wantPtr) {
     }
     verifyFunction(*currFunction, &errs());
     resetBlockForControl();
-    llvmFPM->run(*currFunction);
+    // llvmFPM->run(*currFunction);
     return currFunction;
 }
 
