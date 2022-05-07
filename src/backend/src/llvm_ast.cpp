@@ -73,7 +73,8 @@ int getBinaryOpType(std::string binaryOp) {
     if(binaryOp == "!=") return NE;
     if(binaryOp == "=" ) return ASSIGN;
     if(binaryOp =="/=" || binaryOp =="*="|| binaryOp =="-="|| binaryOp =="+=") return ASSIGNPLUS;
-    return ADD;
+    fprintf(stderr, "Unsuppoerted binary operation: %s\n", binaryOp.c_str());
+    exit(-1);
 }
 
 int getUnaryOpType(std::string unaryOp) {
@@ -898,10 +899,7 @@ Value *UnaryExprAST::codegen(bool wantPtr) {
                 */
                 return right;
             }
-            std::cout << getLLVMTypeStr(right) << std::endl;
-            std::cout << getLLVMTypeStr(right->getType()) << std::endl;
-            std::cout << getLLVMTypeStr(right->getType()->getPointerElementType()) << std::endl;
-            auto V = llvmBuilder->CreateLoad(right->getType()->getPointerElementType(), right);
+            auto V = llvmBuilder->CreateLoad(varType->getPointerTo(), right);
             if (!V) return logErrorV("Unable to do dereferring");
             return V;
         }
