@@ -670,13 +670,7 @@ Value *VarExprAST::codegen(bool wantPtr) {
         logErrorV((std::string("Unsupported initializatin from "+ getLLVMTypeStr(initVal->getType()) +" to " + getLLVMTypeStr(varType)).c_str()));
     }
     AllocaInst *alloca = CreateEntryBlockAllocaWithTypeSize(name, varType);
-    if(type == TYPEID_CHAR_PTR){
-        auto ArraySize = llvmBuilder->getInt32(1000);
-        AllocaInst * arrayspace = CreateEntryBlockAllocaWithTypeSize(name, llvmBuilder->getInt8Ty(), ArraySize);
-        llvmBuilder->CreateStore(arrayspace, alloca);
-    }else{
-        llvmBuilder->CreateStore(castedVal, alloca);
-    }
+    llvmBuilder->CreateStore(castedVal, alloca);
     NamedValues.top()[name] = alloca;
     return castedVal;
 }
