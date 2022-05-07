@@ -139,13 +139,12 @@ public:
     Value *codegen(bool wantPtr = false) override;
 };
 
-class 
-VarRefExprAST: public ExprAST{
+class VarRefExprAST: public ExprAST{
     int type;
+    std::string name;
 public:
     int getType() { return this->type; }
     void setType(int type) { this->type = type; }
-    std::string name;
     VarRefExprAST(const std::string &name, int type) : name(name), type(type) {}
     const std::string &getName() const { return name; }
     void setName(const std::string &name) { this->name = name; }
@@ -166,13 +165,13 @@ public:
 };
 
 class ArraySubExprAST: public ExprAST {
-    std::string name;
+    int type;
 public:
     std::unique_ptr<VarRefExprAST> var;
     std::unique_ptr<ExprAST> sub;
-    const std::string &getName() const { return name; }
-    ArraySubExprAST(std::unique_ptr<VarRefExprAST> var, std::unique_ptr<ExprAST> sub):
-    var(std::move(var)), sub(std::move(sub)) {this->name = this->var->getName();}
+    int getType() { return type; }
+    ArraySubExprAST(std::unique_ptr<VarRefExprAST> var, std::unique_ptr<ExprAST> sub, int type_id):
+    var(std::move(var)), sub(std::move(sub)), type(type_id) {}
     Value *codegen(bool wantPtr = false) override;
 };
 
@@ -222,7 +221,7 @@ public :
     std::string getVarName() {
         auto ss = static_cast<BinaryExprAST *>(start.get());
         auto lhs = static_cast<VarRefExprAST *>(ss->lhs.get());
-        return lhs->name;
+        return lhs->getName();
     }
 };
 

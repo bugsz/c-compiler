@@ -351,9 +351,7 @@ std::unique_ptr<ExprAST> generateBackendASTNode(ast_node_ptr root) {
             auto ref = generateBackendASTNode(root->child[0]);
             auto sub = generateBackendASTNode(root->child[1]);
             auto var = static_unique_pointer_cast<VarRefExprAST>(std::move(ref));
-            var->setType(ptr2raw(var->getType()));
-            std::cout << "Subscription: " << var->getName() << " " << var->getType() << std::endl;
-            auto array = std::make_unique<ArraySubExprAST>(std::move(var), std::move(sub));
+            auto array = std::make_unique<ArraySubExprAST>(std::move(var), std::move(sub), root->type_id);
             return array;
         }
 
@@ -729,24 +727,34 @@ Value *GlobalVarExprAST::codegen(bool wantPtr) {
 }
 
 Value *ArraySubExprAST::codegen(bool wantPtr) {
-    print("ArraySubExpr, name: " + name);
-    auto rhs = sub->codegen();
-    if (!rhs) return nullptr;
-
-    int isGlobal = 0;
-    auto alloca = getVariable(name, isGlobal);
-    if (!alloca) return nullptr;
-    auto index = dyn_cast<ConstantInt>(rhs);
-    
-    if (!index) return logErrorV("Array index must be an integer");
-
-    auto zero = llvmBuilder->getInt64(0);
+    static Value* zero = llvmBuilder->getInt64(0);
+    auto index = sub->codegen();
+    if (!index) return nullptr;
+    auto varPtr = var->codegen(true);
+    if (!varPtr) return nullptr;
+    Value* elementPtr;
     auto castIndex = createCast(index, Type::getInt64Ty(*llvmContext));
-    auto elementPtr = llvmBuilder->CreateGEP(alloca->getType()->getScalarType()->getPointerElementType(), alloca, {zero, castIndex} );
+    Type * elementType = getVarType(type);
+    if(varPtr->getType()->getPointerElementType()->isPointerTy()){
+        // unsafe way
+        Value * arrayPtr = llvmBuilder->CreateLoad(elementType->getPointerTo(), varPtr);
+        elementPtr = llvmBuilder->CreateGEP(
+            elementType,
+            arrayPtr, 
+            castIndex
+        );
+    }else{
+        // safeway
+        elementPtr = llvmBuilder->CreateGEP(
+            ArrayType::get(elementType, varPtr->getType()->getPointerElementType()->getArrayNumElements()), 
+            varPtr, 
+            {zero, castIndex}
+        );
+    }
     if(wantPtr){
         return elementPtr;
     }
-    return llvmBuilder->CreateLoad(alloca->getType()->getPointerElementType()->getArrayElementType(), elementPtr);
+    return llvmBuilder->CreateLoad(elementType, elementPtr);
 };
 
 
