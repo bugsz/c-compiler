@@ -73,7 +73,7 @@ int getBinaryOpType(std::string binaryOp) {
     if(binaryOp == "!=") return NE;
     if(binaryOp == "=" ) return ASSIGN;
     if(binaryOp =="/=" || binaryOp =="*="|| binaryOp =="-="|| binaryOp =="+=") return ASSIGNPLUS;
-    fprintf(stderr, "Unsuppoerted binary operation: %s\n", binaryOp.c_str());
+    fprintf(stderr, "Unsupported binary operation: %s\n", binaryOp.c_str());
     exit(-1);
 }
 
@@ -515,15 +515,15 @@ static void initializeModule() {
     llvmContext = std::make_unique<LLVMContext>();
     llvmModule = std::make_unique<Module>("JIT", *llvmContext);
     llvmBuilder = std::make_unique<IRBuilder<>>(*llvmContext);
-    // llvmFPM = std::make_unique<legacy::FunctionPassManager>(llvmModule.get());
-    // llvmFPM->add(createInstructionCombiningPass());
-    // llvmFPM->add(createReassociatePass());
-    // llvmFPM->add(createGVNPass());
-    // llvmFPM->add(createCFGSimplificationPass());
-    // llvmFPM->add(llvm::createPromoteMemoryToRegisterPass());
-    // llvmFPM->add(llvm::createInstructionCombiningPass());
-    // llvmFPM->add(llvm::createReassociatePass());
-    // llvmFPM->doInitialization();
+    llvmFPM = std::make_unique<legacy::FunctionPassManager>(llvmModule.get());
+    llvmFPM->add(createInstructionCombiningPass());
+    llvmFPM->add(createReassociatePass());
+    llvmFPM->add(createGVNPass());
+    llvmFPM->add(createCFGSimplificationPass());
+    llvmFPM->add(llvm::createPromoteMemoryToRegisterPass());
+    llvmFPM->add(llvm::createInstructionCombiningPass());
+    llvmFPM->add(llvm::createReassociatePass());
+    llvmFPM->doInitialization();
 }
 
 static void initializeBuiltinFunction() {
@@ -899,7 +899,7 @@ Value *UnaryExprAST::codegen(bool wantPtr) {
                 */
                 return right;
             }
-            auto V = llvmBuilder->CreateLoad(varType->getPointerTo(), right);
+            auto V = llvmBuilder->CreateLoad(wantPtr ? varType->getPointerTo() : varType, right);
             if (!V) return logErrorV("Unable to do dereferring");
             return V;
         }
@@ -1119,7 +1119,7 @@ Function *FunctionDeclAST::codegen(bool wantPtr) {
     }
     verifyFunction(*currFunction, &errs());
     resetBlockForControl();
-    // llvmFPM->run(*currFunction);
+    llvmFPM->run(*currFunction);
     return currFunction;
 }
 
