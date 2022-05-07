@@ -41,6 +41,7 @@ message(${LLVM_TARGETS_TO_BUILD})
 llvm_map_components_to_libnames(llvm_libs ${LLVM_TARGETS_TO_BUILD} support core irreader codegen mc mcparser option)
 
 # SET(CMAKE_EXE_LINKER_FLAGS "-Wl,-znodelete")
+SET(CMAKE_EXE_LINKER_FLAGS "-Wno-unused-result")
 target_link_libraries(${PROJECT_NAME} ${llvm_libs})
 target_link_libraries(${PROJECT_NAME} ${ZJUCC_LIB})
 
