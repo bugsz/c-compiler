@@ -149,7 +149,7 @@ void set_include() {
 }
 
 char* to_int(char* s, int base){
-    int res = (base == 8) ? builtin_atoi(s + 1, base) : builtin_atoi(s + 2, base);
+    long res = (base == 8) ? builtin_atoi(s + 1, base) : builtin_atoi(s + 2, base);
     char* ret = builtin_itoa(res, 10);
     ret[strlen(ret) - 1] = '\0';
     return ret + 1;

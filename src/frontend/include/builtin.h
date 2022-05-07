@@ -11,8 +11,8 @@
 extern "C" {
 #endif
 
-    char* builtin_itoa(int n, int base);
-    int builtin_atoi(const char* str, int base);
+    char* builtin_itoa(long n, int base);
+    long builtin_atoi(const char* str, int base);
     int builtin_strlen(const char* str);
     const char* builtin_strcat(const char* str1, const char* str2);
     char builtin_strget(const char* str, int index);

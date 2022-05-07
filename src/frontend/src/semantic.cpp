@@ -39,7 +39,8 @@ int get_literal_type(const char* literal) {
         return TYPEID_DOUBLE;
     } else {
         try {  
-            stoi(test);
+            int t = stoi(test);
+            if(to_string(t) != test) throw logic_error("");
             return TYPEID_INT;
         }
         catch (...) {
