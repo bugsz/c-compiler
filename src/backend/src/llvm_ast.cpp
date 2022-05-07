@@ -628,7 +628,7 @@ Value *createCast(Value *value, Type *type) {
         }else if(type->isIntegerTy()){
             return llvmBuilder->CreateCast(Instruction::PtrToInt, value, type);
         }else if(type->isPtrOrPtrVectorTy()){
-            return value;
+            return llvmBuilder->CreatePointerCast(value, type);
         }
     }
     print("Unknown type to be cast");
@@ -821,7 +821,7 @@ Value *LiteralExprAST::codegen(bool wantPtr) {
 
 Value *UnaryExprAST::codegen(bool wantPtr) {
     int opType = getUnaryOpType(op);
-    print("Unary op: " + op + " " + std::to_string(opType));
+    print("Unary op: " + op);
     Value *right;    
 
     switch (opType) {
