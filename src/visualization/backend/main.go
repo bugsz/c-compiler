@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"net/http"
 	"os"
 	"os/exec"
@@ -53,6 +54,23 @@ func Cors() gin.HandlerFunc {
 }
 
 func main() {
+	ticker := time.NewTicker(time.Second * 30)
+
+	go func() {
+		for {
+			<-ticker.C
+			now := time.Now()
+			fmt.Print(now.Format("[CLEAR RUNNING PROCESS] 2006-01-02 15:04:05.000 \n"))
+			cmd := exec.Command("killall", "lli")
+			buffer := new(Buffer)
+			cmd.Stderr = buffer
+			_, err := cmd.Output()
+			if err != nil {
+				fmt.Println(buffer.b.String())
+			}
+		}
+	}()
+
 	r := gin.Default()
 	r.SetTrustedProxies([]string{"127.0.0.1"})
 	r.Use(Cors())
@@ -89,12 +107,27 @@ func main() {
 		genIR := exec.Command("./llvm_wrapper", "-stdin")
 		genIR.Stdin = bytes.NewReader([]byte(req.Code))
 		genIR.Stderr = buffer
-		llvmJIT := exec.Command("lli")
-		llvmJIT.Stdin, _ = genIR.StdoutPipe()
+		filename := fmt.Sprintf("tmp_%d", time.Now().Unix())
+
+		llvmAs := exec.Command("llvm-as", "-o", filename)
+		llvmAs.Stdin, _ = genIR.StdoutPipe()
+		llvmAs.Stderr = buffer
+		genIR.Start()
+		_, err := llvmAs.Output()
+
+		if err != nil {
+			generr := []byte("Fail to generate execuable file\n")
+			stderr := append([]byte("\nstderr:\n"), buffer.b.Bytes()...)
+			errMsg := append(append(generr, stderr...), err.Error()...)
+			c.Data(400, "plaintext", errMsg)
+			return
+		}
+
+		llvmJIT := exec.Command("lli", filename)
+		llvmJIT.Stdin = bytes.NewReader([]byte(req.Input))
 		llvmJIT.Stderr = buffer
 		genIR.Start()
 		bytes, err := llvmJIT.Output()
-
 		if err != nil {
 			stdout := append([]byte("stdout:\n"), bytes...)
 			stderr := append([]byte("\nstderr:\n"), buffer.b.Bytes()...)

@@ -59,7 +59,8 @@ int getBinaryOpType(std::string binaryOp) {
     if(binaryOp == ">=") return GE;    
     if(binaryOp == "==") return EQ;
     if(binaryOp == "!=") return NE;
-    if(binaryOp == "=" || binaryOp =="/=" || binaryOp =="*="|| binaryOp =="-="|| binaryOp =="+=") return ASSIGN;
+    if(binaryOp == "=" ) return ASSIGN;
+    if(binaryOp =="/=" || binaryOp =="*="|| binaryOp =="-="|| binaryOp =="+=") return ASSIGNPLUS;
     return ADD;
 }
 
@@ -379,15 +380,15 @@ std::unique_ptr<ExprAST> generateBackendASTNode(ast_node_ptr root) {
         }
 
         case BINARYOPERATOR: {
-            std::string op(val);
+            int op_type = getBinaryOpType(std::string(val));
             auto LHS = generateBackendASTNode(root->child[0]);
             auto RHS = generateBackendASTNode(root->child[1]);
-            if(op.length() > 1){
+            if(op_type == ASSIGNPLUS){
                 auto left = generateBackendASTNode(root->child[0]);
-                auto right = std::make_unique<BinaryExprAST>(op.substr(0, 1), std::move(LHS), std::move(RHS));
-                return std::make_unique<BinaryExprAST>(op, std::move(left), std::move(right));
+                auto right = std::make_unique<BinaryExprAST>(getBinaryOpType(std::string(1, val[1])), std::move(LHS), std::move(RHS));
+                return std::make_unique<BinaryExprAST>(ASSIGN, std::move(left), std::move(right));
             }else{
-                return std::make_unique<BinaryExprAST>(op, std::move(LHS), std::move(RHS));
+                return std::make_unique<BinaryExprAST>(op_type, std::move(LHS), std::move(RHS));
             }
         }
 
@@ -864,10 +865,8 @@ Value *UnaryExprAST::codegen(bool wantPtr) {
 }
 
 Value *BinaryExprAST::codegen(bool wantPtr) {
-    print("Binary op: " + op);
-    int opType = getBinaryOpType(op);
 
-    if (opType == ASSIGN) {
+    if (op_type == ASSIGN) {
         std::string name;
         Value * variable = lhs->codegen(true);
         Value * val = rhs->codegen();
@@ -908,7 +907,7 @@ Value *BinaryExprAST::codegen(bool wantPtr) {
         left = newLeft;
         right = newRight;
 
-        switch(opType) {
+        switch(op_type) {
             case ADD:
                 return llvmBuilder->CreateGEP(leftType->getPointerElementType(), left, right);
             case SUB:
@@ -930,7 +929,7 @@ Value *BinaryExprAST::codegen(bool wantPtr) {
             left = FPleft;
             right = FPright;
         }
-        switch(opType) {
+        switch(op_type) {
             case ADD:
                 return llvmBuilder->CreateFAdd(left, right, "fadd");
             case SUB:
@@ -960,7 +959,7 @@ Value *BinaryExprAST::codegen(bool wantPtr) {
         if(!right){
             return logErrorV((std::string("Unsupported operand between "+ getLLVMTypeStr(left->getType()) +" : " + getLLVMTypeStr(right->getType())).c_str()));
         }
-        switch(opType) {
+        switch(op_type) {
             case ADD:
                 return llvmBuilder->CreateAdd(left, right, "iadd");
             case SUB:
