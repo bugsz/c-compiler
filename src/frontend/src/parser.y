@@ -61,7 +61,7 @@ extern int yycolno;
 %type <node> PROG FN_DEF PARAM_LIST PARAM_LIST_RIGHT PARAM_DECL
 %type <node> GLOBAL_DECL DECL DECLARATOR ARRAY_DECL INIT_LIST INIT_LIST_RIGHT
 %type <node> STMT COMPOUND_STMT SELECT_STMT EXPR_STMT ITERATE_STMT JMP_STMT MIX_LIST
-%type <node> EXPR FUNC_NAME ARG_LIST ARG_LIST_RIGHT
+%type <node> EXPR FUNC_NAME ARG_LIST ARG_LIST_RIGHT FOR_EXPR
 %type <typeid> TYPE_SPEC
 
 %nonassoc OUTERELSE
@@ -290,6 +290,10 @@ EXPR_STMT :
     | EXPR ';' { $$ = $1; }
     | EXPR ',' EXPR_STMT { $$ = mknode("TO_BE_MERGED", $1, $3); }
     ;
+
+FOR_EXPR :
+    ';' { $$ = mknode("NullStmt"); }
+    | EXPR ';' { $$ = $1; }
 
 EXPR :
     EXPR '<' EXPR    { 
@@ -594,13 +598,14 @@ SELECT_STMT :
     ;
 
 ITERATE_STMT :
-    FOR '(' EXPR_STMT EXPR_STMT EXPR ')' STMT {
+    FOR '(' FOR_EXPR FOR_EXPR EXPR ')' STMT {
         ast_node_ptr delim = mknode("ForDelimiter");
         ast_node_ptr t = mknode("TO_BE_MERGED", $3, $4);
         ast_node_ptr t2 = mknode("TO_BE_MERGED", $5, delim, $7);
+        ast_node_ptr t3 = 
         $$ = mknode("ForStmt", t, t2);
     }
-    | FOR '(' EXPR_STMT EXPR_STMT ')' STMT {
+    | FOR '(' FOR_EXPR FOR_EXPR ')' STMT {
         ast_node_ptr delim = mknode("ForDelimiter");
         ast_node_ptr t = mknode("TO_BE_MERGED", $3, $4);
         ast_node_ptr nullstmt = mknode("NullStmt");
