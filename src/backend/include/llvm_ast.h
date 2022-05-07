@@ -184,7 +184,6 @@ public:
     BinaryExprAST(const std::string &op, std::unique_ptr<ExprAST> lhs,
                   std::unique_ptr<ExprAST> rhs)
             : op(op), lhs(std::move(lhs)), rhs(std::move(rhs)) {}
-
     Value *codegen(bool wantPtr = false) override;
 };
 

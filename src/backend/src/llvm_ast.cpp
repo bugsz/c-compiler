@@ -49,17 +49,17 @@ static std::map<std::string, std::unique_ptr<PrototypeAST>> functionProtos;
 inline void print(std::string a) { std::cout << a << std::endl; }
 
 int getBinaryOpType(std::string binaryOp) {
-    if(binaryOp == "+" || binaryOp =="+=") return ADD;
-    if(binaryOp == "-" || binaryOp =="-=") return SUB;
-    if(binaryOp == "*" || binaryOp =="*=") return MUL;
-    if(binaryOp == "/" || binaryOp =="/=") return DIV;
+    if(binaryOp == "+" ) return ADD;
+    if(binaryOp == "-" ) return SUB;
+    if(binaryOp == "*" ) return MUL;
+    if(binaryOp == "/") return DIV;
     if(binaryOp == "<") return LT;
     if(binaryOp == ">") return GT;
     if(binaryOp == "<=") return LE;
     if(binaryOp == ">=") return GE;    
     if(binaryOp == "==") return EQ;
     if(binaryOp == "!=") return NE;
-    if(binaryOp == "=") return ASSIGN;
+    if(binaryOp == "=" || binaryOp =="/=" || binaryOp =="*="|| binaryOp =="-="|| binaryOp =="+=") return ASSIGN;
     return ADD;
 }
 
@@ -246,6 +246,23 @@ Value *getBuiltinFunction(std::string callee, std::vector<std::unique_ptr<ExprAS
             {Type::getInt8PtrTy(mod->getContext()), Type::getInt8PtrTy(mod->getContext())},
             true
         );
+    }else if(callee == "__builtin_scanf") {
+        if(args.size() < 2){
+            logErrorV("too few arguments to function call");
+        }
+        auto formatArgs = llvmBuilder->CreateGlobalStringPtr(
+            (static_cast<LiteralExprAST *>(args[0].get()))->getValue()
+        );
+        varArgs.push_back(formatArgs);
+        for (int i = 1; i < args.size(); i++) {
+            auto arg = args[i]->codegen();
+            varArgs.push_back(arg);
+        }
+        funcType = FunctionType::get(
+            Type::getInt32Ty(mod->getContext()), 
+            {Type::getInt8PtrTy(mod->getContext())},
+            true
+        );
     }
     
     if(external_func){
@@ -362,12 +379,16 @@ std::unique_ptr<ExprAST> generateBackendASTNode(ast_node_ptr root) {
         }
 
         case BINARYOPERATOR: {
+            std::string op(val);
             auto LHS = generateBackendASTNode(root->child[0]);
             auto RHS = generateBackendASTNode(root->child[1]);
-
-            std::string op(val);
-            auto binaryExpr = std::make_unique<BinaryExprAST>(op, std::move(LHS), std::move(RHS));
-            return binaryExpr;
+            if(op.length() > 1){
+                auto left = generateBackendASTNode(root->child[0]);
+                auto right = std::make_unique<BinaryExprAST>(op.substr(0, 1), std::move(LHS), std::move(RHS));
+                return std::make_unique<BinaryExprAST>(op, std::move(left), std::move(right));
+            }else{
+                return std::make_unique<BinaryExprAST>(op, std::move(LHS), std::move(RHS));
+            }
         }
 
         case CASTEXPR: {
@@ -879,7 +900,33 @@ Value *BinaryExprAST::codegen(bool wantPtr) {
         return logErrorV("lhs / rhs is not valid");
     }
 
-    if(left->getType()->isFloatingPointTy() || right->getType()->isFloatingPointTy()) {
+    auto leftType = left->getType();
+    auto rightType = right->getType();
+
+    if (leftType->isPointerTy() && rightType->isPointerTy()) {
+        return logErrorV("Unsupported operation between pointers");
+    }
+
+    if(leftType->isPointerTy() || rightType->isPointerTy()) {
+        print("Pointer operation");
+        auto newLeft = leftType->isPointerTy() ? left : right;
+        auto newRight = leftType->isPointerTy() ? right : left;
+        left = newLeft;
+        right = newRight;
+
+        switch(opType) {
+            case ADD:
+                return llvmBuilder->CreateGEP(leftType->getPointerElementType(), left, right);
+            case SUB:
+                right = llvmBuilder->CreateNeg(right);
+                return llvmBuilder->CreateGEP(leftType->getPointerElementType(), left, right);
+            default:
+                return logErrorV("Unsupported binary operation for pointer");
+        }
+    }
+
+
+    if(leftType->isFloatingPointTy() || rightType->isFloatingPointTy()) {
         // always cast int to FP
         auto FPleft = createCast(left, Type::getDoubleTy(*llvmContext));
         auto FPright = createCast(right, Type::getDoubleTy(*llvmContext));
