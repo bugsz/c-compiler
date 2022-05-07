@@ -246,7 +246,7 @@ Value *getBuiltinFunction(std::string callee, std::vector<std::unique_ptr<ExprAS
             true
         );
     }else if(callee == "__builtin_scanf") {
-        if(args.size() < 1){
+        if(args.size() < 2){
             logErrorV("too few arguments to function call");
         }
         auto formatArgs = llvmBuilder->CreateGlobalStringPtr(
@@ -697,6 +697,17 @@ Value *ArrayExprAST::codegen() {
     return arrayPtr;
 }
 
+Value *createLoadForVarRef(Value *V) {
+    if(V->getType()->getPointerElementType()->isArrayTy()) {
+        print("Create load for array type");
+        return llvmBuilder->CreateGEP(V, {llvmBuilder->getInt64(0), llvmBuilder->getInt64(0)});
+    }
+    else {
+        print("Create load for non-array type");
+        return llvmBuilder->CreateLoad(V);
+    }
+}
+
 Value *VarRefExprAST::codegen() {
     print("VarRefExpr");
     int isGlobal = 0;
@@ -708,15 +719,18 @@ Value *VarRefExprAST::codegen() {
         if(gV->isConstant() || initializing)
             return gV->getInitializer();
         else
-            return llvmBuilder->CreateLoad(V);
+            return createLoadForVarRef(V);
+            // return llvmBuilder->CreateLoad(V);
     }
 
     std::cout << "Value of varRef: " + getLLVMTypeStr(V) << std::endl;
 
+    
+
     auto type = getVarType(*llvmContext, this->type);
     std::cout << "Type: " << getLLVMTypeStr(type) << " Type-id: " << this->type << " Name: " << this->name << std::endl;
-    auto retVal = llvmBuilder->CreateLoad(type, V, name.c_str());
-
+    // auto retVal = llvmBuilder->CreateLoad(type, V, name.c_str());
+    auto retVal = createLoadForVarRef(V);
     std::cout << "Value of load: " + getLLVMTypeStr(retVal) << std::endl;
     return retVal;
 }
@@ -957,7 +971,33 @@ Value *BinaryExprAST::codegen() {
         return logErrorV("lhs / rhs is not valid");
     }
 
-    if(left->getType()->isFloatingPointTy() || right->getType()->isFloatingPointTy()) {
+    auto leftType = left->getType();
+    auto rightType = right->getType();
+
+    if (leftType->isPointerTy() && rightType->isPointerTy()) {
+        return logErrorV("Unsupported operation between pointers");
+    }
+
+    if(leftType->isPointerTy() || rightType->isPointerTy()) {
+        print("Pointer operation");
+        auto newLeft = leftType->isPointerTy() ? left : right;
+        auto newRight = leftType->isPointerTy() ? right : left;
+        left = newLeft;
+        right = newRight;
+
+        switch(opType) {
+            case ADD:
+                return llvmBuilder->CreateGEP(left, right);
+            case SUB:
+                right = llvmBuilder->CreateNeg(right);
+                return llvmBuilder->CreateGEP(left, right);
+            default:
+                return logErrorV("Unsupported binary operation for pointer");
+        }
+    }
+
+
+    if(leftType->isFloatingPointTy() || rightType->isFloatingPointTy()) {
         // always cast int to FP
         auto FPleft = createCast(left, Type::getDoubleTy(*llvmContext));
         auto FPright = createCast(right, Type::getDoubleTy(*llvmContext));
