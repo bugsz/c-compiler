@@ -755,10 +755,11 @@ Value *ArrayExprAST::codegen(bool wantPtr) {
     if(init.size() == 1) initSize = size;
     if(init.size() > 1) initSize = init.size();
 
+    auto zeroInit = llvmBuilder->getInt64(0);
     for (int i=0; i < initSize; i++) {
         auto defaultValue = (init.size() == 1) ? init[0]->codegen() : init[i]->codegen();
         auto index = llvmBuilder->getInt64(i);
-        auto arrayElem = llvmBuilder->CreateGEP(arrayPtr, index);
+        auto arrayElem = llvmBuilder->CreateGEP(arrayPtr, {zeroInit, index});
         llvmBuilder->CreateStore(defaultValue, arrayElem);
     }
     
