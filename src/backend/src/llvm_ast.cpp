@@ -21,6 +21,12 @@
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetOptions.h"
 
+#include "llvm/Transforms/InstCombine/InstCombine.h"
+#include "llvm/Transforms/Scalar.h"
+#include "llvm/Transforms/Scalar/GVN.h"
+#include "llvm/Transforms/Utils.h"
+#include "llvm/Transforms/Utils/PromoteMemToReg.h"
+
 
 #include "llvm_ast.h"
 // #include "type_utils.h"
@@ -44,7 +50,13 @@ static Value* retPtr;
 static BasicBlock* retBlock;
 static std::stack<std::map<std::string, AllocaInst *>> NamedValues;
 static std::unique_ptr<IRBuilder<>> llvmBuilder;
+static std::unique_ptr<legacy::FunctionPassManager> llvmFPM;
 static std::map<std::string, std::unique_ptr<PrototypeAST>> functionProtos;
+
+// static BasicBlock *BlockForBreak;
+// static BasicBlock *BlockForContinue;
+static std::stack<BasicBlock *> BlockForBreak;
+static std::stack<BasicBlock *> BlockForContinue;
 
 inline void print(std::string a) { std::cout << a << std::endl; }
 
@@ -59,8 +71,10 @@ int getBinaryOpType(std::string binaryOp) {
     if(binaryOp == ">=") return GE;    
     if(binaryOp == "==") return EQ;
     if(binaryOp == "!=") return NE;
-    if(binaryOp == "=" || binaryOp =="/=" || binaryOp =="*="|| binaryOp =="-="|| binaryOp =="+=") return ASSIGN;
-    return ADD;
+    if(binaryOp == "=" ) return ASSIGN;
+    if(binaryOp =="/=" || binaryOp =="*="|| binaryOp =="-="|| binaryOp =="+=") return ASSIGNPLUS;
+    fprintf(stderr, "Unsupported binary operation: %s\n", binaryOp.c_str());
+    exit(-1);
 }
 
 int getUnaryOpType(std::string unaryOp) {
@@ -92,6 +106,8 @@ ASTNodeType getNodeType(std::string token) {
     if(token == "UnaryOperator") return UNARYOPERATOR;
     if(token == "ArrayDecl") return ARRAYDECL;
     if(token == "ArraySubscriptExpr") return ARRAYSUBSCRIPTEXPR;
+    if(token == "BreakStmt") return BREAKSTMT;
+    if(token == "ContinueStmt") return CONTINUESTMT;
     return UNKNOWN;
 }
 
@@ -170,6 +186,16 @@ void print_node(ast_node_ptr node) {
 
 bool isValidBinaryOperand(Value *value) {
     return (value->getType()->isFloatingPointTy() || value->getType()->isIntegerTy());
+}
+
+void popBlockForControl() {
+    BlockForBreak.pop();
+    BlockForContinue.pop();
+}
+
+void resetBlockForControl() {
+    BlockForBreak.empty();
+    BlockForContinue.empty();
 }
 
 int ptr2raw(int ptr) {
@@ -379,15 +405,21 @@ std::unique_ptr<ExprAST> generateBackendASTNode(ast_node_ptr root) {
         }
 
         case BINARYOPERATOR: {
-            std::string op(val);
+            int op_type = getBinaryOpType(std::string(val));
+            if( strcmp(root->child[0]->token, "UnaryOperator") == 0 && strcmp(root->child[0]->val, "&") == 0
+                && (op_type == ASSIGN || op_type == ASSIGNPLUS)
+            ){
+                fprintf(stderr, "lvalue can not be a reference\n");
+                exit(-1);
+            }
             auto LHS = generateBackendASTNode(root->child[0]);
             auto RHS = generateBackendASTNode(root->child[1]);
-            if(op.length() > 1){
+            if(op_type == ASSIGNPLUS){
                 auto left = generateBackendASTNode(root->child[0]);
-                auto right = std::make_unique<BinaryExprAST>(op.substr(0, 1), std::move(LHS), std::move(RHS));
-                return std::make_unique<BinaryExprAST>(op, std::move(left), std::move(right));
+                auto right = std::make_unique<BinaryExprAST>(getBinaryOpType(std::string(1, val[0])), std::move(LHS), std::move(RHS));
+                return std::make_unique<BinaryExprAST>(ASSIGN, std::move(left), std::move(right));
             }else{
-                return std::make_unique<BinaryExprAST>(op, std::move(LHS), std::move(RHS));
+                return std::make_unique<BinaryExprAST>(op_type, std::move(LHS), std::move(RHS));
             }
         }
 
@@ -424,6 +456,14 @@ std::unique_ptr<ExprAST> generateBackendASTNode(ast_node_ptr root) {
             auto body = generateBackendASTNode(root->child[4]);
             auto forStmt = std::make_unique<ForExprAST>(std::move(start), std::move(end), std::move(step), std::move(body));
             return forStmt;
+        }
+
+        case BREAKSTMT: {
+            return std::make_unique<BreakExprAST>();
+        }
+
+        case CONTINUESTMT: {
+            return std::make_unique<ContinueExprAST>();
         }
 
         case RETURNSTMT: {
@@ -481,6 +521,15 @@ static void initializeModule() {
     llvmContext = std::make_unique<LLVMContext>();
     llvmModule = std::make_unique<Module>("JIT", *llvmContext);
     llvmBuilder = std::make_unique<IRBuilder<>>(*llvmContext);
+    llvmFPM = std::make_unique<legacy::FunctionPassManager>(llvmModule.get());
+    llvmFPM->add(createInstructionCombiningPass());
+    llvmFPM->add(createReassociatePass());
+    llvmFPM->add(createGVNPass());
+    llvmFPM->add(createCFGSimplificationPass());
+    llvmFPM->add(llvm::createPromoteMemoryToRegisterPass());
+    llvmFPM->add(llvm::createInstructionCombiningPass());
+    llvmFPM->add(llvm::createReassociatePass());
+    llvmFPM->doInitialization();
 }
 
 static void initializeBuiltinFunction() {
@@ -822,6 +871,7 @@ Value *LiteralExprAST::codegen(bool wantPtr) {
 Value *UnaryExprAST::codegen(bool wantPtr) {
     int opType = getUnaryOpType(op);
     print("Unary op: " + op);
+    auto varType = getVarType(type);
     Value *right;    
 
     switch (opType) {
@@ -844,7 +894,18 @@ Value *UnaryExprAST::codegen(bool wantPtr) {
 
         case DEREF: {
             Value *right = rhs->codegen(wantPtr);
-            auto V = llvmBuilder->CreateLoad(right->getType()->getPointerElementType(), right);
+            if (!right) return logErrorV("Unable to do dereferring");
+            if(wantPtr && right->getType()->getPointerElementType() == varType){
+                /* 
+                    this indicates right is already a ptr to char, int, double, etc...
+                    use to handle the special case that *(ptr + offset) as left part
+                    of an assign statement, in this case, we know that since
+                    ptr + offset don't actually refer to a variable in context, it is
+                    meaningless to create load from it.
+                */
+                return right;
+            }
+            auto V = llvmBuilder->CreateLoad(wantPtr ? varType->getPointerTo() : varType, right);
             if (!V) return logErrorV("Unable to do dereferring");
             return V;
         }
@@ -864,10 +925,8 @@ Value *UnaryExprAST::codegen(bool wantPtr) {
 }
 
 Value *BinaryExprAST::codegen(bool wantPtr) {
-    print("Binary op: " + op);
-    int opType = getBinaryOpType(op);
 
-    if (opType == ASSIGN) {
+    if (op_type == ASSIGN) {
         std::string name;
         Value * variable = lhs->codegen(true);
         Value * val = rhs->codegen();
@@ -908,7 +967,7 @@ Value *BinaryExprAST::codegen(bool wantPtr) {
         left = newLeft;
         right = newRight;
 
-        switch(opType) {
+        switch(op_type) {
             case ADD:
                 return llvmBuilder->CreateGEP(leftType->getPointerElementType(), left, right);
             case SUB:
@@ -930,7 +989,7 @@ Value *BinaryExprAST::codegen(bool wantPtr) {
             left = FPleft;
             right = FPright;
         }
-        switch(opType) {
+        switch(op_type) {
             case ADD:
                 return llvmBuilder->CreateFAdd(left, right, "fadd");
             case SUB:
@@ -960,7 +1019,7 @@ Value *BinaryExprAST::codegen(bool wantPtr) {
         if(!right){
             return logErrorV((std::string("Unsupported operand between "+ getLLVMTypeStr(left->getType()) +" : " + getLLVMTypeStr(right->getType())).c_str()));
         }
-        switch(opType) {
+        switch(op_type) {
             case ADD:
                 return llvmBuilder->CreateAdd(left, right, "iadd");
             case SUB:
@@ -1024,7 +1083,7 @@ Function *FunctionDeclAST::codegen(bool wantPtr) {
         retPtr = CreateEntryBlockAllocaWithTypeSize("ret_val", retType);
         llvmBuilder->CreateStore(getInitVal(retType), retPtr);
     }
-
+    resetBlockForControl();
     NamedValues.empty();
     std::map<std::string, AllocaInst *> local_vals;
     NamedValues.push(local_vals);
@@ -1065,6 +1124,8 @@ Function *FunctionDeclAST::codegen(bool wantPtr) {
         }
     }
     verifyFunction(*currFunction, &errs());
+    resetBlockForControl();
+    llvmFPM->run(*currFunction);
     return currFunction;
 }
 
@@ -1110,18 +1171,24 @@ Value *ForExprAST::codegen(bool wantPtr) {
     Value *startVal = start->codegen();
     if (!startVal) return nullptr;
     auto valType = startVal->getType();
-    AllocaInst *alloca = CreateEntryBlockAllocaWithTypeSize(varName.c_str(), valType); 
-    llvmBuilder->CreateStore(startVal, alloca);
 
-    // BasicBlock *headerBlock = llvmBuilder->GetInsertBlock();
+    auto alloca = getVariable(varName);
+
+    if (!alloca) {
+        return logErrorV("Unknown variable referenced in for loop");
+    }
+    
+
     BasicBlock *loopBlock = BasicBlock::Create(*llvmContext, "for_loop", currFunction);
-    BasicBlock *afterBlock = BasicBlock::Create(*llvmContext, "after_for_loop", currFunction);
     BasicBlock *bodyBlock = BasicBlock::Create(*llvmContext, "for_body", currFunction);
+    BasicBlock *stepBlock = BasicBlock::Create(*llvmContext, "for_step", currFunction);
+    BasicBlock *afterBlock = BasicBlock::Create(*llvmContext, "after_for_loop", currFunction);
+
+    BlockForBreak.push(afterBlock);
+    BlockForContinue.push(stepBlock);
 
     llvmBuilder->CreateBr(loopBlock);
     llvmBuilder->SetInsertPoint(loopBlock);
-
-    NamedValues.top()[varName] = alloca;
 
     Value *endVal = end->codegen();
     if (!endVal) return nullptr;
@@ -1136,7 +1203,8 @@ Value *ForExprAST::codegen(bool wantPtr) {
     llvmBuilder->SetInsertPoint(bodyBlock);
     if (!body->codegen()) return nullptr;
     
-
+    llvmBuilder->CreateBr(stepBlock);
+    llvmBuilder->SetInsertPoint(stepBlock);
     Value *stepVar = step->codegen();
     if (!stepVar) return nullptr;
 
@@ -1150,9 +1218,8 @@ Value *ForExprAST::codegen(bool wantPtr) {
 
     Value *nextVar = llvmBuilder->CreateLoad(valType, alloca, varName.c_str());
     llvmBuilder->CreateBr(loopBlock);
-   
     llvmBuilder->SetInsertPoint(afterBlock);
-
+    popBlockForControl();
     return Constant::getNullValue(valType);
 }
 
@@ -1238,8 +1305,10 @@ Value *WhileExprAST::codegen(bool wantPtr) {
     BasicBlock *loopBlock = BasicBlock::Create(*llvmContext, "while_loop_body", currFunction);
     BasicBlock *endBlock = BasicBlock::Create(*llvmContext, "while_loop_end", currFunction);
 
-    llvmBuilder->CreateBr(entryBlock);
+    BlockForBreak.push(endBlock);
+    BlockForContinue.push(loopBlock);
 
+    llvmBuilder->CreateBr(entryBlock);
     llvmBuilder->SetInsertPoint(entryBlock);
     Value *endVal;
 
@@ -1266,7 +1335,7 @@ Value *WhileExprAST::codegen(bool wantPtr) {
     llvmBuilder->CreateBr(entryBlock);
     llvmBuilder->SetInsertPoint(endBlock);
 
-    // TODO 应该返回什么值
+    popBlockForControl();
     return Constant::getNullValue(condType);
 }
 
@@ -1278,6 +1347,9 @@ Value *DoExprAST::codegen(bool wantPtr) {
     // BasicBlock *entryBlock = BasicBlock::Create(*llvmContext, "entry", currFunction);
     BasicBlock *loopBlock = BasicBlock::Create(*llvmContext, "do_while_loop_body", currFunction);
     BasicBlock *endBlock = BasicBlock::Create(*llvmContext, "do_while_loop_end", currFunction);
+
+    BlockForBreak.push(endBlock);
+    BlockForContinue.push(loopBlock);
 
     llvmBuilder->CreateBr(loopBlock);
     llvmBuilder->SetInsertPoint(loopBlock);
@@ -1305,9 +1377,24 @@ Value *DoExprAST::codegen(bool wantPtr) {
     llvmBuilder->CreateCondBr(endVal, loopBlock, endBlock);
     llvmBuilder->SetInsertPoint(endBlock);
 
-
-    // TODO 应该返回什么值
+    popBlockForControl();
     return Constant::getNullValue(Type::getDoubleTy(*llvmContext));
+}
+
+Value *BreakExprAST::codegen(bool wantPtr) {
+    print("Generate for break expr");
+    if(BlockForBreak.empty()){
+        return logErrorV("Break statement not in loop");
+    }
+    return llvmBuilder->CreateBr(BlockForBreak.top());
+}
+
+Value *ContinueExprAST::codegen(bool wantPtr) {
+    print("Generate for continue expr");
+    if(BlockForContinue.empty()){
+        return logErrorV("Continue statement not in loop");
+    }
+    return llvmBuilder->CreateBr(BlockForContinue.top());
 }
 
 Value * NullStmtAST::codegen(bool wantPtr){

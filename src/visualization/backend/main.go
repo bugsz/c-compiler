@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"errors"
 	"net/http"
 	"os"
 	"os/exec"
@@ -9,22 +10,41 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/gofrs/uuid"
 )
 
-type Buffer struct {
+type LimitedBuffer struct {
+	b              bytes.Buffer
+	maxSize        int
+	bufferTooLarge chan struct{}
+}
+
+func (buf *LimitedBuffer) Read(p []byte) (n int, err error) {
+	return buf.b.Read(p)
+}
+func (buf *LimitedBuffer) Write(p []byte) (n int, err error) {
+	defer func() {
+		if buf.b.Len() > buf.maxSize {
+			buf.bufferTooLarge <- struct{}{}
+		}
+	}()
+	return buf.b.Write(p)
+}
+
+type ThreadSafeBuffer struct {
 	b  bytes.Buffer
 	rw sync.RWMutex
 }
 
-func (b *Buffer) Read(p []byte) (n int, err error) {
-	b.rw.RLock()
-	defer b.rw.RUnlock()
-	return b.b.Read(p)
+func (buf *ThreadSafeBuffer) Read(p []byte) (n int, err error) {
+	buf.rw.RLock()
+	defer buf.rw.RUnlock()
+	return buf.b.Read(p)
 }
-func (b *Buffer) Write(p []byte) (n int, err error) {
-	b.rw.Lock()
-	defer b.rw.Unlock()
-	return b.b.Write(p)
+func (buf *ThreadSafeBuffer) Write(p []byte) (n int, err error) {
+	buf.rw.Lock()
+	defer buf.rw.Unlock()
+	return buf.b.Write(p)
 }
 
 type RunCodeRequest struct {
@@ -85,34 +105,63 @@ func main() {
 	r.POST("/GetRunningResult", func(c *gin.Context) {
 		var req RunCodeRequest
 		c.BindJSON(&req)
-		buffer := new(Buffer)
+		buffer := new(ThreadSafeBuffer)
 		genIR := exec.Command("./llvm_wrapper", "-stdin")
 		genIR.Stdin = bytes.NewReader([]byte(req.Code))
 		genIR.Stderr = buffer
-		llvmJIT := exec.Command("lli")
-		llvmJIT.Stdin, _ = genIR.StdoutPipe()
-		llvmJIT.Stderr = buffer
+		filename := uuid.Must(uuid.NewV4()).String()
+		llvmAs := exec.Command("llvm-as", "-o", filename)
+		llvmAs.Stdin, _ = genIR.StdoutPipe()
+		llvmAs.Stderr = buffer
 		genIR.Start()
-		bytes, err := llvmJIT.Output()
+		_, err := llvmAs.Output()
 
 		if err != nil {
-			stdout := append([]byte("stdout:\n"), bytes...)
+			generr := []byte("Fail to generate execuable file\n")
+			stderr := append([]byte("\nstderr:\n"), buffer.b.Bytes()...)
+			errMsg := append(append(generr, stderr...), err.Error()...)
+			c.Data(400, "plaintext", errMsg)
+			return
+		}
+		workDone := make(chan struct{}, 1)
+		bufferTooLarge := make(chan struct{}, 1)
+		stdout := &LimitedBuffer{maxSize: 1000, bufferTooLarge: bufferTooLarge}
+		llvmJIT := exec.Command("lli", filename)
+		llvmJIT.Stdin = bytes.NewReader([]byte(req.Input))
+		llvmJIT.Stdout = stdout
+		llvmJIT.Stderr = buffer
+		go func() {
+			err = llvmJIT.Run()
+			workDone <- struct{}{}
+		}()
+		select {
+		case <-time.After(5 * time.Second):
+			err = errors.New("error: Time Limit Exceeded")
+			llvmJIT.Process.Kill()
+		case <-bufferTooLarge:
+			err = errors.New("error: Output Limit Exceeded")
+			llvmJIT.Process.Kill()
+		case <-workDone:
+		}
+		os.Remove(filename)
+		if err != nil {
+			stdout := append([]byte("stdout:\n"), stdout.b.Bytes()...)
 			stderr := append([]byte("\nstderr:\n"), buffer.b.Bytes()...)
 			errMsg := append(append(stdout, stderr...), err.Error()...)
 			c.Data(400, "plaintext", errMsg)
 			return
 		}
-		c.Data(200, "plaintext", bytes)
+		c.Data(200, "plaintext", stdout.b.Bytes())
 	})
 
 	r.POST("/GetIR", func(c *gin.Context) {
-		buffer := new(Buffer)
+		buffer := new(bytes.Buffer)
 		genIR := exec.Command("./llvm_wrapper", "-stdin")
 		genIR.Stdin = c.Request.Body
 		genIR.Stderr = buffer
 		bytes, err := genIR.Output()
 		if err != nil {
-			c.Data(400, "plaintext", buffer.b.Bytes())
+			c.Data(400, "plaintext", buffer.Bytes())
 			return
 		}
 		c.Data(200, "plaintext", bytes)

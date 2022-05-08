@@ -51,6 +51,8 @@ enum ASTNodeType {
     DOSTMT,
     CASTEXPR,
     ARRAYSUBSCRIPTEXPR,
+    BREAKSTMT,
+    CONTINUESTMT,
     UNKNOWN
 };
 
@@ -177,13 +179,13 @@ public:
 
 /// BinaryExprAST - Expression class for a binary operator.
 class BinaryExprAST : public ExprAST {
-    std::string op;
+    int op_type;
     
 public:
     std::unique_ptr<ExprAST> lhs, rhs;
-    BinaryExprAST(const std::string &op, std::unique_ptr<ExprAST> lhs,
+    BinaryExprAST(int op_type, std::unique_ptr<ExprAST> lhs,
                   std::unique_ptr<ExprAST> rhs)
-            : op(op), lhs(std::move(lhs)), rhs(std::move(rhs)) {}
+            : op_type(op_type), lhs(std::move(lhs)), rhs(std::move(rhs)) {}
     Value *codegen(bool wantPtr = false) override;
 };
 
@@ -223,6 +225,19 @@ public :
         return lhs->getName();
     }
 };
+
+class BreakExprAST : public ExprAST {
+public:
+    BreakExprAST() {}
+    Value *codegen(bool wantPtr = false) override;
+};
+
+class ContinueExprAST : public ExprAST {
+public:
+    ContinueExprAST() {}
+    Value *codegen(bool wantPtr = false) override;
+};
+
 
 
 class PrototypeAST : public ExprAST {
@@ -324,4 +339,5 @@ enum BinaryOpType {
     GE,
     NE,
     ASSIGN,
+    ASSIGNPLUS
 };
