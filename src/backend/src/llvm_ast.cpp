@@ -655,12 +655,6 @@ Value *VarExprAST::codegen(bool wantPtr) {
 }
 
 Value *ArrayExprAST::codegen(bool wantPtr) {
-    auto val = getVariable(name);
-    if (val) {
-        std::string errorMsg = "Variable " + name + " is already defined";
-        return logErrorV(errorMsg.c_str());
-    }
-
     auto varType = getVarType(this->getType());
     auto arrayType = ArrayType::get(varType, size);
     auto arrayPtr = llvmBuilder->CreateAlloca(arrayType, nullptr, name);
