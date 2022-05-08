@@ -121,12 +121,13 @@ static void insert_node_idx(ast_node_ptr node, ast_node_ptr new_node, int idx) {
     ast_node_ptr* new_child = malloc(sizeof(ast_node_ptr) * (node->n_child + 1));
     for (int i = 0; i < idx; i++) {
         new_child[i] = node->child[i];
+        new_child[i]->parent = node;
     }
     new_child[idx] = new_node;
     for (int i = idx; i < node->n_child; i++) {
         new_child[i + 1] = node->child[i];
+        new_child[i + 1]->parent = node;
     }
-    free(node->child);
     node->child = new_child;
     node->n_child++;
 }
@@ -167,6 +168,7 @@ static void reverse_array(ast_node_ptr* array, int n) {
 }
 
 void postproc_after_parse(ast_node_ptr root) {
+    merge_node_from_root(root);
     merge_node_from_root(root);
     reverse_array(root->child, root->n_child);
 }

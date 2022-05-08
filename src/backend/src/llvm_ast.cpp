@@ -52,8 +52,6 @@ static std::stack<std::map<std::string, AllocaInst *>> NamedValues;
 static std::unique_ptr<IRBuilder<>> llvmBuilder;
 static std::unique_ptr<legacy::FunctionPassManager> llvmFPM;
 
-// static BasicBlock *BlockForBreak;
-// static BasicBlock *BlockForContinue;
 static std::stack<BasicBlock *> BlockForBreak;
 static std::stack<BasicBlock *> BlockForContinue;
 
@@ -230,16 +228,16 @@ Function *getFunction(std::string name) {
     return nullptr;
 }
 
-Value *getBuiltinFunction(std::string callee, std::vector<std::unique_ptr<ExprAST>> &args) {
-    std::vector<Value *> varArgs;
-    std::string func_name = callee.substr(strlen("__builtin_"), callee.length());
-    auto func = getFunction(func_name);
-    if(!func){
-        fprintf(stderr, "error: use of unknown builtin '%s'\n", callee.c_str());
-        exit(-1);
-    }
-    return llvmBuilder->CreateCall(func, varArgs);
-}
+// Value *getBuiltinFunction(std::string callee, std::vector<std::unique_ptr<ExprAST>> &args) {
+//     std::vector<Value *> varArgs;
+//     std::string func_name = callee.substr(strlen("__builtin_"), callee.length());
+//     auto func = getFunction(func_name);
+//     if(!func){
+//         fprintf(stderr, "error: use of unknown builtin '%s'\n", callee.c_str());
+//         exit(-1);
+//     }
+//     return llvmBuilder->CreateCall(func, varArgs);
+// }
 
 std::unique_ptr<ExprAST> generateBackendASTNode(ast_node_ptr root) {
     if (!root) return nullptr;
@@ -787,7 +785,8 @@ Value *LiteralExprAST::codegen(bool wantPtr) {
             auto stringType = ArrayType::get(charType, chars.size());
 
             //3. Create the declaration statement
-            auto globalDeclaration = (GlobalVariable*) llvmModule->getOrInsertGlobal(".str", stringType);
+            
+            auto globalDeclaration = (GlobalVariable*) llvmModule->getOrInsertGlobal(std::to_string(llvmModule->getGlobalList().size())+".str", stringType);
             globalDeclaration->setInitializer(ConstantArray::get(stringType, chars));
             globalDeclaration->setConstant(true);
             globalDeclaration->setLinkage(GlobalValue::LinkageTypes::PrivateLinkage);
@@ -796,7 +795,6 @@ Value *LiteralExprAST::codegen(bool wantPtr) {
             //4. Return a cast to an i8*
             return ConstantExpr::getBitCast(globalDeclaration, charType->getPointerTo());
        }
-
         default:
             return logErrorV("Invalid type!");
     }
@@ -1142,13 +1140,87 @@ Value *ForExprAST::codegen(bool wantPtr) {
     return llvmBuilder->getTrue();
 }
 
+Value *getBuiltinFunction(std::string callee, std::vector<std::unique_ptr<ExprAST>> &args) {
+    if(llvmModule->getFunction(callee)){
+        print("Builtin function over written by user!");
+        return nullptr;
+    }
+    Module* mod = llvmModule.get();
+    std::vector<Value *> varArgs;
+    FunctionType *funcType;
+    std::string func_name = callee.substr(strlen("__builtin_"), callee.length());
+    print("Real name of " + callee + " is " + func_name);
+    auto external_func = llvmModule->getFunction(func_name);
+    if(callee == "__builtin_printf"){
+        if(args.size() < 1){
+            logErrorV("too few arguments to function call");
+        }
+        auto formatArgs = llvmBuilder->CreateGlobalStringPtr(
+            (static_cast<LiteralExprAST *>(args[0].get()))->getValue()
+        );
+        varArgs.push_back(formatArgs);
+        for (int i = 1; i < args.size(); i++) {
+            auto arg = args[i]->codegen();
+            varArgs.push_back(arg);
+        }
+        funcType = FunctionType::get(
+            Type::getInt32Ty(mod->getContext()), 
+            {Type::getInt8PtrTy(mod->getContext())},
+            true
+        );
+    }else if(callee == "__builtin_sprintf"){
+        if(args.size() < 2){
+            logErrorV("too few arguments to function call");
+            exit(1);
+        }
+        varArgs.push_back(args[0]->codegen());
+        auto formatArgs = llvmBuilder->CreateGlobalStringPtr(
+            (static_cast<LiteralExprAST *>(args[1].get()))->getValue()
+        );
+        varArgs.push_back(formatArgs);
+        for (int i=2; i < args.size(); i++) {
+            auto arg = args[i]->codegen();
+            varArgs.push_back(arg);
+        }
+        funcType = FunctionType::get(
+            Type::getInt32Ty(mod->getContext()), 
+            {Type::getInt8PtrTy(mod->getContext()), Type::getInt8PtrTy(mod->getContext())},
+            true
+        );
+    }else if(callee == "__builtin_scanf") {
+        if(args.size() < 2){
+            logErrorV("too few arguments to function call");
+        }
+        auto formatArgs = llvmBuilder->CreateGlobalStringPtr(
+            (static_cast<LiteralExprAST *>(args[0].get()))->getValue()
+        );
+        varArgs.push_back(formatArgs);
+        for (int i = 1; i < args.size(); i++) {
+            auto arg = args[i]->codegen();
+            varArgs.push_back(arg);
+        }
+        funcType = FunctionType::get(
+            Type::getInt32Ty(mod->getContext()), 
+            {Type::getInt8PtrTy(mod->getContext())},
+            true
+        );
+    }
+    
+    if(external_func){
+        return llvmBuilder->CreateCall(external_func, varArgs);
+    }
+    auto func = Function::Create(funcType, Function::ExternalLinkage, func_name, mod);
+    func->setCallingConv(CallingConv::C);
+    return llvmBuilder->CreateCall(func, varArgs);
+}
+
 Value *CallExprAST::codegen(bool wantPtr) {
     std::cout << "Call to: " + callee << std::endl;
     // 如果是builtin function
-    // if(callee.find("__builtin_") == 0){
-    //     auto builtin_ret = getBuiltinFunction(callee, args);
-    //     if(builtin_ret) return builtin_ret;
-    // }
+    if(callee.find("__builtin_") == 0){
+        auto builtin_ret = getBuiltinFunction(callee, args);
+        if(builtin_ret) return builtin_ret;
+    }
 
     Function *calleeFunction = llvmModule->getFunction(callee);
     if (!calleeFunction) return logErrorV("Unknown function");
