@@ -21,6 +21,7 @@
 #include "tinyexpr.h"
 
 void yyerror(int*, struct ast_node_impl*, char* s, char* tmp_file);
+void transfer_type(struct ast_node_impl* node, int type_id);
 extern int yylex();
 
 extern char* yytext;
@@ -51,7 +52,7 @@ extern int yycolno;
 %token <typeid> CHAR SHORT INT LONG FLOAT DOUBLE VOID STRING
 %token <typeid> VOID_PTR CHAR_PTR SHORT_PTR INT_PTR LONG_PTR FLOAT_PTR DOUBLE_PTR
 %token <str> CONSTANT
-%token LE GE EQ NE LAND LOR SHL SHR
+%token LE GE EQ NE LAND LOR SHL SHR INC DEC
 %token ADD_ASSIGN SUB_ASSIGN MUL_ASSIGN DIV_ASSIGN MOD_ASSIGN AND_ASSIGN XOR_ASSIGN OR_ASSIGN SHL_ASSIGN SHR_ASSIGN
 %token IF ELSE
 %token DO FOR WHILE 
@@ -59,9 +60,9 @@ extern int yycolno;
 %token TYPEDEF SIZEOF BUILTIN_ITOA BUILTIN_STRCAT BUILTIN_STRLEN BUILTIN_STRGET BUILTIN_EVAL
 
 %type <node> PROG FN_DEF PARAM_LIST PARAM_LIST_RIGHT PARAM_DECL
-%type <node> GLOBAL_DECL DECL DECLARATOR ARRAY_DECL INIT_LIST INIT_LIST_RIGHT
+%type <node> GLOBAL_DECL DECL_LIST DECL_LIST_RIGHT DECL DECL_DECLARATOR ARRAY_DECL INIT_LIST INIT_LIST_RIGHT
 %type <node> STMT COMPOUND_STMT SELECT_STMT EXPR_STMT ITERATE_STMT JMP_STMT MIX_LIST
-%type <node> EXPR FUNC_NAME ARG_LIST ARG_LIST_RIGHT FOR_EXPR
+%type <node> EXPR ARG_LIST ARG_LIST_RIGHT FOR_EXPR
 %type <typeid> TYPE_SPEC
 
 %nonassoc OUTERELSE
@@ -79,13 +80,14 @@ extern int yycolno;
 %left SHL SHR
 %left '+' '-'
 %left '*' '/' '%'
-%right '!' '~' SIZEOF
+%right '!' '~' SIZEOF INC DEC
 %left '(' ')' '[' ']'
 
 %% 
 TRANSLATION_UNIT : PROG { 
     postproc_after_parse(root);
 }
+;
 
 PROG : 
     GLOBAL_DECL { 
@@ -106,6 +108,7 @@ TYPE_ALIAS :
     TYPEDEF TYPE_SPEC IDENTIFIER ';' {
         add_type_alias($3, $2);
     }
+    ;
 
 FN_DEF :
     TYPE_SPEC IDENTIFIER '(' PARAM_LIST ')' COMPOUND_STMT {
@@ -168,23 +171,41 @@ PARAM_DECL :
     }
     ;
 
-DECL :
-    TYPE_SPEC IDENTIFIER DECLARATOR ';' { 
-        $$ = mknode("VarDecl", $3);
-        $$->type_id = $1;
-        $$->pos = @2;
-        strcpy($$->val, $2);
+DECL_LIST :
+    DECL_DECLARATOR DECL_LIST_RIGHT {
+        $$ = mknode("TO_BE_MERGED", $1, $2);
     }
-    | TYPE_SPEC IDENTIFIER ARRAY_DECL ';' { 
-        if($1 >= TYPEID_VOID_PTR)
-            yyerror(n_errs, root, tmp_file, "multi-dimensional pointer is not supported");
-        ast_node_ptr arr_decl = $3, temp;
-        $3->type_id = $1;
-        $3->pos = @2;
+    | DECL_DECLARATOR
+    ;
+
+DECL_LIST_RIGHT :
+    ',' DECL_DECLARATOR DECL_LIST_RIGHT {
+        $$ = mknode("TO_BE_MERGED", $2, $3);
+    }
+    | ',' DECL_DECLARATOR { $$ = $2; }
+    ;
+
+DECL_DECLARATOR :
+    IDENTIFIER {
+        $$ = mknode("VarDecl");
+        strcpy($$->val, $1);
+        $$->pos = @1;
+    }
+    | IDENTIFIER '=' EXPR {
+        $$ = mknode("VarDecl", $3);
+        strcpy($$->val, $1);
+        $$->pos = @1;
+    }
+    | IDENTIFIER ARRAY_DECL {
+        // if($1 >= TYPEID_VOID_PTR)
+        //     yyerror(n_errs, root, tmp_file, "multi-dimensional pointer is not supported");
+        ast_node_ptr arr_decl = $2, temp;
+        // $3->type_id = $1;
+        $2->pos = @2;
         temp = mknode("VarDecl");
-        temp->type_id = $1  + TYPEID_VOID_PTR - TYPEID_VOID;
-        temp->pos = @2;
-        strcpy(temp->val, $2);
+        // temp->type_id = $1  + TYPEID_VOID_PTR - TYPEID_VOID;
+        temp->pos = @1;
+        strcpy(temp->val, $1);
         append_child(arr_decl, temp);
         assert(arr_decl->n_child == 2 || arr_decl->n_child == 1);
         if(arr_decl->n_child == 2) {
@@ -196,9 +217,9 @@ DECL :
     }
     ;
 
-DECLARATOR :
-        { $$ = NULL; }
-    | '=' EXPR { 
+DECL :
+    TYPE_SPEC DECL_LIST ';' {
+        transfer_type($2, $1);
         $$ = $2;
     }
     ;
@@ -279,7 +300,9 @@ COMPOUND_STMT :
     ;
 
 MIX_LIST :
-    DECL MIX_LIST {$$ = mknode("TO_BE_MERGED", $1, $2);}
+    DECL MIX_LIST {
+        $$ = mknode("TO_BE_MERGED", $1, $2);
+    }
     | STMT MIX_LIST {$$ = mknode("TO_BE_MERGED", $1, $2);}
     | STMT {$$ = $1;}
     | DECL {$$ = $1;}
@@ -442,6 +465,42 @@ EXPR :
         strcpy($$->val, "&&");
         $$->pos = @2;
     }
+    | EXPR INC {
+        ast_node_ptr l1 = mknode("Literal");
+        l1->type_id = TYPEID_INT;
+        strcpy(l1->val, "1");
+        l1->pos = @2;
+        $$ = mknode("BinaryOperator", $1, l1);
+        strcpy($$->val, "+=");
+        $$->pos = @2;
+    }
+    | EXPR DEC {
+        ast_node_ptr l1 = mknode("Literal");
+        l1->type_id = TYPEID_INT;
+        strcpy(l1->val, "1");
+        l1->pos = @2;
+        $$ = mknode("BinaryOperator", $1, l1);
+        strcpy($$->val, "-=");
+        $$->pos = @2;
+    }
+    | INC EXPR {
+        ast_node_ptr l1 = mknode("Literal");
+        l1->type_id = TYPEID_INT;
+        strcpy(l1->val, "1");
+        l1->pos = @1;
+        $$ = mknode("BinaryOperator", $2, l1);
+        strcpy($$->val, "+=");
+        $$->pos = @1;
+    }
+    | DEC EXPR {
+        ast_node_ptr l1 = mknode("Literal");
+        l1->type_id = TYPEID_INT;
+        strcpy(l1->val, "1");
+        l1->pos = @1;
+        $$ = mknode("BinaryOperator", $2, l1);
+        strcpy($$->val, "-=");
+        $$->pos = @1;
+    }
     | '-' EXPR %prec '!'    { 
         $$ = mknode("UnaryOperator", $2);
         strcpy($$->val, "-");   
@@ -479,7 +538,7 @@ EXPR :
         $$ = mknode("ArraySubscriptExpr", temp, $3);
         $$->pos = @1;
     }
-    | FUNC_NAME '(' ARG_LIST ')' { 
+    | IDENTIFIER '(' ARG_LIST ')' { 
         $$ = mknode("CallExpr", $1, $3); 
     }
     | IDENTIFIER     { 
@@ -568,14 +627,6 @@ EXPR :
     | '(' EXPR ')'    { $$ = $2; }
     ;
 
-FUNC_NAME :
-    IDENTIFIER  { 
-        $$ = mknode("DeclRefExpr"); 
-        strcpy($$->val, $1);
-        $$->pos = @1;
-    }
-    ;
-
 ARG_LIST :
     EXPR ARG_LIST_RIGHT { $$ = mknode("TO_BE_MERGED", $1, $2); }
     | EXPR
@@ -628,7 +679,7 @@ JMP_STMT :
     ;
 %%
 
-void yyerror(int* n_errs, struct ast_node_impl* node, char* tmp_file, char *s){
+void yyerror(int* n_errs, struct ast_node_impl* node, char* tmp_file, char *s) {
     (*n_errs)++;
     fprintf(stderr, COLOR_BOLD"%s:%d:%d: "COLOR_RED"%s"COLOR_NORMAL"\n%s\n", \
         global_filename, yylineno, yycolno, s, yyline);
@@ -636,4 +687,23 @@ void yyerror(int* n_errs, struct ast_node_impl* node, char* tmp_file, char *s){
         fprintf(stderr, " ");
     fprintf(stderr, COLOR_GREEN"^\n"COLOR_NORMAL);
     unlink(tmp_file);
+}
+
+void transfer_type(struct ast_node_impl* node, int type_id) {
+    if(node == NULL) return;
+    node->type_id = type_id;
+    if(strcmp(node->token, "VarDecl") == 0) {
+        return;
+    } else if(strcmp(node->token, "ArrayDecl") == 0) {
+        node->child[0]->type_id = type_id + TYPEID_VOID_PTR - TYPEID_VOID;
+    } else if(strcmp(node->token, "InitializerList") == 0) {
+        node->type_id = 0;
+        for(int i = 0; i < node->n_child; i++) {
+            transfer_type(node->child[i], type_id - TYPEID_VOID_PTR + TYPEID_VOID);
+        }
+    } else {
+        for(int i = 0; i < node->n_child; i++) {
+            transfer_type(node->child[i], type_id);
+        }
+    }
 }

@@ -108,7 +108,8 @@ extern YYLTYPE yylloc;
 "<<=" { set_col(); return SHL_ASSIGN; }
 ">>=" { set_col(); return SHR_ASSIGN; }
 
-
+"++" { set_col(); return INC; }
+"--" { set_col(); return DEC; }
 
 [;\{\},:=\(\)\.&!~\-\+\*/%<>\^\|\?\[\]]	{ set_col(); return yytext[0];}
 [ \t]+	        { set_col(); }
