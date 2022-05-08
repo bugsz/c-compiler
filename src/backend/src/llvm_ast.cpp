@@ -221,8 +221,8 @@ int ptr2raw(int ptr) {
 template<typename TO, typename FROM>
 std::unique_ptr<TO> static_unique_pointer_cast (std::unique_ptr<FROM>&& old){
     return std::unique_ptr<TO>{static_cast<TO*>(old.release())};
-    //conversion: unique_ptr<FROM>->FROM*->TO*->unique_ptr<TO>
 }
+
 Function *getFunction(std::string name) {
     if (auto *F = llvmModule->getFunction(name)) {
         return F;
@@ -235,7 +235,7 @@ Value *getBuiltinFunction(std::string callee, std::vector<std::unique_ptr<ExprAS
     std::string func_name = callee.substr(strlen("__builtin_"), callee.length());
     auto func = getFunction(func_name);
     if(!func){
-        fprintf(stderr, "error: use of unknown builtin '%s'\n", callee);
+        fprintf(stderr, "error: use of unknown builtin '%s'\n", callee.c_str());
         exit(-1);
     }
     return llvmBuilder->CreateCall(func, varArgs);
@@ -482,20 +482,10 @@ static void initializeModule() {
     llvmFPM->add(llvm::createReassociatePass());
     llvmFPM->doInitialization();
 }
-static std::unique_ptr<ExprAST> ast;
+
 static void initializeBuiltinFunction() {
-    const char* argv[] = {
-        "",
-        "-f",
-        "builtin.h"
-    };
 
-    auto frontend_ret = frontend_entry(3, argv);
-    ast = generateBackendAST(frontend_ret);
-    print("Finish generating AST for backend");
-    ast->codegen();
 }
-
 
 Type *getVarType(int type_id) {
     switch(type_id) {
@@ -782,30 +772,29 @@ Value *LiteralExprAST::codegen(bool wantPtr) {
             std::cout << "Creating string literal: " << value << std::endl;
 
             auto str = this->value;
-            auto charType = llvm::IntegerType::get(*llvmContext, 8);
+            auto charType = IntegerType::get(*llvmContext, 8);
 
             //1. Initialize chars vector
-            std::vector<llvm::Constant *> chars(str.length());
+            std::vector<Constant *> chars(str.length());
             for(unsigned int i = 0; i < str.size(); i++) {
-            chars[i] = llvm::ConstantInt::get(charType, str[i]);
+                chars[i] = ConstantInt::get(charType, str[i]);
             }
 
             //1b. add a zero terminator too
-            chars.push_back(llvm::ConstantInt::get(charType, 0));
-
+            chars.push_back(ConstantInt::get(charType, 0));
 
             //2. Initialize the string from the characters
-            auto stringType = llvm::ArrayType::get(charType, chars.size());
+            auto stringType = ArrayType::get(charType, chars.size());
 
             //3. Create the declaration statement
-            auto globalDeclaration = (llvm::GlobalVariable*) llvmModule->getOrInsertGlobal(".str", stringType);
-            globalDeclaration->setInitializer(llvm::ConstantArray::get(stringType, chars));
+            auto globalDeclaration = (GlobalVariable*) llvmModule->getOrInsertGlobal(".str", stringType);
+            globalDeclaration->setInitializer(ConstantArray::get(stringType, chars));
             globalDeclaration->setConstant(true);
-            globalDeclaration->setLinkage(llvm::GlobalValue::LinkageTypes::PrivateLinkage);
-            globalDeclaration->setUnnamedAddr (llvm::GlobalValue::UnnamedAddr::Global);
+            globalDeclaration->setLinkage(GlobalValue::LinkageTypes::PrivateLinkage);
+            globalDeclaration->setUnnamedAddr (GlobalValue::UnnamedAddr::Global);
 
             //4. Return a cast to an i8*
-            return llvm::ConstantExpr::getBitCast(globalDeclaration, charType->getPointerTo());
+            return ConstantExpr::getBitCast(globalDeclaration, charType->getPointerTo());
        }
 
         default:
@@ -1156,10 +1145,10 @@ Value *ForExprAST::codegen(bool wantPtr) {
 Value *CallExprAST::codegen(bool wantPtr) {
     std::cout << "Call to: " + callee << std::endl;
     // 如果是builtin function
-    if(callee.find("__builtin_") == 0){
-        auto builtin_ret = getBuiltinFunction(callee, args);
-        if(builtin_ret) return builtin_ret;
-    }
+    // if(callee.find("__builtin_") == 0){
+    //     auto builtin_ret = getBuiltinFunction(callee, args);
+    //     if(builtin_ret) return builtin_ret;
+    // }
 
     Function *calleeFunction = llvmModule->getFunction(callee);
     if (!calleeFunction) return logErrorV("Unknown function");
@@ -1328,6 +1317,7 @@ Value * NullStmtAST::codegen(bool wantPtr){
     return llvmBuilder->getTrue();
 }
 
+static std::unique_ptr<ExprAST> ast;
 void run_lib_backend(int argc, const char **argv) {
     auto frontend_ret = frontend_entry(argc, argv);
     ast = generateBackendAST(frontend_ret);
