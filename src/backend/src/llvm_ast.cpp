@@ -665,7 +665,6 @@ Value *ArrayExprAST::codegen(bool wantPtr) {
     auto arrayType = ArrayType::get(varType, size);
     auto arrayPtr = llvmBuilder->CreateAlloca(arrayType, nullptr, name);
     NamedValues.top()[name] = arrayPtr;
-    // auto defaultValue = getInitVal(varType);
 
     int initSize = 0;
     if(init.size() == 1) initSize = size;
@@ -674,6 +673,8 @@ Value *ArrayExprAST::codegen(bool wantPtr) {
     auto zeroInit = llvmBuilder->getInt64(0);
     for (int i=0; i < initSize; i++) {
         auto defaultValue = (init.size() == 1) ? init[0]->codegen() : init[i]->codegen();
+        defaultValue = createCast(defaultValue, varType);
+        if(!defaultValue) return logErrorV("Initializer type don't match");
         auto index = llvmBuilder->getInt64(i);
         auto arrayElem = llvmBuilder->CreateGEP(arrayType, arrayPtr, {zeroInit, index});
         llvmBuilder->CreateStore(defaultValue, arrayElem);
