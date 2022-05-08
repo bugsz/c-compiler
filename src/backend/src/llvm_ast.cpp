@@ -646,7 +646,7 @@ Value *VarExprAST::codegen(bool wantPtr) {
     }
     auto castedVal = createCast(initVal, varType);
     if(!castedVal){
-        logErrorV((std::string("Unsupported initializatin from "+ getLLVMTypeStr(initVal->getType()) +" to " + getLLVMTypeStr(varType)).c_str()));
+        return logErrorV((std::string("Unsupported initializatin from "+ getLLVMTypeStr(initVal->getType()) +" to " + getLLVMTypeStr(varType)).c_str()));
     }
     AllocaInst *alloca = CreateEntryBlockAllocaWithTypeSize(name, varType);
     llvmBuilder->CreateStore(castedVal, alloca);
@@ -725,7 +725,6 @@ Value *GlobalVarExprAST::codegen(bool wantPtr) {
         if(!initVal) 
             return nullptr;
     }else{
-        std::cout << "No init val, using default" << std::endl;
         initVal = getInitVal(varType);
     }
 
@@ -744,25 +743,24 @@ Value *GlobalArrayExprAST::codegen(bool wantPtr) {
     gv->setConstant(false);
     std::vector<Constant *> initVals;
     
-    int initSize = init->init.size() > 1 ? init->init.size() : init->getSize();
-
-    std::cout << "Initialize with type: " << getLLVMTypeStr(varType) << std::endl;
-    for (int i=0; i < initSize; i++) {
-        Value *initVal = getInitVal(varType);
-        if (initSize == 1) initVal = init->init[0]->codegen();
-        else if (initSize > 1) initVal = init->init[i]->codegen();
+    int totalSize = init->getSize();
+    int initSize = init->init.size() == 1 ? totalSize : init->init.size();
+    for (int i = 0; i < initSize; i++) {
+        auto initVal = init->init[init->init.size() == 1 ? 0: i]->codegen();
         initVal = createCast(initVal, varType);
+        if(!initVal){
+            return logErrorV((std::string("Unsupported initializatin from "+ getLLVMTypeStr(initVal->getType()) +" to " + getLLVMTypeStr(varType)).c_str()));
+        }
         initVals.push_back(dyn_cast<Constant>(initVal));
     }
 
-    for(int i=initSize; i<init->getSize(); i++) {
+    for(int i = initSize; i < totalSize; i++) {
         auto initVal = getInitVal(varType);
         initVals.push_back(initVal);
     }
 
     auto initArray = ConstantArray::get(arrayType, initVals);
     gv->setInitializer(initArray);
-
     return getInitVal(varType);
 }
 
