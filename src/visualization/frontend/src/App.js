@@ -93,7 +93,7 @@ function App() {
     var input = inputRef.current.resizableTextArea.props.value
     try {
       let resp = await getRunningResult({
-        code : code,
+        code : "#include \"builtin.h\"\\n"+code,
         input: input
       })
       logger.Debug(JSON.stringify(resp))

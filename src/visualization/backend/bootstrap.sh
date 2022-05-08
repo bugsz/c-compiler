@@ -16,11 +16,12 @@ echo "${RED_BOLD}Build c-compiler${NORMAL}"
 echo "${RED_BOLD}Backend start${NORMAL}"
     cd $CURDIR/bin
     export GIN_MODE=release
+    touch $CURDIR/bin/update.sh 
+    echo "git pull &&" >> $CURDIR/bin/update.sh
+    echo "sh ../build.sh NEW_BUILD &&" >> $CURDIR/bin/update.sh
+    echo "cd ../../frontend &&" >> $CURDIR/bin/update.sh
+    echo "yarn install &&" >> $CURDIR/bin/update.sh 
+    echo "yarn build" >> $CURDIR/bin/update.sh
+    cp -r $CURDIR/../../../src/compatible-header/* $CURDIR/bin 
     exec nohup $CURDIR/bin/${filename} &
 
-touch $CURDIR/bin/update.sh 
-echo "git pull &&" >> $CURDIR/bin/update.sh
-echo "sh ../build.sh NEW_BUILD &&" >> $CURDIR/bin/update.sh
-echo "cd ../../frontend &&" >> $CURDIR/bin/update.sh
-echo "yarn install &&" >> $CURDIR/bin/update.sh 
-echo "yarn build" >> $CURDIR/bin/update.sh 
