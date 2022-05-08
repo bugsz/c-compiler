@@ -131,7 +131,7 @@ func main() {
 		llvmJIT.Stdout = stdout
 		llvmJIT.Stderr = buffer
 		go func() {
-			llvmJIT.Run()
+			err = llvmJIT.Run()
 			workDone <- struct{}{}
 		}()
 		select {
