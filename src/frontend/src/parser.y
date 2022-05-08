@@ -197,13 +197,9 @@ DECL_DECLARATOR :
         $$->pos = @1;
     }
     | IDENTIFIER ARRAY_DECL {
-        // if($1 >= TYPEID_VOID_PTR)
-        //     yyerror(n_errs, root, tmp_file, "multi-dimensional pointer is not supported");
         ast_node_ptr arr_decl = $2, temp;
-        // $3->type_id = $1;
         $2->pos = @2;
         temp = mknode("VarDecl");
-        // temp->type_id = $1  + TYPEID_VOID_PTR - TYPEID_VOID;
         temp->pos = @1;
         strcpy(temp->val, $1);
         append_child(arr_decl, temp);
@@ -539,7 +535,11 @@ EXPR :
         $$->pos = @1;
     }
     | IDENTIFIER '(' ARG_LIST ')' { 
-        $$ = mknode("CallExpr", $1, $3); 
+        ast_node_ptr id = mknode("DeclRefExpr");
+        strcpy(id->val, $1);
+        id->pos = @1;
+        $$ = mknode("CallExpr", id, $3); 
+        $$->pos = @1;
     }
     | IDENTIFIER     { 
         $$ = mknode("DeclRefExpr");
@@ -696,11 +696,6 @@ void transfer_type(struct ast_node_impl* node, int type_id) {
         return;
     } else if(strcmp(node->token, "ArrayDecl") == 0) {
         node->child[0]->type_id = type_id + TYPEID_VOID_PTR - TYPEID_VOID;
-    } else if(strcmp(node->token, "InitializerList") == 0) {
-        node->type_id = 0;
-        for(int i = 0; i < node->n_child; i++) {
-            transfer_type(node->child[i], type_id - TYPEID_VOID_PTR + TYPEID_VOID);
-        }
     } else {
         for(int i = 0; i < node->n_child; i++) {
             transfer_type(node->child[i], type_id);
