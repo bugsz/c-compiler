@@ -394,7 +394,16 @@ std::unique_ptr<ExprAST> generateBackendASTNode(ast_node_ptr root) {
             int arraySize = atoi(root->val);
             auto node = generateBackendASTNode(root->child[0]);
             auto var = static_unique_pointer_cast<VarExprAST>(std::move(node));
-            auto array = std::make_unique<ArrayExprAST>(ptr2raw(var->getType()), var->getName(), arraySize);
+            std::vector<std::unique_ptr<ExprAST>> init;
+            if (root->n_child > 1) {
+                auto child = root->child[1];
+                for(int i=0;i<child->n_child;i++){
+                    init.push_back(generateBackendASTNode(child->child[i]));
+                }
+            }
+
+            auto array = std::make_unique<ArrayExprAST>(ptr2raw(var->getType()), var->getName(), arraySize, std::move(init));
+            
             return array;
         }
 
@@ -448,7 +457,12 @@ std::unique_ptr<ExprAST> generateBackendASTNode(ast_node_ptr root) {
 
         case COMPOUNDSTMT: {
             std::vector<std::unique_ptr<ExprAST>> exprList;
+            if(!root->n_child) {
+                auto null = std::make_unique<NullStmtAST>();
+                exprList.push_back(std::move(null));
+            }
             for(int i=0;i<root->n_child;i++) exprList.push_back(generateBackendASTNode(root->child[i]));
+            // std::cout << "CompoundStmt has: " << exprList.size() << std::endl;
             auto compound = std::make_unique<CompoundStmtExprAST>(std::move(exprList));
             return compound;
         }
@@ -738,11 +752,19 @@ Value *ArrayExprAST::codegen(bool wantPtr) {
     auto arrayPtr = llvmBuilder->CreateAlloca(arrayType, nullptr, name);
     NamedValues.top()[name] = arrayPtr;
     // auto defaultValue = getInitVal(varType);
-    // for (int i=0; i < size; i++) {
-    //     auto index = llvmBuilder->getInt32(i);
-    //     auto arrayElem = llvmBuilder->CreateGEP(arrayPtr, index);
-    //     llvmBuilder->CreateStore(defaultValue, arrayElem);
-    // }
+
+    int initSize = 0;
+    if(init.size() == 1) initSize = size;
+    if(init.size() > 1) initSize = init.size();
+
+    auto zeroInit = llvmBuilder->getInt64(0);
+    for (int i=0; i < initSize; i++) {
+        auto defaultValue = (init.size() == 1) ? init[0]->codegen() : init[i]->codegen();
+        auto index = llvmBuilder->getInt64(i);
+        auto arrayElem = llvmBuilder->CreateGEP(arrayPtr, {zeroInit, index});
+        llvmBuilder->CreateStore(defaultValue, arrayElem);
+    }
+    
     return arrayPtr;
 }
 
