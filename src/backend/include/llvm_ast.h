@@ -157,9 +157,10 @@ class ArrayExprAST: public ExprAST {
     int type;
     std::string name;
     int size;
-    std::vector<std::unique_ptr<ExprAST>> init;
+    
     
 public:
+    std::vector<std::unique_ptr<ExprAST>> init;
     const std::string &getName() const { return name; }
     const int getSize() const { return size; }
     const int getType() const { return type; }
@@ -175,6 +176,21 @@ public:
     int getType() { return type; }
     ArraySubExprAST(std::unique_ptr<VarRefExprAST> var, std::unique_ptr<ExprAST> sub, int type_id):
     var(std::move(var)), sub(std::move(sub)), type(type_id) {}
+    Value *codegen(bool wantPtr = false) override;
+};
+
+class GlobalArrayExprAST: public ExprAST {
+    int type;
+    std::string name;
+    std::unique_ptr<ArrayExprAST> init;
+public:
+    GlobalArrayExprAST(std::unique_ptr<ArrayExprAST> init)
+    : init(std::move(init)) { 
+        std::cout << "global var" << std::endl;
+        type = this->init->getType(); 
+        name = this->init->getName();
+        std::cout << type << " " << name << std::endl; 
+    }
     Value *codegen(bool wantPtr = false) override;
 };
 
