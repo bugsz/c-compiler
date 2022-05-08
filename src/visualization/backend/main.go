@@ -125,7 +125,7 @@ func main() {
 		}
 		workDone := make(chan struct{}, 1)
 		bufferTooLarge := make(chan struct{}, 1)
-		stdout := &LimitedBuffer{maxSize: 1000, bufferTooLarge: bufferTooLarge}
+		stdout := &LimitedBuffer{maxSize: 5000, bufferTooLarge: bufferTooLarge}
 		llvmJIT := exec.Command("lli", filename)
 		llvmJIT.Stdin = bytes.NewReader([]byte(req.Input))
 		llvmJIT.Stdout = stdout
