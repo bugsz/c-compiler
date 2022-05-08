@@ -1190,15 +1190,7 @@ Value *ForExprAST::codegen(bool wantPtr) {
 
     Function *currFunction = llvmBuilder->GetInsertBlock()->getParent();
     Value *startVal = start->codegen();
-    if (!startVal) return nullptr;
-    auto valType = startVal->getType();
-
-    auto alloca = getVariable(varName);
-
-    if (!alloca) {
-        return logErrorV("Unknown variable referenced in for loop");
-    }
-    
+    if (!startVal) return nullptr;    
 
     BasicBlock *loopBlock = BasicBlock::Create(*llvmContext, "for_loop", currFunction);
     BasicBlock *bodyBlock = BasicBlock::Create(*llvmContext, "for_body", currFunction);
@@ -1237,11 +1229,10 @@ Value *ForExprAST::codegen(bool wantPtr) {
                 << getLLVMTypeStr(stepVar) 
                 << std::endl;
 
-    Value *nextVar = llvmBuilder->CreateLoad(valType, alloca, varName.c_str());
     llvmBuilder->CreateBr(loopBlock);
     llvmBuilder->SetInsertPoint(afterBlock);
     popBlockForControl();
-    return Constant::getNullValue(valType);
+    return llvmBuilder->getTrue();
 }
 
 Value *CallExprAST::codegen(bool wantPtr) {
