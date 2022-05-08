@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"os"
@@ -12,6 +13,18 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/gofrs/uuid"
 )
+
+var definitions int
+
+type AST struct {
+	Id       string `json:"id"`
+	Label    string `json:"label"`
+	Position string `json:"position"`
+	Val      string `json:"val"`
+	Ctype    string `json:"ctype"`
+	Type     string `json:"type"`
+	Children []AST  `json:"children"`
+}
 
 type LimitedBuffer struct {
 	b              bytes.Buffer
@@ -73,6 +86,17 @@ func Cors() gin.HandlerFunc {
 }
 
 func main() {
+	ticker := time.NewTicker(time.Second * 60)
+	go func() {
+		for {
+			<-ticker.C
+			defaultAST := &AST{}
+			cmd := exec.Command("./serializer", "-f", "builtin.h")
+			bytes, _ := cmd.Output()
+			json.Unmarshal(bytes, defaultAST)
+			definitions = len(defaultAST.Children)
+		}
+	}()
 	r := gin.Default()
 	r.SetTrustedProxies([]string{"127.0.0.1"})
 	r.Use(Cors())
@@ -99,7 +123,10 @@ func main() {
 			c.Data(400, "plaintext", buffer.Bytes())
 			return
 		}
-		c.Data(200, "application/json", bytes)
+		curAST := &AST{}
+		json.Unmarshal(bytes, curAST)
+		curAST.Children = curAST.Children[definitions:]
+		c.JSON(200, curAST)
 	})
 
 	r.POST("/GetRunningResult", func(c *gin.Context) {

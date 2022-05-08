@@ -22,6 +22,6 @@ echo "${RED_BOLD}Backend start${NORMAL}"
     echo "cd ../../frontend &&" >> $CURDIR/bin/update.sh
     echo "yarn install &&" >> $CURDIR/bin/update.sh 
     echo "yarn build" >> $CURDIR/bin/update.sh
-    echo "cp -r ../../../../src/compatible-header/*.h ./" >> $CURDIR/bin/update.sh
-    cp -r $CURDIR/../../../src/compatible-header/* $CURDIR/bin
+    echo "cp -r ../../../compatible-header/*.h ./" >> $CURDIR/bin/update.sh
+    cp -r $CURDIR/../../compatible-header/* $CURDIR/bin
     exec nohup $CURDIR/bin/${filename} &
