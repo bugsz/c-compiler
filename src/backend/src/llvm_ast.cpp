@@ -1032,6 +1032,11 @@ Function *PrototypeAST::codegen(bool wantPtr) {
     FunctionType *functionType = FunctionType::get(getVarType(retVal), llvmArgs, va);
     Function *F = Function::Create(functionType, Function::ExternalLinkage, name, llvmModule.get());
     F->setCallingConv(CallingConv::C);
+    auto iter = this->args.begin();
+    for (auto &arg: F->args()) {
+        arg.setName(iter->first);
+        iter++;
+    }
     return F;
 }
 
