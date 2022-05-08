@@ -406,6 +406,12 @@ std::unique_ptr<ExprAST> generateBackendASTNode(ast_node_ptr root) {
 
         case BINARYOPERATOR: {
             int op_type = getBinaryOpType(std::string(val));
+            if( strcmp(root->child[0]->token, "UnaryOperator") == 0 && strcmp(root->child[0]->val, "&") == 0
+                && (op_type == ASSIGN || op_type == ASSIGNPLUS)
+            ){
+                fprintf(stderr, "lvalue can not be a reference\n");
+                exit(-1);
+            }
             auto LHS = generateBackendASTNode(root->child[0]);
             auto RHS = generateBackendASTNode(root->child[1]);
             if(op_type == ASSIGNPLUS){
