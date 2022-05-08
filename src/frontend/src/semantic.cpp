@@ -221,13 +221,13 @@ static void semantic_error(int* n_errs, ast_loc_t loc, const char* fmt, ...) {
         cerr <<  COLOR_GREEN " ";
     }
     cerr << "^" COLOR_NORMAL << endl;
-    (*n_errs)++;
+    if(n_errs) (*n_errs)++;
 }
 
 static string check_decl(ast_node_ptr node) {
-    if (node->type_id == TYPEID_VOID) {
-        return "cannot declare a void type variable";
-    }
+    // if (node->type_id == TYPEID_VOID) {
+    //     return "cannot declare a void type variable";
+    // }
     if (string(node->token) == "ParmVarDecl" && node->type_id == TYPEID_STR) {
         return "cannot declare a string type parameter";
     }
@@ -384,21 +384,11 @@ static void semantic_check_impl(int* n_errs, ast_node_ptr node) {
     } else if (token == "CompoundStmt" || token == "FunctionDecl") {
         if (token == "FunctionDecl") {
             assert(sym_tab.get_cur_sym_tab()->parent == nullptr);
-            sym_tab.add(node->val, node->type_id, true);
-            // if (node->n_child > 0) { // Not function prototype
-            //     // Make every function return at the end of the block
-            //     switch (node->type_id) {
-            //         case TYPEID_VOID:
-            //             append_child(node->child[node->n_child - 1], mknode("ReturnStmt"));
-            //             break;
-            //         default:
-            //             ast_node_ptr ret0 = mknode("Literal");
-            //             ret0->type_id = TYPEID_INT;
-            //             strcpy(ret0->val, "0");
-            //             append_child(node->child[node->n_child - 1], mknode("ReturnStmt", ret0));
-            //             break;
-            //     }
-            // }
+            if(is_declared(node->val)) {
+                semantic_error(n_errs, node->pos, "redefinition of '%s'", node->val);
+            } else {
+                sym_tab.add(node->val, node->type_id, true);
+            }
         }
         already_checked = true;
         if (token == "CompoundStmt" && string(node->parent->token) == "FunctionDecl") {
