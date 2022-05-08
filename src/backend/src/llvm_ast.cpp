@@ -259,6 +259,13 @@ std::unique_ptr<ExprAST> generateBackendASTNode(ast_node_ptr root) {
                     auto globalVarDecl = std::make_unique<GlobalVarExprAST>(std::move(var));
                     globalVarList.push_back(std::move(globalVarDecl));
                 }
+                else if(isEqual(root->child[i]->token, "ArrayDecl")) {
+                    auto arrayDecl = generateBackendASTNode(root->child[i]);
+                    auto array = static_unique_pointer_cast<ArrayExprAST>(std::move(arrayDecl));
+
+                    auto globalArrayDecl = std::make_unique<GlobalArrayExprAST>(std::move(array));
+                    globalVarList.push_back(std::move(globalArrayDecl));
+                }
                 else{
                     exprList.push_back(generateBackendASTNode(root->child[i]));
                 }
@@ -539,10 +546,12 @@ Value *getVariable(std::string name) {
 Value *getVariable(std::string name, int &isGlobal) {
     auto V = NamedValues.top()[name];
     if(V) {
+        std::cout << "Find local variable " << name << std::endl;
         return V;
     }
     auto key = llvmModule->getGlobalVariable(name);
     if (key) {
+        std::cout << "Find global variable: " << name << std::endl;
         isGlobal = 1;
         return key;
     }
@@ -673,9 +682,11 @@ Value *ArrayExprAST::codegen(bool wantPtr) {
 }
 
 Value *VarRefExprAST::codegen(bool wantPtr) {
-    print("VarRefExpr");
+    std::cout << "VarRefExpr: " << name << std::endl;
+    std::cout << "WantPtr: " << wantPtr << std::endl;
     int isGlobal = 0;
     auto V = getVariable(name, isGlobal);
+    std::cout << "Value type: " << getLLVMTypeStr(V->getType()) << std::endl;
     if (!V) {
         return nullptr;
     }
@@ -687,9 +698,13 @@ Value *VarRefExprAST::codegen(bool wantPtr) {
         GlobalVariable *gV = static_cast<GlobalVariable *>(V);
         if(gV->isConstant() || initializing)
             return gV->getInitializer();
+        else if(gV->getType()->isArrayTy()) {
+            return llvmBuilder->CreateGEP(gV->getType()->getPointerElementType(), gV, {llvmBuilder->getInt64(0), llvmBuilder->getInt64(0)});
+        }
         else
             return llvmBuilder->CreateLoad(V->getType()->getPointerElementType(), V);
     }
+
     if(V->getType()->getPointerElementType()->isArrayTy()){
         return llvmBuilder->CreateGEP(V->getType()->getPointerElementType(), V, {llvmBuilder->getInt64(0), llvmBuilder->getInt64(0)});
     }else{
@@ -716,6 +731,38 @@ Value *GlobalVarExprAST::codegen(bool wantPtr) {
     auto globalVar = createGlob(varType, init->name);
     globalVar->setInitializer(dyn_cast<Constant>(initVal));
     return initVal;
+}
+
+Value *GlobalArrayExprAST::codegen(bool wantPtr) {
+    std::cout << "GlobalArrayExpr" << std::endl;
+    auto varType = getVarType(init->getType());
+    auto arrayType = ArrayType::get(varType, init->getSize());
+
+    llvmModule->getOrInsertGlobal(init->getName(), arrayType);
+    GlobalVariable *gv = llvmModule->getNamedGlobal(name);
+    gv->setConstant(false);
+    std::vector<Constant *> initVals;
+    
+    int initSize = init->init.size() > 1 ? init->init.size() : init->getSize();
+
+    std::cout << "Initialize with type: " << getLLVMTypeStr(varType) << std::endl;
+    for (int i=0; i < initSize; i++) {
+        Value *initVal = getInitVal(varType);
+        if (initSize == 1) initVal = init->init[0]->codegen();
+        else if (initSize > 1) initVal = init->init[i]->codegen();
+        initVal = createCast(initVal, varType);
+        initVals.push_back(dyn_cast<Constant>(initVal));
+    }
+
+    for(int i=initSize; i<init->getSize(); i++) {
+        auto initVal = getInitVal(varType);
+        initVals.push_back(initVal);
+    }
+
+    auto initArray = ConstantArray::get(arrayType, initVals);
+    gv->setInitializer(initArray);
+
+    return getInitVal(varType);
 }
 
 Value *ArraySubExprAST::codegen(bool wantPtr) {
