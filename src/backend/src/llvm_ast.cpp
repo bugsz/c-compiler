@@ -276,7 +276,7 @@ std::unique_ptr<ExprAST> generateBackendASTNode(ast_node_ptr root) {
         }
 
         case FUNCTIONDECL: {
-            std::map<std::string, int> args;
+            std::vector<std::pair<std::string, int>> args;
             std::string name(val);    
             
             int param_end = root->n_child;
@@ -290,7 +290,7 @@ std::unique_ptr<ExprAST> generateBackendASTNode(ast_node_ptr root) {
             bool isVarArg = false;
             for (int i = 0; i < param_end; i++) {
                 auto child = root->child[i];
-                if (isEqual(child->token, "ParmVarDecl")) args[std::string(child->val)] = child->type_id;
+                if (isEqual(child->token, "ParmVarDecl")) args.push_back(std::pair<std::string, int>((child->val), child->type_id));
                 if (isEqual(child->token, "VariadicParms")) isVarArg = true;
                 print(child->val);
             }
@@ -1031,8 +1031,9 @@ Function *PrototypeAST::codegen(bool wantPtr) {
         return func;
     }
     std::vector<Type *> llvmArgs;
-    for (auto arg: args) 
-        llvmArgs.push_back(getVarType(arg.second));
+    for(auto iter=args.begin(); iter!=args.end(); iter++){        
+        llvmArgs.push_back(getVarType((*iter).second));
+    }
     FunctionType *functionType = FunctionType::get(getVarType(retVal), llvmArgs, va);
     Function *F = Function::Create(functionType, Function::ExternalLinkage, name, llvmModule.get());
     F->setCallingConv(CallingConv::C);
@@ -1063,6 +1064,7 @@ Function *FunctionDeclAST::codegen(bool wantPtr) {
     for (auto &arg : currFunction->args()) {
         AllocaInst *alloca = CreateEntryBlockAllocaWithTypeSize(arg.getName(), arg.getType());
         llvmBuilder->CreateStore(&arg, alloca);
+        std::cout << std::string(arg.getName()) << std::endl;
         NamedValues.top()[std::string(arg.getName())] = alloca;
     }
 
