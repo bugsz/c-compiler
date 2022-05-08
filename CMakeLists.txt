@@ -32,9 +32,11 @@ set(SRC_LIST ./src/backend/src/llvm_ast.cpp)
 message(STATUS "SRC_LIST: ${SRC_LIST}")
 # aux_source_directory(./src/backend/src SRC_LIST)
 
+
 include_directories(./src/backend/include)
 include_directories(./src/frontend)
 
+add_compile_options(-Wno-unused-result)
 add_executable(${PROJECT_NAME} ${SRC_LIST})
 message(${LLVM_TARGETS_TO_BUILD})
 # llvm_map_components_to_libnames(llvm_libs support core irreader executionEngine target native)
@@ -42,6 +44,7 @@ llvm_map_components_to_libnames(llvm_libs ${LLVM_TARGETS_TO_BUILD} support core 
 
 # SET(CMAKE_EXE_LINKER_FLAGS "-Wl,-znodelete")
 SET(CMAKE_EXE_LINKER_FLAGS "-Wno-unused-result")
+
 target_link_libraries(${PROJECT_NAME} ${llvm_libs})
 target_link_libraries(${PROJECT_NAME} ${ZJUCC_LIB})
 

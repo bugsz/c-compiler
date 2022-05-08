@@ -157,12 +157,13 @@ class ArrayExprAST: public ExprAST {
     int type;
     std::string name;
     int size;
+    std::vector<std::unique_ptr<ExprAST>> init;
     
 public:
     const std::string &getName() const { return name; }
     const int getSize() const { return size; }
     const int getType() const { return type; }
-    ArrayExprAST(int type, const std::string &name, int size) : type(type), name(name), size(size) {}
+    ArrayExprAST(int type, const std::string &name, int size, std::vector<std::unique_ptr<ExprAST>> init) : type(type), name(name), size(size), init(std::move(init)) {}
     Value *codegen(bool wantPtr = false) override;
 };
 
@@ -202,20 +203,17 @@ public:
 
 class ForExprAST : public ExprAST {
     std::unique_ptr<ExprAST> start, end, step, body;
-    std::string varName;
 
 public :
     ForExprAST(
-            // const std::string &var_name,
             std::unique_ptr<ExprAST> start,
             std::unique_ptr<ExprAST> end,
             std::unique_ptr<ExprAST> step,
             std::unique_ptr<ExprAST> body): 
-            // var_name(var_name), 
             start(std::move(start)),
             end(std::move(end)), 
             step(std::move(step)), 
-            body(std::move(body)) { this->varName = getVarName(); }
+            body(std::move(body)){}
 
     Value *codegen(bool wantPtr = false) override;
 
@@ -269,7 +267,6 @@ class CompoundStmtExprAST: public ExprAST {
     
 public:
     std::vector<std::unique_ptr<ExprAST>> exprList;
-    std::vector<bool> isReturnStmt;
     CompoundStmtExprAST(std::vector<std::unique_ptr<ExprAST>> exprList): exprList(std::move(exprList)) {}
     Value *codegen(bool wantPtr = false) override;
 };
