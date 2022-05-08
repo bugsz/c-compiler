@@ -224,6 +224,12 @@ std::unique_ptr<TO> static_unique_pointer_cast (std::unique_ptr<FROM>&& old){
     return std::unique_ptr<TO>{static_cast<TO*>(old.release())};
     //conversion: unique_ptr<FROM>->FROM*->TO*->unique_ptr<TO>
 }
+Function *getFunction(std::string name) {
+    if (auto *F = llvmModule->getFunction(name)) {
+        return F;
+    }
+    return nullptr;
+}
 
 Value *getBuiltinFunction(std::string callee, std::vector<std::unique_ptr<ExprAST>> &args) {
     if(llvmModule->getFunction(callee)){
@@ -351,13 +357,15 @@ std::unique_ptr<ExprAST> generateBackendASTNode(ast_node_ptr root) {
             }
 
             auto prototype = std::make_unique<PrototypeAST>(name, root->type_id, args);
-            prototype->codegen();
 
             if(!compoundStmt) {
                 print("This function def is a prototype");
+                if(!getFunction(name)){
+                    prototype->codegen();
+                    functionProtos[name] = std::move(prototype);
+                }
                 return prototype;
-            }
-            else {
+            } else {
                 auto funcExpr = std::make_unique<FunctionDeclAST>(std::move(prototype), std::move(compoundStmt));
                 return funcExpr;
             }
@@ -596,12 +604,6 @@ Type *getVarType(int type_id) {
     }
 }
 
-Function *getFunction(std::string name) {
-    if (auto *F = llvmModule->getFunction(name)) return F;
-    auto F = functionProtos.find(name);
-    if(F != functionProtos.end()) return F->second->codegen(); 
-    return nullptr;
-}
 
 Value *getVariable(std::string name) {
     auto V = NamedValues.top()[name];
