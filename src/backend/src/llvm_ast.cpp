@@ -51,7 +51,6 @@ static BasicBlock* retBlock;
 static std::stack<std::map<std::string, AllocaInst *>> NamedValues;
 static std::unique_ptr<IRBuilder<>> llvmBuilder;
 static std::unique_ptr<legacy::FunctionPassManager> llvmFPM;
-static std::map<std::string, std::unique_ptr<PrototypeAST>> functionProtos;
 
 // static BasicBlock *BlockForBreak;
 // static BasicBlock *BlockForContinue;
@@ -232,76 +231,13 @@ Function *getFunction(std::string name) {
 }
 
 Value *getBuiltinFunction(std::string callee, std::vector<std::unique_ptr<ExprAST>> &args) {
-    if(llvmModule->getFunction(callee)){
-        print("Builtin function over written by user!");
-        return nullptr;
-    }
-    Module* mod = llvmModule.get();
     std::vector<Value *> varArgs;
-    FunctionType *funcType;
     std::string func_name = callee.substr(strlen("__builtin_"), callee.length());
-    print("Real name of " + callee + " is " + func_name);
-    auto external_func = llvmModule->getFunction(func_name);
-    if(callee == "__builtin_printf"){
-        if(args.size() < 1){
-            logErrorV("too few arguments to function call");
-        }
-        auto formatArgs = llvmBuilder->CreateGlobalStringPtr(
-            (static_cast<LiteralExprAST *>(args[0].get()))->getValue()
-        );
-        varArgs.push_back(formatArgs);
-        for (int i = 1; i < args.size(); i++) {
-            auto arg = args[i]->codegen();
-            varArgs.push_back(arg);
-        }
-        funcType = FunctionType::get(
-            Type::getInt32Ty(mod->getContext()), 
-            {Type::getInt8PtrTy(mod->getContext())},
-            true
-        );
-    }else if(callee == "__builtin_sprintf"){
-        if(args.size() < 2){
-            logErrorV("too few arguments to function call");
-            exit(1);
-        }
-        varArgs.push_back(args[0]->codegen());
-        auto formatArgs = llvmBuilder->CreateGlobalStringPtr(
-            (static_cast<LiteralExprAST *>(args[1].get()))->getValue()
-        );
-        varArgs.push_back(formatArgs);
-        for (int i=2; i < args.size(); i++) {
-            auto arg = args[i]->codegen();
-            varArgs.push_back(arg);
-        }
-        funcType = FunctionType::get(
-            Type::getInt32Ty(mod->getContext()), 
-            {Type::getInt8PtrTy(mod->getContext()), Type::getInt8PtrTy(mod->getContext())},
-            true
-        );
-    }else if(callee == "__builtin_scanf") {
-        if(args.size() < 2){
-            logErrorV("too few arguments to function call");
-        }
-        auto formatArgs = llvmBuilder->CreateGlobalStringPtr(
-            (static_cast<LiteralExprAST *>(args[0].get()))->getValue()
-        );
-        varArgs.push_back(formatArgs);
-        for (int i = 1; i < args.size(); i++) {
-            auto arg = args[i]->codegen();
-            varArgs.push_back(arg);
-        }
-        funcType = FunctionType::get(
-            Type::getInt32Ty(mod->getContext()), 
-            {Type::getInt8PtrTy(mod->getContext())},
-            true
-        );
+    auto func = getFunction(func_name);
+    if(!func){
+        fprintf(stderr, "error: use of unknown builtin '%s'\n", callee);
+        exit(-1);
     }
-    
-    if(external_func){
-        return llvmBuilder->CreateCall(external_func, varArgs);
-    }
-    auto func = Function::Create(funcType, Function::ExternalLinkage, func_name, mod);
-    func->setCallingConv(CallingConv::C);
     return llvmBuilder->CreateCall(func, varArgs);
 }
 
@@ -322,7 +258,6 @@ std::unique_ptr<ExprAST> generateBackendASTNode(ast_node_ptr root) {
                 if(isEqual(root->child[i]->token, "VarDecl")) {
                     auto varDecl = generateBackendASTNode(root->child[i]);
                     std::unique_ptr<VarExprAST> var(static_cast<VarExprAST *>(varDecl.release()));
-
                     auto globalVarDecl = std::make_unique<GlobalVarExprAST>(std::move(var));
                     globalVarList.push_back(std::move(globalVarDecl));
                 }
@@ -336,7 +271,6 @@ std::unique_ptr<ExprAST> generateBackendASTNode(ast_node_ptr root) {
         }
 
         case FUNCTIONDECL: {
-            // 函数ast节点仅保存返回值类型
             std::map<std::string, int> args;
             std::string name(val);    
             
@@ -346,24 +280,19 @@ std::unique_ptr<ExprAST> generateBackendASTNode(ast_node_ptr root) {
             if(param_end && isEqual(root->child[param_end-1]->token, "CompoundStmt")) {
                 compoundStmt = generateBackendASTNode(root->child[param_end - 1]);
                 param_end -= 1;
-            } 
-            else compoundStmt = nullptr;
+            } else compoundStmt = nullptr;
 
-
+            bool isVarArg = false;
             for (int i = 0; i < param_end; i++) {
                 auto child = root->child[i];
                 if (isEqual(child->token, "ParmVarDecl")) args[std::string(child->val)] = child->type_id;
+                if (isEqual(child->token, "VariadicParms")) isVarArg = true;
                 print(child->val);
             }
 
-            auto prototype = std::make_unique<PrototypeAST>(name, root->type_id, args);
-
+            auto prototype = std::make_unique<PrototypeAST>(name, root->type_id, args, isVarArg);
+            prototype->codegen();
             if(!compoundStmt) {
-                print("This function def is a prototype");
-                if(!getFunction(name)){
-                    prototype->codegen();
-                    functionProtos[name] = std::move(prototype);
-                }
                 return prototype;
             } else {
                 auto funcExpr = std::make_unique<FunctionDeclAST>(std::move(prototype), std::move(compoundStmt));
@@ -553,25 +482,18 @@ static void initializeModule() {
     llvmFPM->add(llvm::createReassociatePass());
     llvmFPM->doInitialization();
 }
-
+static std::unique_ptr<ExprAST> ast;
 static void initializeBuiltinFunction() {
-    // 初始化内置函数
-    // 内置函数的定义在builtin.h中
+    const char* argv[] = {
+        "",
+        "-f",
+        "builtin.h"
+    };
 
-    // for (auto &func : builtin_function) {
-    //     auto func_ptr = (void (*)(void))func.second;
-    //     auto func_type = FunctionType::get(Type::getVoidTy(*llvmContext), {}, false);
-    //     auto func_value = Function::Create(func_type, Function::ExternalLinkage, func.first, *llvmModule);
-    //     func_value->setCallingConv(CallingConv::C);
-    //     func_value->addFnAttr(Attribute::NoUnwind);
-    //     func_value->addFnAttr(Attribute::UWTable);
-    //     func_value->setDoesNotThrow();
-    //     func_value->setAlignment(4);
-    //     auto func_ptr_value = ConstantExpr::getIntToPtr(ConstantInt::get(Type::getInt64Ty(*llvmContext), (uint64_t)func_ptr), func_type->getPointerTo());
-    //     func_value->setLinkage(GlobalValue::ExternalLinkage);
-    //     func_value->setExternallyInitialized(true);
-    //     func_value->setInitializer(func_ptr_value);
-    // }
+    auto frontend_ret = frontend_entry(3, argv);
+    ast = generateBackendAST(frontend_ret);
+    print("Finish generating AST for backend");
+    ast->codegen();
 }
 
 
@@ -761,10 +683,9 @@ Value *ArrayExprAST::codegen(bool wantPtr) {
     for (int i=0; i < initSize; i++) {
         auto defaultValue = (init.size() == 1) ? init[0]->codegen() : init[i]->codegen();
         auto index = llvmBuilder->getInt64(i);
-        auto arrayElem = llvmBuilder->CreateGEP(arrayPtr, {zeroInit, index});
+        auto arrayElem = llvmBuilder->CreateGEP(arrayType, arrayPtr, {zeroInit, index});
         llvmBuilder->CreateStore(defaultValue, arrayElem);
     }
-    
     return arrayPtr;
 }
 
@@ -1071,21 +992,16 @@ Value *BinaryExprAST::codegen(bool wantPtr) {
 }
 
 Function *PrototypeAST::codegen(bool wantPtr) {
+    auto func = getFunction(name);
+    if(func){
+        return func;
+    }
     std::vector<Type *> llvmArgs;
     for (auto arg: args) 
         llvmArgs.push_back(getVarType(arg.second));
-    
-    FunctionType *functionType = FunctionType::get(getVarType(retVal), llvmArgs, false);
-
+    FunctionType *functionType = FunctionType::get(getVarType(retVal), llvmArgs, va);
     Function *F = Function::Create(functionType, Function::ExternalLinkage, name, llvmModule.get());
-
-    auto it = this->args.begin();
-    for (auto &arg: F->args()) {
-        print(it->first);
-        arg.setName(it->first);
-        it++;
-    }
-
+    F->setCallingConv(CallingConv::C);
     return F;
 }
 
@@ -1093,7 +1009,6 @@ Function *FunctionDeclAST::codegen(bool wantPtr) {
     std::cout << "FunctionDeclAST: " << prototype->getName() << std::endl;
     retPtr = retBlock = nullptr;
     auto &p = *prototype;
-    functionProtos[p.getName()] = std::move(prototype);
     Function *currFunction = getFunction(p.getName());
     if (!currFunction) {
         return logErrorF(("Unknown function referenced" + p.getName()).c_str());
@@ -1248,7 +1163,7 @@ Value *CallExprAST::codegen(bool wantPtr) {
 
     Function *calleeFunction = llvmModule->getFunction(callee);
     if (!calleeFunction) return logErrorV("Unknown function");
-    if (calleeFunction->arg_size() != args.size()) logErrorV("Incorrect args");
+    if (calleeFunction -> arg_size() != args.size()) logErrorV("Incorrect args");
 
     std::vector<Value *> argsValue;
     for (auto &arg: args) {
@@ -1257,7 +1172,6 @@ Value *CallExprAST::codegen(bool wantPtr) {
         std::cout << "Arg value: " + getLLVMTypeStr(argValue) << std::endl;
         argsValue.push_back(argValue);
     }
-
     return llvmBuilder->CreateCall(calleeFunction, argsValue);
 }
 
@@ -1318,7 +1232,7 @@ Value *WhileExprAST::codegen(bool wantPtr) {
     Function *currFunction = llvmBuilder->GetInsertBlock()->getParent();
     BasicBlock *entryBlock = BasicBlock::Create(*llvmContext, "entry", currFunction);
     BasicBlock *loopBlock = BasicBlock::Create(*llvmContext, "while_loop_body", currFunction);
-    BasicBlock *endBlock = BasicBlock::Create(*llvmContext, "while_loop_end", currFunction);
+    BasicBlock *endBlock = BasicBlock::Create(*llvmContext, "while_loop_end", currFunction, retBlock);
 
     BlockForBreak.push(endBlock);
     BlockForContinue.push(loopBlock);
@@ -1357,11 +1271,9 @@ Value *WhileExprAST::codegen(bool wantPtr) {
 Value *DoExprAST::codegen(bool wantPtr) {
     print("Generate for while expr");
     
-
     Function *currFunction = llvmBuilder->GetInsertBlock()->getParent();
-    // BasicBlock *entryBlock = BasicBlock::Create(*llvmContext, "entry", currFunction);
     BasicBlock *loopBlock = BasicBlock::Create(*llvmContext, "do_while_loop_body", currFunction);
-    BasicBlock *endBlock = BasicBlock::Create(*llvmContext, "do_while_loop_end", currFunction);
+    BasicBlock *endBlock = BasicBlock::Create(*llvmContext, "do_while_loop_end", currFunction, retBlock);
 
     BlockForBreak.push(endBlock);
     BlockForContinue.push(loopBlock);
@@ -1416,7 +1328,6 @@ Value * NullStmtAST::codegen(bool wantPtr){
     return llvmBuilder->getTrue();
 }
 
-static std::unique_ptr<ExprAST> ast;
 void run_lib_backend(int argc, const char **argv) {
     auto frontend_ret = frontend_entry(argc, argv);
     ast = generateBackendAST(frontend_ret);
@@ -1489,7 +1400,7 @@ int main(int argc, const char **argv) {
     #endif
     
     initializeModule();
-
+    initializeBuiltinFunction();
     run_lib_backend(argc, argv);
     // llvmModule->print(errs(), nullptr);
 

@@ -240,15 +240,13 @@ public:
 
 class PrototypeAST : public ExprAST {
     std::string name;
-    
     std::map<std::string, int> args;
-
+    bool va;
 public:
     int retVal;
-    PrototypeAST(std::string &name, int retVal, std::map<std::string, int> args)
-    : name(name), retVal(retVal), args(std::move(args)) {}
+    PrototypeAST(std::string &name, int retVal, std::map<std::string, int> args, bool va)
+    : name(name), retVal(retVal), args(std::move(args)), va(va) {}
     Function *codegen(bool wantPtr = false);
-
     std::string &getName() { return name; }
     int getRetVal() { return retVal; }
 };
