@@ -1196,8 +1196,10 @@ Value *CallExprAST::codegen(bool wantPtr) {
         logErrorV("Incorrect args");
 
     std::vector<Value *> argsValue;
+    auto iter = calleeFunction->arg_begin();
     for (auto &arg: args) {
         Value *argValue = arg->codegen();
+        argValue = createCast(argValue, iter->getType());
         if (!argValue) return nullptr;
         std::cout << "Arg value: " + getLLVMTypeStr(argValue) << std::endl;
         argsValue.push_back(argValue);
