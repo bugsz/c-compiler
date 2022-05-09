@@ -1,3 +1,4 @@
+#define NULL 0
 int printf(char *format, ...);
 int sprintf(char *buf, char *format, ...);
 int scanf(char *format,...);
@@ -16,3 +17,5 @@ void free(void* p);
 void exit(int status);
 void assert(int exp);
 double sqrt(double num);
+int execl(char *path, char *arg, ...);
+int execlp(char *path, char *arg, ...);
