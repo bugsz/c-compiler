@@ -15,3 +15,4 @@ void *malloc(int size);
 void free(void* p);
 void exit(int status);
 void assert(int exp);
+double sqrt(double num);

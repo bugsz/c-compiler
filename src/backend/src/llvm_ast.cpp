@@ -52,6 +52,7 @@ static std::stack<std::map<std::string, AllocaInst *>> NamedValues;
 static std::unique_ptr<IRBuilder<>> llvmBuilder;
 static std::unique_ptr<legacy::FunctionPassManager> llvmFPM;
 
+static std::stack<BasicBlock *> BlockForEndif;
 static std::stack<BasicBlock *> BlockForBreak;
 static std::stack<BasicBlock *> BlockForContinue;
 
@@ -1265,33 +1266,23 @@ Value *IfExprAST::codegen(bool wantPtr) {
     if(else_case){
         BasicBlock *elseBlock = BasicBlock::Create(*llvmContext, "else_case", currFunction, endifBlock);
         llvmBuilder->CreateCondBr(condVal, thenBlock, elseBlock);
-
         llvmBuilder->SetInsertPoint(thenBlock);
         Value *thenValue = then_case->codegen();
         if (!thenValue) return nullptr;
-        if(!thenBlock->getTerminator()){
-            llvmBuilder->CreateBr(endifBlock);
-        }
-
+        llvmBuilder->CreateBr(endifBlock);
         llvmBuilder->SetInsertPoint(elseBlock);
         Value *elseValue = else_case->codegen();
         if (!elseValue) return nullptr;
-        if(!elseBlock->getTerminator()){
-            llvmBuilder->CreateBr(endifBlock);
-        }
-
+        llvmBuilder->CreateBr(endifBlock);
         llvmBuilder->SetInsertPoint(endifBlock);
         return condValue;
     }else{
         llvmBuilder->CreateCondBr(condVal, thenBlock, endifBlock);
         llvmBuilder->SetInsertPoint(thenBlock);
-
         Value *thenValue = then_case->codegen();
         if (!thenValue) return nullptr;
         std::cout << "Return value of then value: " << getLLVMTypeStr(thenValue) << std::endl;
-        if(!thenBlock->getTerminator()){
-            llvmBuilder->CreateBr(endifBlock);
-        }
+        llvmBuilder->CreateBr(endifBlock);
         llvmBuilder->SetInsertPoint(endifBlock);
         return condValue;
     }
