@@ -72,6 +72,8 @@ int getBinaryOpType(std::string binaryOp) {
     if(binaryOp == "==") return EQ;
     if(binaryOp == "!=") return NE;
     if(binaryOp == "/=" || binaryOp =="*="|| binaryOp =="-="|| binaryOp =="+=") return ASSIGNPLUS;
+    if(binaryOp == "++") return INC;
+    if(binaryOp == "--") return DEC;
     if(binaryOp == "&&") return LAND;
     if(binaryOp == "||") return LOR;
     fprintf(stderr, "Unsupported binary operation: %s\n", binaryOp.c_str());
@@ -363,17 +365,17 @@ std::unique_ptr<ExprAST> generateBackendASTNode(ast_node_ptr root) {
         case BINARYOPERATOR: {
             int op_type = getBinaryOpType(std::string(val));
             if( strcmp(root->child[0]->token, "UnaryOperator") == 0 && strcmp(root->child[0]->val, "&") == 0
-                && (op_type == ASSIGN || op_type == ASSIGNPLUS)
+                && (op_type == ASSIGN || op_type == ASSIGNPLUS || op_type == DEC || op_type == INC)
             ){
                 fprintf(stderr, "lvalue can not be a reference\n");
                 exit(-1);
             }
             auto LHS = generateBackendASTNode(root->child[0]);
             auto RHS = generateBackendASTNode(root->child[1]);
-            if(op_type == ASSIGNPLUS){
+            if(op_type == ASSIGNPLUS || op_type == INC || op_type == DEC){
                 auto left = generateBackendASTNode(root->child[0]);
                 auto right = std::make_unique<BinaryExprAST>(getBinaryOpType(std::string(1, val[0])), std::move(LHS), std::move(RHS));
-                return std::make_unique<BinaryExprAST>(ASSIGN, std::move(left), std::move(right));
+                return std::make_unique<BinaryExprAST>(op_type == ASSIGNPLUS ? ASSIGN:op_type, std::move(left), std::move(right));
             }else{
                 return std::make_unique<BinaryExprAST>(op_type, std::move(LHS), std::move(RHS));
             }
@@ -915,7 +917,7 @@ Value *UnaryExprAST::codegen(bool wantPtr) {
 
 Value *BinaryExprAST::codegen(bool wantPtr) {
     // Assignment
-    if (op_type == ASSIGN) {
+    if (op_type == ASSIGN || op_type == INC || op_type == DEC) {
         Value * variable = lhs->codegen(true);
         Value * val = rhs->codegen();
         if (!variable || !val) {
@@ -926,8 +928,12 @@ Value *BinaryExprAST::codegen(bool wantPtr) {
             return logErrorV((std::string("Unsupported assign from "+ getLLVMTypeStr(val->getType()) +" to " + getLLVMTypeStr(variable->getType()->getPointerElementType())).c_str()));
         }
         val = castedVal;
+        Value * oldVal;
+        if(op_type == INC || op_type == DEC){
+            oldVal = lhs->codegen();
+        }
         llvmBuilder->CreateStore(val, variable);
-        return val;
+        return (op_type == INC || op_type == DEC) ? oldVal : castedVal;
     }
 
     Value *left = lhs->codegen();
