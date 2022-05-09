@@ -99,6 +99,8 @@ PROG :
     ;
 
 GLOBAL_DECL : 
+    // | FN_DECL
+    // | FN_DEF
     FN_DEF
     | DECL
     | TYPE_ALIAS {$$ = NULL;}
@@ -673,11 +675,10 @@ ITERATE_STMT :
         ast_node_ptr vardecl = mknode("VarDecl", $6);
         vardecl->type_id = $3;
         strcpy(vardecl->val, $4);
-        ast_node_ptr compoundstmt = mknode("CompoundStmt", vardecl);
-        ast_node_ptr t = mknode("TO_BE_MERGED", compoundstmt, $8);
+        ast_node_ptr t = mknode("TO_BE_MERGED", vardecl, $8);
         ast_node_ptr t2 = mknode("TO_BE_MERGED", $9, delim, $11);
-        ast_node_ptr t3 = 
-        $$ = mknode("ForStmt", t, t2);
+        ast_node_ptr t3 = mknode("ForStmt", t, t2);
+        $$ = mknode("CompoundStmt", t3);
     }
     | FOR '(' FOR_EXPR FOR_EXPR ')' STMT {
         ast_node_ptr delim = mknode("ForDelimiter");
