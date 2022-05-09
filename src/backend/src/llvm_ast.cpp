@@ -759,6 +759,7 @@ Value *GlobalArrayExprAST::codegen(bool wantPtr) {
 }
 
 Value *ArraySubExprAST::codegen(bool wantPtr) {
+    std::cout<<"Array Sub"<<"Want Ptr:" << wantPtr<<std::endl;
     static Value* zero = llvmBuilder->getInt64(0);
     auto index = sub->codegen();
     if (!index) return nullptr;
@@ -769,10 +770,10 @@ Value *ArraySubExprAST::codegen(bool wantPtr) {
     Type * elementType = getVarType(type);
     if(varPtr->getType()->getPointerElementType()->isPointerTy()){
         // unsafe way
-        Value * arrayPtr = llvmBuilder->CreateLoad(elementType->getPointerTo(), varPtr);
+        auto arrayPtr = llvmBuilder->CreateLoad(elementType->getPointerTo(), varPtr);
         elementPtr = llvmBuilder->CreateGEP(
             elementType,
-            arrayPtr, 
+            arrayPtr,
             castIndex
         );
     }else{
@@ -1199,8 +1200,11 @@ Value *CallExprAST::codegen(bool wantPtr) {
     auto iter = calleeFunction->arg_begin();
     for (auto &arg: args) {
         Value *argValue = arg->codegen();
-        argValue = createCast(argValue, iter->getType());
-        if (!argValue) return nullptr;
+        if(iter != calleeFunction->arg_end()){
+            argValue = createCast(argValue, iter->getType());
+            if (!argValue) return logErrorV("Incorrect type function arg");
+            iter++;
+        }
         std::cout << "Arg value: " + getLLVMTypeStr(argValue) << std::endl;
         argsValue.push_back(argValue);
     }
