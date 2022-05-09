@@ -1130,7 +1130,7 @@ Function *FunctionDeclAST::codegen(bool wantPtr) {
     }
     verifyFunction(*currFunction, &errs());
     resetBlockForControl();
-    llvmFPM->run(*currFunction);
+    // llvmFPM->run(*currFunction);
     return currFunction;
 }
 
@@ -1167,15 +1167,9 @@ Value *ReturnStmtExprAST::codegen(bool wantPtr) {
 }
 
 Value *ForExprAST::codegen(bool wantPtr) {
-    /*
-     * phi node: i {label: value}
-     * entry, loop, after_loop
-     */
-
     Function *currFunction = llvmBuilder->GetInsertBlock()->getParent();
-    Value *startVal = start->codegen();
-    if (!startVal) return nullptr;    
-
+    Value *startExpr = start->codegen();
+    if (!startExpr) return nullptr;    
     BasicBlock *loopBlock = BasicBlock::Create(*llvmContext, "for_loop", currFunction);
     BasicBlock *bodyBlock = BasicBlock::Create(*llvmContext, "for_body", currFunction);
     BasicBlock *stepBlock = BasicBlock::Create(*llvmContext, "for_step", currFunction);
@@ -1186,34 +1180,26 @@ Value *ForExprAST::codegen(bool wantPtr) {
 
     llvmBuilder->CreateBr(loopBlock);
     llvmBuilder->SetInsertPoint(loopBlock);
-
+    // Check first
     Value *endVal = end->codegen();
     if (!endVal) return nullptr;
     if(endVal->getType()->isFloatingPointTy())
         endVal = llvmBuilder->CreateFCmpONE(endVal, getInitVal(endVal->getType()), "loop_end");
-
     else if(endVal->getType()->isIntegerTy(INTEGER_BITWIDTH))
         endVal = llvmBuilder->CreateICmpNE(endVal, getInitVal(endVal->getType()), "loop_end");
 
     llvmBuilder->CreateCondBr(endVal, bodyBlock, afterBlock);
-    
     llvmBuilder->SetInsertPoint(bodyBlock);
     if (!body->codegen()) return nullptr;
-    
-    llvmBuilder->CreateBr(stepBlock);
+    if(!llvmBuilder->GetInsertBlock()->getTerminator()){
+        llvmBuilder->CreateBr(stepBlock);
+    }
     llvmBuilder->SetInsertPoint(stepBlock);
     Value *stepVar = step->codegen();
     if (!stepVar) return nullptr;
-
-    std::cout   << "Type in for: "
-                << getLLVMTypeStr(startVal) 
-                << " " 
-                << getLLVMTypeStr(endVal)
-                << " "
-                << getLLVMTypeStr(stepVar) 
-                << std::endl;
-
-    llvmBuilder->CreateBr(loopBlock);
+    if(!llvmBuilder->GetInsertBlock()->getTerminator()){
+        llvmBuilder->CreateBr(loopBlock);
+    }
     llvmBuilder->SetInsertPoint(afterBlock);
     popBlockForControl();
     return llvmBuilder->getTrue();
@@ -1248,41 +1234,50 @@ Value *CallExprAST::codegen(bool wantPtr) {
 }
 
 Value *IfExprAST::codegen(bool wantPtr) {
+    Function *currFunction = llvmBuilder->GetInsertBlock()->getParent();
+    BasicBlock *ifBlock = BasicBlock::Create(*llvmContext, "if", currFunction);
+    llvmBuilder->CreateBr(ifBlock);
+    llvmBuilder->SetInsertPoint(ifBlock);
+    BasicBlock *thenBlock = BasicBlock::Create(*llvmContext, "then_case", currFunction);
+    BasicBlock *endifBlock = BasicBlock::Create(*llvmContext, "endif", currFunction);
     Value *condValue = cond->codegen();
     if (!condValue) return nullptr;
     auto condType = condValue->getType();
-
-    std::cout << "Cond type: " << getLLVMTypeStr(condType) << std::endl;
     Value * condVal;
     if(condType->isFloatingPointTy())
         condVal = llvmBuilder->CreateFCmpONE(condValue, getInitVal(condType), "if_comp");
     else
         condVal = llvmBuilder->CreateICmpNE(condValue, getInitVal(condType), "if_comp");
 
-    std::cout << "type of condval: " << getLLVMTypeStr(condVal) << std::endl;
-    Function *currFunction = llvmBuilder->GetInsertBlock()->getParent();
-    BasicBlock *endifBlock = BasicBlock::Create(*llvmContext, "endif", currFunction, retBlock);
-    BasicBlock *thenBlock = BasicBlock::Create(*llvmContext, "then_case", currFunction, endifBlock);
     if(else_case){
         BasicBlock *elseBlock = BasicBlock::Create(*llvmContext, "else_case", currFunction, endifBlock);
         llvmBuilder->CreateCondBr(condVal, thenBlock, elseBlock);
+
         llvmBuilder->SetInsertPoint(thenBlock);
         Value *thenValue = then_case->codegen();
         if (!thenValue) return nullptr;
-        llvmBuilder->CreateBr(endifBlock);
+        if(!llvmBuilder->GetInsertBlock()->getTerminator()){
+            llvmBuilder->CreateBr(endifBlock);
+        }
+
         llvmBuilder->SetInsertPoint(elseBlock);
         Value *elseValue = else_case->codegen();
         if (!elseValue) return nullptr;
-        llvmBuilder->CreateBr(endifBlock);
+        if(!llvmBuilder->GetInsertBlock()->getTerminator()){
+            llvmBuilder->CreateBr(endifBlock);
+        }
         llvmBuilder->SetInsertPoint(endifBlock);
         return condValue;
     }else{
         llvmBuilder->CreateCondBr(condVal, thenBlock, endifBlock);
         llvmBuilder->SetInsertPoint(thenBlock);
+
         Value *thenValue = then_case->codegen();
         if (!thenValue) return nullptr;
         std::cout << "Return value of then value: " << getLLVMTypeStr(thenValue) << std::endl;
-        llvmBuilder->CreateBr(endifBlock);
+        if(!llvmBuilder->GetInsertBlock()->getTerminator()){
+            llvmBuilder->CreateBr(endifBlock);
+        }
         llvmBuilder->SetInsertPoint(endifBlock);
         return condValue;
     }
@@ -1294,7 +1289,7 @@ Value *WhileExprAST::codegen(bool wantPtr) {
     Function *currFunction = llvmBuilder->GetInsertBlock()->getParent();
     BasicBlock *entryBlock = BasicBlock::Create(*llvmContext, "entry", currFunction);
     BasicBlock *loopBlock = BasicBlock::Create(*llvmContext, "while_loop_body", currFunction);
-    BasicBlock *endBlock = BasicBlock::Create(*llvmContext, "while_loop_end", currFunction, retBlock);
+    BasicBlock *endBlock = BasicBlock::Create(*llvmContext, "while_loop_end", currFunction);
 
     BlockForBreak.push(endBlock);
     BlockForContinue.push(loopBlock);
@@ -1307,13 +1302,6 @@ Value *WhileExprAST::codegen(bool wantPtr) {
     if (!condVal) return nullptr;
     auto condType = condVal->getType();
 
-    std::cout << "Type in while: " 
-            << getLLVMTypeStr(condVal) 
-            << " "
-            << getLLVMTypeStr(condVal->getType())
-            << std::endl;
-
-
     if(condType->isFloatingPointTy())
         endVal = llvmBuilder->CreateFCmpONE(condVal, getInitVal(condVal->getType()), "while_comp");
     else
@@ -1322,20 +1310,19 @@ Value *WhileExprAST::codegen(bool wantPtr) {
     llvmBuilder->CreateCondBr(endVal, loopBlock, endBlock);
     llvmBuilder->SetInsertPoint(loopBlock);
     if(!body->codegen()) return nullptr;
-
-    llvmBuilder->CreateBr(entryBlock);
+    if(!llvmBuilder->GetInsertBlock()->getTerminator()){
+            llvmBuilder->CreateBr(entryBlock);
+    }
     llvmBuilder->SetInsertPoint(endBlock);
-
     popBlockForControl();
     return Constant::getNullValue(condType);
 }
 
 Value *DoExprAST::codegen(bool wantPtr) {
-    print("Generate for while expr");
-    
+    print("Generate do while expr");
     Function *currFunction = llvmBuilder->GetInsertBlock()->getParent();
     BasicBlock *loopBlock = BasicBlock::Create(*llvmContext, "do_while_loop_body", currFunction);
-    BasicBlock *endBlock = BasicBlock::Create(*llvmContext, "do_while_loop_end", currFunction, retBlock);
+    BasicBlock *endBlock = BasicBlock::Create(*llvmContext, "do_while_loop_end", currFunction);
 
     BlockForBreak.push(endBlock);
     BlockForContinue.push(loopBlock);
@@ -1344,28 +1331,21 @@ Value *DoExprAST::codegen(bool wantPtr) {
     llvmBuilder->SetInsertPoint(loopBlock);
 
     if(!body->codegen()) return nullptr;
-
     Value *endVal;
-
     Value *condVal = cond->codegen();
+
     if (!condVal) return nullptr;
     auto condType = condVal->getType();
-
-    std::cout << "Type in do_while: " 
-            << getLLVMTypeStr(condVal) 
-            << " "
-            << getLLVMTypeStr(condVal->getType())
-            << std::endl;
-
 
     if(condVal->getType()->isFloatingPointTy())
         endVal = llvmBuilder->CreateFCmpONE(condVal, getInitVal(condVal->getType()), "while_comp");
     else
         endVal = llvmBuilder->CreateICmpNE(condVal, getInitVal(condVal->getType()), "while_comp");
 
-    llvmBuilder->CreateCondBr(endVal, loopBlock, endBlock);
+    if(!llvmBuilder->GetInsertBlock()->getTerminator()){
+        llvmBuilder->CreateCondBr(endVal, loopBlock, endBlock);
+    }
     llvmBuilder->SetInsertPoint(endBlock);
-
     popBlockForControl();
     return Constant::getNullValue(Type::getDoubleTy(*llvmContext));
 }
