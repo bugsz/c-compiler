@@ -614,7 +614,7 @@ EXPR :
                 fprintf(stderr, COLOR_GREEN"^\n"COLOR_NORMAL);
                 (*n_errs)++;
             }
-            sprintf($$->val, "%f", res);
+            sprintf($$->val, "%.16lf", res);
         }
     }
     | CONSTANT     { 

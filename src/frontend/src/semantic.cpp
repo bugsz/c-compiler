@@ -14,6 +14,8 @@
 #include <algorithm>
 #include <cstring>
 #include <fstream>
+#include <sstream>
+#include <iomanip>
 #include <limits>
 
 #include "semantic.h"
@@ -244,10 +246,12 @@ static string check_decl(ast_node_ptr node) {
 
 static string const_fold(int* n_errs, ast_node_ptr num, string op) {
     int type = num->type_id;
+    stringstream ss;
     assert(num->type_id != TYPEID_VOID);
     if (op == "-") {
         if (num->type_id > TYPEID_LONG) {
-            return to_string(-atof(num->val));
+            ss << fixed << setprecision(16) << -atof(num->val);
+            return ss.str();
         } else {
             return to_string(-atol(num->val));
         }
@@ -269,12 +273,14 @@ static string const_fold(int* n_errs, ast_node_ptr num, string op) {
 
 static string const_fold(int* n_errs, ast_node_ptr left, ast_node_ptr right, string op, int res_type) {
     int typel = left->type_id, typer = right->type_id;
+    stringstream ss;
     assert(op != "=");
     if (op == "+") {
         if(res_type == TYPEID_LONG) {
             return to_string(atol(left->val) + atol(right->val));;
         } else if(res_type > TYPEID_LONG){
-            return to_string(atof(left->val) + atof(right->val));
+            ss << fixed << setprecision(16) << atof(left->val) + atof(right->val);
+            return ss.str();
         } else if(res_type < TYPEID_LONG){
             return to_string(atoi(left->val) + atoi(right->val));
         }
@@ -282,7 +288,8 @@ static string const_fold(int* n_errs, ast_node_ptr left, ast_node_ptr right, str
         if(res_type == TYPEID_LONG) {
             return to_string(atol(left->val) - atol(right->val));;
         } else if(res_type > TYPEID_LONG){
-            return to_string(atof(left->val) - atof(right->val));
+            ss << fixed << setprecision(16) << atof(left->val) - atof(right->val);
+            return ss.str();
         } else if(res_type < TYPEID_LONG){
             return to_string(atoi(left->val) - atoi(right->val));
         }
@@ -290,7 +297,8 @@ static string const_fold(int* n_errs, ast_node_ptr left, ast_node_ptr right, str
         if(res_type == TYPEID_LONG) {
             return to_string(atol(left->val) * atol(right->val));;
         } else if(res_type > TYPEID_LONG){
-            return to_string(atof(left->val) * atof(right->val));
+            ss << fixed << setprecision(16) << atof(left->val) * atof(right->val);
+            return ss.str();
         } else if(res_type < TYPEID_LONG){
             return to_string(atoi(left->val) * atoi(right->val));
         }
@@ -298,7 +306,8 @@ static string const_fold(int* n_errs, ast_node_ptr left, ast_node_ptr right, str
         if(res_type == TYPEID_LONG) {
             return to_string(atol(left->val) / atol(right->val));;
         } else if(res_type > TYPEID_LONG){
-            return to_string(atof(left->val) / atof(right->val));
+            ss << fixed << setprecision(16) << atof(left->val) / atof(right->val);
+            return ss.str();
         } else if(res_type < TYPEID_LONG){
             return to_string(atoi(left->val) / atoi(right->val));
         }

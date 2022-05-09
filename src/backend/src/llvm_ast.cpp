@@ -52,6 +52,7 @@ static std::stack<std::map<std::string, AllocaInst *>> NamedValues;
 static std::unique_ptr<IRBuilder<>> llvmBuilder;
 static std::unique_ptr<legacy::FunctionPassManager> llvmFPM;
 
+static std::stack<BasicBlock *> BlockForEndif;
 static std::stack<BasicBlock *> BlockForBreak;
 static std::stack<BasicBlock *> BlockForContinue;
 
@@ -64,12 +65,15 @@ int getBinaryOpType(std::string binaryOp) {
     if(binaryOp == "/") return DIV;
     if(binaryOp == "<") return LT;
     if(binaryOp == ">") return GT;
+    if(binaryOp == "%") return REM;
+    if(binaryOp == "=" ) return ASSIGN;
     if(binaryOp == "<=") return LE;
     if(binaryOp == ">=") return GE;    
     if(binaryOp == "==") return EQ;
     if(binaryOp == "!=") return NE;
-    if(binaryOp == "=" ) return ASSIGN;
-    if(binaryOp =="/=" || binaryOp =="*="|| binaryOp =="-="|| binaryOp =="+=") return ASSIGNPLUS;
+    if(binaryOp == "/=" || binaryOp =="*="|| binaryOp =="-="|| binaryOp =="+=") return ASSIGNPLUS;
+    if(binaryOp == "&&") return LAND;
+    if(binaryOp == "||") return LOR;
     fprintf(stderr, "Unsupported binary operation: %s\n", binaryOp.c_str());
     exit(-1);
 }
@@ -80,6 +84,7 @@ int getUnaryOpType(std::string unaryOp) {
     if(unaryOp == "&") return REF;
     if(unaryOp == "*") return DEREF;
     if(unaryOp == "()") return CAST;
+    if(unaryOp == "!") return LNOT;
     return POS;
 }
 
@@ -691,13 +696,13 @@ Value *VarRefExprAST::codegen(bool wantPtr) {
     if(isGlobal) {
         std::cout << "Find global var: " << name << std::endl;
         GlobalVariable *gV = static_cast<GlobalVariable *>(V);
-        if(gV->isConstant() || initializing)
+        if(initializing){
             return gV->getInitializer();
-        else if(gV->getType()->isArrayTy()) {
+        }else if(gV->getType()->getPointerElementType()->isArrayTy()){
             return llvmBuilder->CreateGEP(gV->getType()->getPointerElementType(), gV, {llvmBuilder->getInt64(0), llvmBuilder->getInt64(0)});
-        }
-        else
+        }else{
             return llvmBuilder->CreateLoad(V->getType()->getPointerElementType(), V);
+        }
     }
 
     if(V->getType()->getPointerElementType()->isArrayTy()){
@@ -759,6 +764,7 @@ Value *GlobalArrayExprAST::codegen(bool wantPtr) {
 }
 
 Value *ArraySubExprAST::codegen(bool wantPtr) {
+    std::cout<<"Array Sub"<<"Want Ptr:" << wantPtr<<std::endl;
     static Value* zero = llvmBuilder->getInt64(0);
     auto index = sub->codegen();
     if (!index) return nullptr;
@@ -769,10 +775,10 @@ Value *ArraySubExprAST::codegen(bool wantPtr) {
     Type * elementType = getVarType(type);
     if(varPtr->getType()->getPointerElementType()->isPointerTy()){
         // unsafe way
-        Value * arrayPtr = llvmBuilder->CreateLoad(elementType->getPointerTo(), varPtr);
+        auto arrayPtr = llvmBuilder->CreateLoad(elementType->getPointerTo(), varPtr);
         elementPtr = llvmBuilder->CreateGEP(
             elementType,
-            arrayPtr, 
+            arrayPtr,
             castIndex
         );
     }else{
@@ -872,6 +878,14 @@ Value *UnaryExprAST::codegen(bool wantPtr) {
                 */
                 return right;
             }
+            if(!(right->getType()->getPointerElementType() == (wantPtr ? varType->getPointerTo() : varType))){
+                /* 
+                    this indicates right is already a ptr to array, since it's meaning less to assign to an array
+                    variable, we'd better run codegen() without want ptr flag
+                */
+                right = rhs->codegen();
+                return right;
+            }
             auto V = llvmBuilder->CreateLoad(wantPtr ? varType->getPointerTo() : varType, right);
             if (!V) return logErrorV("Unable to do dereferring");
             return V;
@@ -883,7 +897,15 @@ Value *UnaryExprAST::codegen(bool wantPtr) {
             if(!casted) return logErrorV("Unsupported Cast");
             return casted;
         }
-
+        case LNOT: {
+            Value * right = rhs->codegen();
+            if(right->getType()->isFloatingPointTy())
+                return llvmBuilder->CreateFCmpOEQ(right, getInitVal(llvmBuilder->getDoubleTy()));
+            else{
+                right = createCast(right, llvmBuilder->getInt64Ty());
+                return llvmBuilder->CreateICmpEQ(right, llvmBuilder->getInt64(0));
+            }
+        }
         default: {
             auto errorMsg = "Invalid unary op" + op;
             return logErrorV(errorMsg.c_str());
@@ -892,9 +914,8 @@ Value *UnaryExprAST::codegen(bool wantPtr) {
 }
 
 Value *BinaryExprAST::codegen(bool wantPtr) {
-
+    // Assignment
     if (op_type == ASSIGN) {
-        std::string name;
         Value * variable = lhs->codegen(true);
         Value * val = rhs->codegen();
         if (!variable || !val) {
@@ -909,17 +930,33 @@ Value *BinaryExprAST::codegen(bool wantPtr) {
         return val;
     }
 
-
     Value *left = lhs->codegen();
     std::cout << "Value on lhs: " + getLLVMTypeStr(left) << std::endl;
     Value *right = rhs->codegen();
     std::cout << "Value on rhs: " + getLLVMTypeStr(right) << std::endl;
-
-
     if (!left || !right) {
         return logErrorV("lhs / rhs is not valid");
     }
 
+    // Logical operations
+    if(op_type == LAND || op_type ==  LOR){
+        if(left->getType()->isFloatingPointTy()){
+            left = llvmBuilder->CreateFCmpONE(left, getInitVal(llvmBuilder->getDoubleTy()));
+        }else{
+            left = createCast(left, llvmBuilder->getInt64Ty());
+            left = llvmBuilder->CreateICmpNE(left, llvmBuilder->getInt64(0));
+        }
+        if(right->getType()->isFloatingPointTy()){
+            right = llvmBuilder->CreateFCmpONE(right, getInitVal(llvmBuilder->getDoubleTy()));
+        }else{
+            right = createCast(right, llvmBuilder->getInt64Ty());
+            right = llvmBuilder->CreateICmpNE(right, llvmBuilder->getInt64(0));
+        }
+        return op_type == LAND ? llvmBuilder->CreateLogicalAnd(left, right) : llvmBuilder->CreateLogicalOr(left, right);
+    }
+
+
+    // Mathematics operations
     auto leftType = left->getType();
     auto rightType = right->getType();
 
@@ -933,18 +970,16 @@ Value *BinaryExprAST::codegen(bool wantPtr) {
         auto newRight = leftType->isPointerTy() ? right : left;
         left = newLeft;
         right = newRight;
-
         switch(op_type) {
             case ADD:
                 return llvmBuilder->CreateGEP(leftType->getPointerElementType(), left, right);
             case SUB:
                 right = llvmBuilder->CreateNeg(right);
-                return llvmBuilder->CreateGEP(leftType->getPointerElementType(), left, right);
+                return llvmBuilder->CreateGEP(leftType->getPointerElementType(), left, right);            
             default:
                 return logErrorV("Unsupported binary operation for pointer");
         }
     }
-
 
     if(leftType->isFloatingPointTy() || rightType->isFloatingPointTy()) {
         // always cast int to FP
@@ -1007,6 +1042,8 @@ Value *BinaryExprAST::codegen(bool wantPtr) {
                 return llvmBuilder->CreateICmpNE(left, right, "ine");
             case EQ:
                 return llvmBuilder->CreateICmpEQ(left, right, "ieq");
+            case REM:
+                return llvmBuilder->CreateSRem(left, right, "ieq");
             default:
                 return logErrorV("Invalid binary operator");
         }
@@ -1130,15 +1167,9 @@ Value *ReturnStmtExprAST::codegen(bool wantPtr) {
 }
 
 Value *ForExprAST::codegen(bool wantPtr) {
-    /*
-     * phi node: i {label: value}
-     * entry, loop, after_loop
-     */
-
     Function *currFunction = llvmBuilder->GetInsertBlock()->getParent();
-    Value *startVal = start->codegen();
-    if (!startVal) return nullptr;    
-
+    Value *startExpr = start->codegen();
+    if (!startExpr) return nullptr;    
     BasicBlock *loopBlock = BasicBlock::Create(*llvmContext, "for_loop", currFunction);
     BasicBlock *bodyBlock = BasicBlock::Create(*llvmContext, "for_body", currFunction);
     BasicBlock *stepBlock = BasicBlock::Create(*llvmContext, "for_step", currFunction);
@@ -1149,34 +1180,26 @@ Value *ForExprAST::codegen(bool wantPtr) {
 
     llvmBuilder->CreateBr(loopBlock);
     llvmBuilder->SetInsertPoint(loopBlock);
-
+    // Check first
     Value *endVal = end->codegen();
     if (!endVal) return nullptr;
     if(endVal->getType()->isFloatingPointTy())
         endVal = llvmBuilder->CreateFCmpONE(endVal, getInitVal(endVal->getType()), "loop_end");
-
     else if(endVal->getType()->isIntegerTy(INTEGER_BITWIDTH))
         endVal = llvmBuilder->CreateICmpNE(endVal, getInitVal(endVal->getType()), "loop_end");
 
     llvmBuilder->CreateCondBr(endVal, bodyBlock, afterBlock);
-    
     llvmBuilder->SetInsertPoint(bodyBlock);
     if (!body->codegen()) return nullptr;
-    
-    llvmBuilder->CreateBr(stepBlock);
+    if(!llvmBuilder->GetInsertBlock()->getTerminator()){
+        llvmBuilder->CreateBr(stepBlock);
+    }
     llvmBuilder->SetInsertPoint(stepBlock);
     Value *stepVar = step->codegen();
     if (!stepVar) return nullptr;
-
-    std::cout   << "Type in for: "
-                << getLLVMTypeStr(startVal) 
-                << " " 
-                << getLLVMTypeStr(endVal)
-                << " "
-                << getLLVMTypeStr(stepVar) 
-                << std::endl;
-
-    llvmBuilder->CreateBr(loopBlock);
+    if(!llvmBuilder->GetInsertBlock()->getTerminator()){
+        llvmBuilder->CreateBr(loopBlock);
+    }
     llvmBuilder->SetInsertPoint(afterBlock);
     popBlockForControl();
     return llvmBuilder->getTrue();
@@ -1196,9 +1219,14 @@ Value *CallExprAST::codegen(bool wantPtr) {
         logErrorV("Incorrect args");
 
     std::vector<Value *> argsValue;
+    auto iter = calleeFunction->arg_begin();
     for (auto &arg: args) {
         Value *argValue = arg->codegen();
-        if (!argValue) return nullptr;
+        if(iter != calleeFunction->arg_end()){
+            argValue = createCast(argValue, iter->getType());
+            if (!argValue) return logErrorV("Incorrect type function arg");
+            iter++;
+        }
         std::cout << "Arg value: " + getLLVMTypeStr(argValue) << std::endl;
         argsValue.push_back(argValue);
     }
@@ -1206,21 +1234,21 @@ Value *CallExprAST::codegen(bool wantPtr) {
 }
 
 Value *IfExprAST::codegen(bool wantPtr) {
+    Function *currFunction = llvmBuilder->GetInsertBlock()->getParent();
+    BasicBlock *ifBlock = BasicBlock::Create(*llvmContext, "if", currFunction);
+    llvmBuilder->CreateBr(ifBlock);
+    llvmBuilder->SetInsertPoint(ifBlock);
+    BasicBlock *thenBlock = BasicBlock::Create(*llvmContext, "then_case", currFunction);
+    BasicBlock *endifBlock = BasicBlock::Create(*llvmContext, "endif", currFunction);
     Value *condValue = cond->codegen();
     if (!condValue) return nullptr;
     auto condType = condValue->getType();
-
-    std::cout << "Cond type: " << getLLVMTypeStr(condType) << std::endl;
     Value * condVal;
     if(condType->isFloatingPointTy())
         condVal = llvmBuilder->CreateFCmpONE(condValue, getInitVal(condType), "if_comp");
     else
         condVal = llvmBuilder->CreateICmpNE(condValue, getInitVal(condType), "if_comp");
 
-    std::cout << "type of condval: " << getLLVMTypeStr(condVal) << std::endl;
-    Function *currFunction = llvmBuilder->GetInsertBlock()->getParent();
-    BasicBlock *endifBlock = BasicBlock::Create(*llvmContext, "endif", currFunction, retBlock);
-    BasicBlock *thenBlock = BasicBlock::Create(*llvmContext, "then_case", currFunction, endifBlock);
     if(else_case){
         BasicBlock *elseBlock = BasicBlock::Create(*llvmContext, "else_case", currFunction, endifBlock);
         llvmBuilder->CreateCondBr(condVal, thenBlock, elseBlock);
@@ -1228,17 +1256,16 @@ Value *IfExprAST::codegen(bool wantPtr) {
         llvmBuilder->SetInsertPoint(thenBlock);
         Value *thenValue = then_case->codegen();
         if (!thenValue) return nullptr;
-        if(!thenBlock->getTerminator()){
+        if(!llvmBuilder->GetInsertBlock()->getTerminator()){
             llvmBuilder->CreateBr(endifBlock);
         }
 
         llvmBuilder->SetInsertPoint(elseBlock);
         Value *elseValue = else_case->codegen();
         if (!elseValue) return nullptr;
-        if(!elseBlock->getTerminator()){
+        if(!llvmBuilder->GetInsertBlock()->getTerminator()){
             llvmBuilder->CreateBr(endifBlock);
         }
-
         llvmBuilder->SetInsertPoint(endifBlock);
         return condValue;
     }else{
@@ -1248,7 +1275,7 @@ Value *IfExprAST::codegen(bool wantPtr) {
         Value *thenValue = then_case->codegen();
         if (!thenValue) return nullptr;
         std::cout << "Return value of then value: " << getLLVMTypeStr(thenValue) << std::endl;
-        if(!thenBlock->getTerminator()){
+        if(!llvmBuilder->GetInsertBlock()->getTerminator()){
             llvmBuilder->CreateBr(endifBlock);
         }
         llvmBuilder->SetInsertPoint(endifBlock);
@@ -1262,7 +1289,7 @@ Value *WhileExprAST::codegen(bool wantPtr) {
     Function *currFunction = llvmBuilder->GetInsertBlock()->getParent();
     BasicBlock *entryBlock = BasicBlock::Create(*llvmContext, "entry", currFunction);
     BasicBlock *loopBlock = BasicBlock::Create(*llvmContext, "while_loop_body", currFunction);
-    BasicBlock *endBlock = BasicBlock::Create(*llvmContext, "while_loop_end", currFunction, retBlock);
+    BasicBlock *endBlock = BasicBlock::Create(*llvmContext, "while_loop_end", currFunction);
 
     BlockForBreak.push(endBlock);
     BlockForContinue.push(loopBlock);
@@ -1275,13 +1302,6 @@ Value *WhileExprAST::codegen(bool wantPtr) {
     if (!condVal) return nullptr;
     auto condType = condVal->getType();
 
-    std::cout << "Type in while: " 
-            << getLLVMTypeStr(condVal) 
-            << " "
-            << getLLVMTypeStr(condVal->getType())
-            << std::endl;
-
-
     if(condType->isFloatingPointTy())
         endVal = llvmBuilder->CreateFCmpONE(condVal, getInitVal(condVal->getType()), "while_comp");
     else
@@ -1290,20 +1310,19 @@ Value *WhileExprAST::codegen(bool wantPtr) {
     llvmBuilder->CreateCondBr(endVal, loopBlock, endBlock);
     llvmBuilder->SetInsertPoint(loopBlock);
     if(!body->codegen()) return nullptr;
-
-    llvmBuilder->CreateBr(entryBlock);
+    if(!llvmBuilder->GetInsertBlock()->getTerminator()){
+            llvmBuilder->CreateBr(entryBlock);
+    }
     llvmBuilder->SetInsertPoint(endBlock);
-
     popBlockForControl();
     return Constant::getNullValue(condType);
 }
 
 Value *DoExprAST::codegen(bool wantPtr) {
-    print("Generate for while expr");
-    
+    print("Generate do while expr");
     Function *currFunction = llvmBuilder->GetInsertBlock()->getParent();
     BasicBlock *loopBlock = BasicBlock::Create(*llvmContext, "do_while_loop_body", currFunction);
-    BasicBlock *endBlock = BasicBlock::Create(*llvmContext, "do_while_loop_end", currFunction, retBlock);
+    BasicBlock *endBlock = BasicBlock::Create(*llvmContext, "do_while_loop_end", currFunction);
 
     BlockForBreak.push(endBlock);
     BlockForContinue.push(loopBlock);
@@ -1312,28 +1331,21 @@ Value *DoExprAST::codegen(bool wantPtr) {
     llvmBuilder->SetInsertPoint(loopBlock);
 
     if(!body->codegen()) return nullptr;
-
     Value *endVal;
-
     Value *condVal = cond->codegen();
+
     if (!condVal) return nullptr;
     auto condType = condVal->getType();
-
-    std::cout << "Type in do_while: " 
-            << getLLVMTypeStr(condVal) 
-            << " "
-            << getLLVMTypeStr(condVal->getType())
-            << std::endl;
-
 
     if(condVal->getType()->isFloatingPointTy())
         endVal = llvmBuilder->CreateFCmpONE(condVal, getInitVal(condVal->getType()), "while_comp");
     else
         endVal = llvmBuilder->CreateICmpNE(condVal, getInitVal(condVal->getType()), "while_comp");
 
-    llvmBuilder->CreateCondBr(endVal, loopBlock, endBlock);
+    if(!llvmBuilder->GetInsertBlock()->getTerminator()){
+        llvmBuilder->CreateCondBr(endVal, loopBlock, endBlock);
+    }
     llvmBuilder->SetInsertPoint(endBlock);
-
     popBlockForControl();
     return Constant::getNullValue(Type::getDoubleTy(*llvmContext));
 }

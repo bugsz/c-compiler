@@ -56,17 +56,6 @@ enum ASTNodeType {
     UNKNOWN
 };
 
-
-enum UnaryOpType {
-    POS = 0,
-    NEG,
-    DEREF,
-    REF,
-    CAST
-};
-
-
-
 ASTNodeType getNodeType(std::string token);
 int getBinaryOpType(std::string binaryOp);
 
@@ -350,5 +339,18 @@ enum BinaryOpType {
     GE,
     NE,
     ASSIGN,
-    ASSIGNPLUS
+    ASSIGNPLUS,
+    LAND,
+    LOR,
+    REM
+    // todo: 位运算
+};
+
+enum UnaryOpType {
+    POS = 0,
+    NEG,
+    DEREF,
+    REF,
+    CAST,
+    LNOT
 };

@@ -13,7 +13,7 @@ set(FRONTEND_INCLUDE "./src/frontend/frontend.h")
 
 
 
-find_package(LLVM REQUIRED CONFIG)
+find_package(LLVM 13 REQUIRED CONFIG)
 message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}")
 message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
 message(STATUS "Using LLVM path ${LLVM_INCLUDE_DIRS}")
