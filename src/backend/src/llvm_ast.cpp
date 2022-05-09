@@ -691,13 +691,14 @@ Value *VarRefExprAST::codegen(bool wantPtr) {
     if(isGlobal) {
         std::cout << "Find global var: " << name << std::endl;
         GlobalVariable *gV = static_cast<GlobalVariable *>(V);
-        if(gV->isConstant() || initializing)
+        if(initializing){
             return gV->getInitializer();
-        else if(gV->getType()->isArrayTy()) {
+        }else if(gV->getType()->getPointerElementType()->isArrayTy()){
+            print("!!!!!");
             return llvmBuilder->CreateGEP(gV->getType()->getPointerElementType(), gV, {llvmBuilder->getInt64(0), llvmBuilder->getInt64(0)});
-        }
-        else
+        }else{
             return llvmBuilder->CreateLoad(V->getType()->getPointerElementType(), V);
+        }
     }
 
     if(V->getType()->getPointerElementType()->isArrayTy()){
