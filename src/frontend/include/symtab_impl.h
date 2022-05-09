@@ -61,6 +61,7 @@ public:
     }
     
     int get_arg_type(int i) {
+        assert(i < param_type_id.size());
         return param_type_id[i];
     }
 private:
