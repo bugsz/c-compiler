@@ -413,10 +413,12 @@ static void semantic_check_impl(int* n_errs, ast_node_ptr node) {
                     isredef = true;
                 if(isredef)
                     semantic_error(n_errs, node->pos, "conflicting types for '%s'", node->val);
-                else if(string(node->child[node->n_child-1]->token) == "FunctionDecl")
+                else if(string(node->child[node->n_child-1]->token) == "CompoundStmt"){
                     semantic_check_impl(n_errs, node->child[node->n_child-1]);
-                else
                     return;
+                }else{
+                    return;
+                }
             } else {
                 sym_tab.add(node->val, node->type_id, true);
             }
