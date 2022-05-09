@@ -15,6 +15,7 @@
 #include <cstring>
 #include <fstream>
 #include <sstream>
+#include <iomanip>
 #include <limits>
 
 #include "semantic.h"
