@@ -157,9 +157,10 @@ class ArrayExprAST: public ExprAST {
     int type;
     std::string name;
     int size;
-    std::vector<std::unique_ptr<ExprAST>> init;
+    
     
 public:
+    std::vector<std::unique_ptr<ExprAST>> init;
     const std::string &getName() const { return name; }
     const int getSize() const { return size; }
     const int getType() const { return type; }
@@ -175,6 +176,21 @@ public:
     int getType() { return type; }
     ArraySubExprAST(std::unique_ptr<VarRefExprAST> var, std::unique_ptr<ExprAST> sub, int type_id):
     var(std::move(var)), sub(std::move(sub)), type(type_id) {}
+    Value *codegen(bool wantPtr = false) override;
+};
+
+class GlobalArrayExprAST: public ExprAST {
+    int type;
+    std::string name;
+    std::unique_ptr<ArrayExprAST> init;
+public:
+    GlobalArrayExprAST(std::unique_ptr<ArrayExprAST> init)
+    : init(std::move(init)) { 
+        std::cout << "global var" << std::endl;
+        type = this->init->getType(); 
+        name = this->init->getName();
+        std::cout << type << " " << name << std::endl; 
+    }
     Value *codegen(bool wantPtr = false) override;
 };
 
@@ -240,15 +256,13 @@ public:
 
 class PrototypeAST : public ExprAST {
     std::string name;
-    
-    std::map<std::string, int> args;
-
+    std::vector<std::pair<std::string, int>> args;
+    bool va;
 public:
     int retVal;
-    PrototypeAST(std::string &name, int retVal, std::map<std::string, int> args)
-    : name(name), retVal(retVal), args(std::move(args)) {}
+    PrototypeAST(std::string &name, int retVal, std::vector<std::pair<std::string, int>> args, bool va)
+    : name(name), retVal(retVal), args(std::move(args)), va(va) {}
     Function *codegen(bool wantPtr = false);
-
     std::string &getName() { return name; }
     int getRetVal() { return retVal; }
 };

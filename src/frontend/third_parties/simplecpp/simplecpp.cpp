@@ -3024,7 +3024,7 @@ void simplecpp::preprocess(simplecpp::TokenList &output, const simplecpp::TokenL
     macros.insert(std::make_pair("__INT32_MIN__", Macro("__INT32_MIN__", std::to_string(std::numeric_limits<int>::min()), files)));
     macros.insert(std::make_pair("__INT64_MAX__", Macro("__INT64_MAX__", std::to_string(std::numeric_limits<long>::max()), files)));
     macros.insert(std::make_pair("__INT64_MIN__", Macro("__INT64_MIN__", std::to_string(std::numeric_limits<long>::min()), files)));
-    macros.insert(std::make_pair("printf", Macro("printf", "__builtin_printf", files)));
+    // macros.insert(std::make_pair("printf", Macro("printf", "__builtin_printf", files)));
 
     if (!dui.std.empty()) {
         std::string std_def = simplecpp::getCStdString(dui.std);

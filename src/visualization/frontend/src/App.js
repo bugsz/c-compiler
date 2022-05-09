@@ -45,7 +45,7 @@ function App() {
   const handleCompile = async () =>{
     var code = editorRef.current.getValue()
     try {
-      let resp = await getAST(code)
+      let resp = await getAST("#include \"builtin.h\"\n"+code)
       logger.Debug(JSON.stringify(resp))
       if(resp.success){
         logger.Info('Compile Success\n')
@@ -93,7 +93,7 @@ function App() {
     var input = inputRef.current.resizableTextArea.props.value
     try {
       let resp = await getRunningResult({
-        code : code,
+        code : "#include \"builtin.h\"\n"+code,
         input: input
       })
       logger.Debug(JSON.stringify(resp))

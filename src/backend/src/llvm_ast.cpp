@@ -51,10 +51,7 @@ static BasicBlock* retBlock;
 static std::stack<std::map<std::string, AllocaInst *>> NamedValues;
 static std::unique_ptr<IRBuilder<>> llvmBuilder;
 static std::unique_ptr<legacy::FunctionPassManager> llvmFPM;
-static std::map<std::string, std::unique_ptr<PrototypeAST>> functionProtos;
 
-// static BasicBlock *BlockForBreak;
-// static BasicBlock *BlockForContinue;
 static std::stack<BasicBlock *> BlockForBreak;
 static std::stack<BasicBlock *> BlockForContinue;
 
@@ -165,7 +162,7 @@ Constant *getInitVal(Type *type) {
     else if(type->isIntegerTy(64))
         return llvmBuilder->getInt64(0);
     else{
-        // others are all pointers
+        //others are all pointers(including void *)
         return ConstantExpr::getIntToPtr(llvmBuilder->getInt64(0), type);
     }
 }
@@ -222,80 +219,23 @@ int ptr2raw(int ptr) {
 template<typename TO, typename FROM>
 std::unique_ptr<TO> static_unique_pointer_cast (std::unique_ptr<FROM>&& old){
     return std::unique_ptr<TO>{static_cast<TO*>(old.release())};
-    //conversion: unique_ptr<FROM>->FROM*->TO*->unique_ptr<TO>
+}
+
+Function *getFunction(std::string name) {
+    if (auto *F = llvmModule->getFunction(name)) {
+        return F;
+    }
+    return nullptr;
 }
 
 Value *getBuiltinFunction(std::string callee, std::vector<std::unique_ptr<ExprAST>> &args) {
-    if(llvmModule->getFunction(callee)){
-        print("Builtin function over written by user!");
-        return nullptr;
-    }
-    Module* mod = llvmModule.get();
     std::vector<Value *> varArgs;
-    FunctionType *funcType;
     std::string func_name = callee.substr(strlen("__builtin_"), callee.length());
-    print("Real name of " + callee + " is " + func_name);
-    auto external_func = llvmModule->getFunction(func_name);
-    if(callee == "__builtin_printf"){
-        if(args.size() < 1){
-            logErrorV("too few arguments to function call");
-        }
-        auto formatArgs = llvmBuilder->CreateGlobalStringPtr(
-            (static_cast<LiteralExprAST *>(args[0].get()))->getValue()
-        );
-        varArgs.push_back(formatArgs);
-        for (int i = 1; i < args.size(); i++) {
-            auto arg = args[i]->codegen();
-            varArgs.push_back(arg);
-        }
-        funcType = FunctionType::get(
-            Type::getInt32Ty(mod->getContext()), 
-            {Type::getInt8PtrTy(mod->getContext())},
-            true
-        );
-    }else if(callee == "__builtin_sprintf"){
-        if(args.size() < 2){
-            logErrorV("too few arguments to function call");
-            exit(1);
-        }
-        varArgs.push_back(args[0]->codegen());
-        auto formatArgs = llvmBuilder->CreateGlobalStringPtr(
-            (static_cast<LiteralExprAST *>(args[1].get()))->getValue()
-        );
-        varArgs.push_back(formatArgs);
-        for (int i=2; i < args.size(); i++) {
-            auto arg = args[i]->codegen();
-            varArgs.push_back(arg);
-        }
-        funcType = FunctionType::get(
-            Type::getInt32Ty(mod->getContext()), 
-            {Type::getInt8PtrTy(mod->getContext()), Type::getInt8PtrTy(mod->getContext())},
-            true
-        );
-    }else if(callee == "__builtin_scanf") {
-        if(args.size() < 2){
-            logErrorV("too few arguments to function call");
-        }
-        auto formatArgs = llvmBuilder->CreateGlobalStringPtr(
-            (static_cast<LiteralExprAST *>(args[0].get()))->getValue()
-        );
-        varArgs.push_back(formatArgs);
-        for (int i = 1; i < args.size(); i++) {
-            auto arg = args[i]->codegen();
-            varArgs.push_back(arg);
-        }
-        funcType = FunctionType::get(
-            Type::getInt32Ty(mod->getContext()), 
-            {Type::getInt8PtrTy(mod->getContext())},
-            true
-        );
+    auto func = getFunction(func_name);
+    if(!func){
+        fprintf(stderr, "error: use of unknown builtin '%s'\n", callee.c_str());
+        exit(-1);
     }
-    
-    if(external_func){
-        return llvmBuilder->CreateCall(external_func, varArgs);
-    }
-    auto func = Function::Create(funcType, Function::ExternalLinkage, func_name, mod);
-    func->setCallingConv(CallingConv::C);
     return llvmBuilder->CreateCall(func, varArgs);
 }
 
@@ -316,9 +256,15 @@ std::unique_ptr<ExprAST> generateBackendASTNode(ast_node_ptr root) {
                 if(isEqual(root->child[i]->token, "VarDecl")) {
                     auto varDecl = generateBackendASTNode(root->child[i]);
                     std::unique_ptr<VarExprAST> var(static_cast<VarExprAST *>(varDecl.release()));
-
                     auto globalVarDecl = std::make_unique<GlobalVarExprAST>(std::move(var));
                     globalVarList.push_back(std::move(globalVarDecl));
+                }
+                else if(isEqual(root->child[i]->token, "ArrayDecl")) {
+                    auto arrayDecl = generateBackendASTNode(root->child[i]);
+                    auto array = static_unique_pointer_cast<ArrayExprAST>(std::move(arrayDecl));
+
+                    auto globalArrayDecl = std::make_unique<GlobalArrayExprAST>(std::move(array));
+                    globalVarList.push_back(std::move(globalArrayDecl));
                 }
                 else{
                     exprList.push_back(generateBackendASTNode(root->child[i]));
@@ -330,8 +276,7 @@ std::unique_ptr<ExprAST> generateBackendASTNode(ast_node_ptr root) {
         }
 
         case FUNCTIONDECL: {
-            // 函数ast节点仅保存返回值类型
-            std::map<std::string, int> args;
+            std::vector<std::pair<std::string, int>> args;
             std::string name(val);    
             
             int param_end = root->n_child;
@@ -340,24 +285,21 @@ std::unique_ptr<ExprAST> generateBackendASTNode(ast_node_ptr root) {
             if(param_end && isEqual(root->child[param_end-1]->token, "CompoundStmt")) {
                 compoundStmt = generateBackendASTNode(root->child[param_end - 1]);
                 param_end -= 1;
-            } 
-            else compoundStmt = nullptr;
+            } else compoundStmt = nullptr;
 
-
+            bool isVarArg = false;
             for (int i = 0; i < param_end; i++) {
                 auto child = root->child[i];
-                if (isEqual(child->token, "ParmVarDecl")) args[std::string(child->val)] = child->type_id;
+                if (isEqual(child->token, "ParmVarDecl")) args.push_back(std::pair<std::string, int>((child->val), child->type_id));
+                if (isEqual(child->token, "VariadicParms")) isVarArg = true;
                 print(child->val);
             }
 
-            auto prototype = std::make_unique<PrototypeAST>(name, root->type_id, args);
+            auto prototype = std::make_unique<PrototypeAST>(name, root->type_id, args, isVarArg);
             prototype->codegen();
-
             if(!compoundStmt) {
-                print("This function def is a prototype");
                 return prototype;
-            }
-            else {
+            } else {
                 auto funcExpr = std::make_unique<FunctionDeclAST>(std::move(prototype), std::move(compoundStmt));
                 return funcExpr;
             }
@@ -546,27 +488,6 @@ static void initializeModule() {
     llvmFPM->doInitialization();
 }
 
-static void initializeBuiltinFunction() {
-    // 初始化内置函数
-    // 内置函数的定义在builtin.h中
-
-    // for (auto &func : builtin_function) {
-    //     auto func_ptr = (void (*)(void))func.second;
-    //     auto func_type = FunctionType::get(Type::getVoidTy(*llvmContext), {}, false);
-    //     auto func_value = Function::Create(func_type, Function::ExternalLinkage, func.first, *llvmModule);
-    //     func_value->setCallingConv(CallingConv::C);
-    //     func_value->addFnAttr(Attribute::NoUnwind);
-    //     func_value->addFnAttr(Attribute::UWTable);
-    //     func_value->setDoesNotThrow();
-    //     func_value->setAlignment(4);
-    //     auto func_ptr_value = ConstantExpr::getIntToPtr(ConstantInt::get(Type::getInt64Ty(*llvmContext), (uint64_t)func_ptr), func_type->getPointerTo());
-    //     func_value->setLinkage(GlobalValue::ExternalLinkage);
-    //     func_value->setExternallyInitialized(true);
-    //     func_value->setInitializer(func_ptr_value);
-    // }
-}
-
-
 Type *getVarType(int type_id) {
     switch(type_id) {
         case TYPEID_VOID:
@@ -589,7 +510,7 @@ Type *getVarType(int type_id) {
         case TYPEID_STR:
             return Type::getInt8PtrTy(*llvmContext);
         case TYPEID_VOID_PTR:
-            return nullptr;
+            return Type::getInt8PtrTy(*llvmContext);
         case TYPEID_CHAR_PTR:
             return Type::getInt8PtrTy(*llvmContext);
         case TYPEID_SHORT_PTR:
@@ -610,13 +531,6 @@ Type *getVarType(int type_id) {
     }
 }
 
-Function *getFunction(std::string name) {
-    if (auto *F = llvmModule->getFunction(name)) return F;
-    auto F = functionProtos.find(name);
-    if(F != functionProtos.end()) return F->second->codegen(); 
-    return nullptr;
-}
-
 Value *getVariable(std::string name) {
     auto V = NamedValues.top()[name];
     if(V) {
@@ -632,10 +546,12 @@ Value *getVariable(std::string name) {
 Value *getVariable(std::string name, int &isGlobal) {
     auto V = NamedValues.top()[name];
     if(V) {
+        std::cout << "Find local variable " << name << std::endl;
         return V;
     }
     auto key = llvmModule->getGlobalVariable(name);
     if (key) {
+        std::cout << "Find global variable: " << name << std::endl;
         isGlobal = 1;
         return key;
     }
@@ -721,7 +637,7 @@ Value *VarExprAST::codegen(bool wantPtr) {
     print("VarExpr, typeid: " + std::to_string(type));
     Function *currFunction = llvmBuilder->GetInsertBlock()->getParent();
     auto varType = getVarType(this->getType());
-
+    std::cout << getLLVMTypeStr(varType) << std::endl;
     Value *initVal;
     if(init) {
         initVal = init->codegen();
@@ -730,7 +646,7 @@ Value *VarExprAST::codegen(bool wantPtr) {
     }
     auto castedVal = createCast(initVal, varType);
     if(!castedVal){
-        logErrorV((std::string("Unsupported initializatin from "+ getLLVMTypeStr(initVal->getType()) +" to " + getLLVMTypeStr(varType)).c_str()));
+        return logErrorV((std::string("Unsupported initializatin from "+ getLLVMTypeStr(initVal->getType()) +" to " + getLLVMTypeStr(varType)).c_str()));
     }
     AllocaInst *alloca = CreateEntryBlockAllocaWithTypeSize(name, varType);
     llvmBuilder->CreateStore(castedVal, alloca);
@@ -739,17 +655,10 @@ Value *VarExprAST::codegen(bool wantPtr) {
 }
 
 Value *ArrayExprAST::codegen(bool wantPtr) {
-    auto val = getVariable(name);
-    if (val) {
-        std::string errorMsg = "Variable " + name + " is already defined";
-        return logErrorV(errorMsg.c_str());
-    }
-
     auto varType = getVarType(this->getType());
     auto arrayType = ArrayType::get(varType, size);
     auto arrayPtr = llvmBuilder->CreateAlloca(arrayType, nullptr, name);
     NamedValues.top()[name] = arrayPtr;
-    // auto defaultValue = getInitVal(varType);
 
     int initSize = 0;
     if(init.size() == 1) initSize = size;
@@ -758,18 +667,21 @@ Value *ArrayExprAST::codegen(bool wantPtr) {
     auto zeroInit = llvmBuilder->getInt64(0);
     for (int i=0; i < initSize; i++) {
         auto defaultValue = (init.size() == 1) ? init[0]->codegen() : init[i]->codegen();
+        defaultValue = createCast(defaultValue, varType);
+        if(!defaultValue) return logErrorV("Initializer type don't match");
         auto index = llvmBuilder->getInt64(i);
-        auto arrayElem = llvmBuilder->CreateGEP(arrayPtr, {zeroInit, index});
+        auto arrayElem = llvmBuilder->CreateGEP(arrayType, arrayPtr, {zeroInit, index});
         llvmBuilder->CreateStore(defaultValue, arrayElem);
     }
-    
     return arrayPtr;
 }
 
 Value *VarRefExprAST::codegen(bool wantPtr) {
-    print("VarRefExpr");
+    std::cout << "VarRefExpr: " << name << std::endl;
+    std::cout << "WantPtr: " << wantPtr << std::endl;
     int isGlobal = 0;
     auto V = getVariable(name, isGlobal);
+    std::cout << "Value type: " << getLLVMTypeStr(V->getType()) << std::endl;
     if (!V) {
         return nullptr;
     }
@@ -781,9 +693,13 @@ Value *VarRefExprAST::codegen(bool wantPtr) {
         GlobalVariable *gV = static_cast<GlobalVariable *>(V);
         if(gV->isConstant() || initializing)
             return gV->getInitializer();
+        else if(gV->getType()->isArrayTy()) {
+            return llvmBuilder->CreateGEP(gV->getType()->getPointerElementType(), gV, {llvmBuilder->getInt64(0), llvmBuilder->getInt64(0)});
+        }
         else
             return llvmBuilder->CreateLoad(V->getType()->getPointerElementType(), V);
     }
+
     if(V->getType()->getPointerElementType()->isArrayTy()){
         return llvmBuilder->CreateGEP(V->getType()->getPointerElementType(), V, {llvmBuilder->getInt64(0), llvmBuilder->getInt64(0)});
     }else{
@@ -803,13 +719,43 @@ Value *GlobalVarExprAST::codegen(bool wantPtr) {
         if(!initVal) 
             return nullptr;
     }else{
-        std::cout << "No init val, using default" << std::endl;
         initVal = getInitVal(varType);
     }
 
     auto globalVar = createGlob(varType, init->name);
     globalVar->setInitializer(dyn_cast<Constant>(initVal));
     return initVal;
+}
+
+Value *GlobalArrayExprAST::codegen(bool wantPtr) {
+    std::cout << "GlobalArrayExpr" << std::endl;
+    auto varType = getVarType(init->getType());
+    auto arrayType = ArrayType::get(varType, init->getSize());
+
+    llvmModule->getOrInsertGlobal(init->getName(), arrayType);
+    GlobalVariable *gv = llvmModule->getNamedGlobal(name);
+    gv->setConstant(false);
+    std::vector<Constant *> initVals;
+    
+    int totalSize = init->getSize();
+    int initSize = init->init.size() == 1 ? totalSize : init->init.size();
+    for (int i = 0; i < initSize; i++) {
+        auto initVal = init->init[init->init.size() == 1 ? 0: i]->codegen();
+        initVal = createCast(initVal, varType);
+        if(!initVal){
+            return logErrorV((std::string("Unsupported initializatin from "+ getLLVMTypeStr(initVal->getType()) +" to " + getLLVMTypeStr(varType)).c_str()));
+        }
+        initVals.push_back(dyn_cast<Constant>(initVal));
+    }
+
+    for(int i = initSize; i < totalSize; i++) {
+        auto initVal = getInitVal(varType);
+        initVals.push_back(initVal);
+    }
+
+    auto initArray = ConstantArray::get(arrayType, initVals);
+    gv->setInitializer(initArray);
+    return getInitVal(varType);
 }
 
 Value *ArraySubExprAST::codegen(bool wantPtr) {
@@ -859,32 +805,31 @@ Value *LiteralExprAST::codegen(bool wantPtr) {
             std::cout << "Creating string literal: " << value << std::endl;
 
             auto str = this->value;
-            auto charType = llvm::IntegerType::get(*llvmContext, 8);
+            auto charType = IntegerType::get(*llvmContext, 8);
 
             //1. Initialize chars vector
-            std::vector<llvm::Constant *> chars(str.length());
+            std::vector<Constant *> chars(str.length());
             for(unsigned int i = 0; i < str.size(); i++) {
-            chars[i] = llvm::ConstantInt::get(charType, str[i]);
+                chars[i] = ConstantInt::get(charType, str[i]);
             }
 
             //1b. add a zero terminator too
-            chars.push_back(llvm::ConstantInt::get(charType, 0));
-
+            chars.push_back(ConstantInt::get(charType, 0));
 
             //2. Initialize the string from the characters
-            auto stringType = llvm::ArrayType::get(charType, chars.size());
+            auto stringType = ArrayType::get(charType, chars.size());
 
             //3. Create the declaration statement
-            auto globalDeclaration = (llvm::GlobalVariable*) llvmModule->getOrInsertGlobal(".str", stringType);
-            globalDeclaration->setInitializer(llvm::ConstantArray::get(stringType, chars));
+            
+            auto globalDeclaration = (GlobalVariable*) llvmModule->getOrInsertGlobal(std::to_string(llvmModule->getGlobalList().size())+".str", stringType);
+            globalDeclaration->setInitializer(ConstantArray::get(stringType, chars));
             globalDeclaration->setConstant(true);
-            globalDeclaration->setLinkage(llvm::GlobalValue::LinkageTypes::PrivateLinkage);
-            globalDeclaration->setUnnamedAddr (llvm::GlobalValue::UnnamedAddr::Global);
+            globalDeclaration->setLinkage(GlobalValue::LinkageTypes::PrivateLinkage);
+            globalDeclaration->setUnnamedAddr (GlobalValue::UnnamedAddr::Global);
 
             //4. Return a cast to an i8*
-            return llvm::ConstantExpr::getBitCast(globalDeclaration, charType->getPointerTo());
+            return ConstantExpr::getBitCast(globalDeclaration, charType->getPointerTo());
        }
-
         default:
             return logErrorV("Invalid type!");
     }
@@ -1069,21 +1014,22 @@ Value *BinaryExprAST::codegen(bool wantPtr) {
 }
 
 Function *PrototypeAST::codegen(bool wantPtr) {
-    std::vector<Type *> llvmArgs;
-    for (auto arg: args) 
-        llvmArgs.push_back(getVarType(arg.second));
-    
-    FunctionType *functionType = FunctionType::get(getVarType(retVal), llvmArgs, false);
-
-    Function *F = Function::Create(functionType, Function::ExternalLinkage, name, llvmModule.get());
-
-    auto it = this->args.begin();
-    for (auto &arg: F->args()) {
-        print(it->first);
-        arg.setName(it->first);
-        it++;
+    auto func = getFunction(name);
+    if(func){
+        return func;
     }
-
+    std::vector<Type *> llvmArgs;
+    for(auto iter=args.begin(); iter!=args.end(); iter++){        
+        llvmArgs.push_back(getVarType((*iter).second));
+    }
+    FunctionType *functionType = FunctionType::get(getVarType(retVal), llvmArgs, va);
+    Function *F = Function::Create(functionType, Function::ExternalLinkage, name, llvmModule.get());
+    F->setCallingConv(CallingConv::C);
+    auto iter = this->args.begin();
+    for (auto &arg: F->args()) {
+        arg.setName(iter->first);
+        iter++;
+    }
     return F;
 }
 
@@ -1091,7 +1037,6 @@ Function *FunctionDeclAST::codegen(bool wantPtr) {
     std::cout << "FunctionDeclAST: " << prototype->getName() << std::endl;
     retPtr = retBlock = nullptr;
     auto &p = *prototype;
-    functionProtos[p.getName()] = std::move(prototype);
     Function *currFunction = getFunction(p.getName());
     if (!currFunction) {
         return logErrorF(("Unknown function referenced" + p.getName()).c_str());
@@ -1112,6 +1057,7 @@ Function *FunctionDeclAST::codegen(bool wantPtr) {
     for (auto &arg : currFunction->args()) {
         AllocaInst *alloca = CreateEntryBlockAllocaWithTypeSize(arg.getName(), arg.getType());
         llvmBuilder->CreateStore(&arg, alloca);
+        std::cout << std::string(arg.getName()) << std::endl;
         NamedValues.top()[std::string(arg.getName())] = alloca;
     }
 
@@ -1246,7 +1192,8 @@ Value *CallExprAST::codegen(bool wantPtr) {
 
     Function *calleeFunction = llvmModule->getFunction(callee);
     if (!calleeFunction) return logErrorV("Unknown function");
-    if (calleeFunction->arg_size() != args.size()) logErrorV("Incorrect args");
+    if (calleeFunction -> arg_size() != args.size() && !calleeFunction->isVarArg()) 
+        logErrorV("Incorrect args");
 
     std::vector<Value *> argsValue;
     for (auto &arg: args) {
@@ -1255,7 +1202,6 @@ Value *CallExprAST::codegen(bool wantPtr) {
         std::cout << "Arg value: " + getLLVMTypeStr(argValue) << std::endl;
         argsValue.push_back(argValue);
     }
-
     return llvmBuilder->CreateCall(calleeFunction, argsValue);
 }
 
@@ -1316,7 +1262,7 @@ Value *WhileExprAST::codegen(bool wantPtr) {
     Function *currFunction = llvmBuilder->GetInsertBlock()->getParent();
     BasicBlock *entryBlock = BasicBlock::Create(*llvmContext, "entry", currFunction);
     BasicBlock *loopBlock = BasicBlock::Create(*llvmContext, "while_loop_body", currFunction);
-    BasicBlock *endBlock = BasicBlock::Create(*llvmContext, "while_loop_end", currFunction);
+    BasicBlock *endBlock = BasicBlock::Create(*llvmContext, "while_loop_end", currFunction, retBlock);
 
     BlockForBreak.push(endBlock);
     BlockForContinue.push(loopBlock);
@@ -1355,11 +1301,9 @@ Value *WhileExprAST::codegen(bool wantPtr) {
 Value *DoExprAST::codegen(bool wantPtr) {
     print("Generate for while expr");
     
-
     Function *currFunction = llvmBuilder->GetInsertBlock()->getParent();
-    // BasicBlock *entryBlock = BasicBlock::Create(*llvmContext, "entry", currFunction);
     BasicBlock *loopBlock = BasicBlock::Create(*llvmContext, "do_while_loop_body", currFunction);
-    BasicBlock *endBlock = BasicBlock::Create(*llvmContext, "do_while_loop_end", currFunction);
+    BasicBlock *endBlock = BasicBlock::Create(*llvmContext, "do_while_loop_end", currFunction, retBlock);
 
     BlockForBreak.push(endBlock);
     BlockForContinue.push(loopBlock);
@@ -1487,7 +1431,6 @@ int main(int argc, const char **argv) {
     #endif
     
     initializeModule();
-
     run_lib_backend(argc, argv);
     // llvmModule->print(errs(), nullptr);
 

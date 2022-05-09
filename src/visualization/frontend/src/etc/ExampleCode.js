@@ -3,7 +3,7 @@ export const Examples = [
         id: 1,
         name: 'Basic',
         code: `int main() {
-    __builtin_printf("hello world!");
+    printf("hello world!");
     return 0;
 }`
     },
@@ -125,31 +125,31 @@ int bar(int a, int b, int c) {
         name: 'Global Variables',
         code: `int b = 6666;
 void foo(int a, int c, int d){
-    __builtin_printf("global b: %d\\n", b);
+    printf("global b: %d\\n", b);
     b = 555;
-    __builtin_printf("new_global b: %d\\n", b);
-    __builtin_printf("a+c+d: %d\\n", a+c+d);
+    printf("new_global b: %d\\n", b);
+    printf("a+c+d: %d\\n", a+c+d);
     a = -1;
     c = -1;
     d = -1;
 }
 
 int main(){
-    __builtin_printf("global b: %d\\n", b);
+    printf("global b: %d\\n", b);
     int d = 1000;
-    __builtin_printf("%d\\n", d);
+    printf("%d\\n", d);
     int a = 2;
     int c = 1;
-    __builtin_printf("a:%d c:%d d:%d\\n", a, c, d);
+    printf("a:%d c:%d d:%d\\n", a, c, d);
     // this is global b
     b = 888;
     // this is local b
     int b = 777;
-    __builtin_printf("local b: %d\\n", b);
+    printf("local b: %d\\n", b);
     foo(a, c, d);
-    __builtin_printf("After call foo\\n");
-    __builtin_printf("local b: %d\\n", b);
-    __builtin_printf("a:%d c:%d d:%d\\n", a, c, d);
+    printf("After call foo\\n");
+    printf("local b: %d\\n", b);
+    printf("a:%d c:%d d:%d\\n", a, c, d);
     return 0;
 }
 `
@@ -176,9 +176,9 @@ int main(){
     int c = a;
     int d = 255;
     char e = d;
-    __builtin_printf("%d %d %d\\n", a, b, c, d, e);
+    printf("%d %d %d\\n", a, b, c, d, e);
     d = d+1;
-    __builtin_printf("%d %d %d\\n", a, b, c, d, e);
+    printf("%d %d %d\\n", a, b, c, d, e);
     return 0;
 }`
     },
@@ -188,7 +188,7 @@ int main(){
         code: `int main() {
     string s = "String Test";
 
-    __builtin_printf("%s", s);
+    printf("%s", s);
 
     return 0;
 }`
@@ -203,10 +203,10 @@ int main(){
     for(i = 0; i < 16; i=i+1){
         for(j = 0; j < 16; j=j+1){
             int code = i*16+j;
-            __builtin_sprintf(buf, "\\u001b[48;5;%dm%-4d", code, code);
-            __builtin_printf("%s", buf);
+            sprintf(buf, "\\u001b[48;5;%dm%-4d", code, code);
+            printf("%s", buf);
         }
-        __builtin_printf("\\u001b[0m\\n");
+        printf("\\u001b[0m\\n");
     }
     return 0;
 }`
