@@ -80,7 +80,7 @@ extern int yycolno;
 %left SHL SHR
 %left '+' '-'
 %left '*' '/' '%'
-%right '!' '~' SIZEOF
+%right '!' '~' SIZEOF INC DEC
 %left '(' ')' '[' ']'
 
 %% 
