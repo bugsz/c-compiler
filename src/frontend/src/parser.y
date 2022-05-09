@@ -62,7 +62,7 @@ extern int yycolno;
 %type <node> PROG FN_DEF PARAM_LIST PARAM_LIST_RIGHT PARAM_DECL
 %type <node> GLOBAL_DECL DECL_LIST DECL_LIST_RIGHT DECL DECL_DECLARATOR ARRAY_DECL INIT_LIST INIT_LIST_RIGHT
 %type <node> STMT COMPOUND_STMT SELECT_STMT EXPR_STMT ITERATE_STMT JMP_STMT MIX_LIST
-%type <node> EXPR ARG_LIST ARG_LIST_RIGHT FOR_EXPR
+%type <node> EXPR ARG_LIST ARG_LIST_RIGHT FOR_EXPR 
 %type <typeid> TYPE_SPEC
 
 %nonassoc OUTERELSE
@@ -665,6 +665,17 @@ ITERATE_STMT :
         ast_node_ptr delim = mknode("ForDelimiter");
         ast_node_ptr t = mknode("TO_BE_MERGED", $3, $4);
         ast_node_ptr t2 = mknode("TO_BE_MERGED", $5, delim, $7);
+        ast_node_ptr t3 = 
+        $$ = mknode("ForStmt", t, t2);
+    }
+    | FOR '(' TYPE_SPEC IDENTIFIER '=' EXPR ';' FOR_EXPR EXPR ')' STMT {
+        ast_node_ptr delim = mknode("ForDelimiter");
+        ast_node_ptr vardecl = mknode("VarDecl", $6);
+        vardecl->type_id = $3;
+        strcpy(vardecl->val, $4);
+        ast_node_ptr compoundstmt = mknode("CompoundStmt", vardecl);
+        ast_node_ptr t = mknode("TO_BE_MERGED", compoundstmt, $8);
+        ast_node_ptr t2 = mknode("TO_BE_MERGED", $9, delim, $11);
         ast_node_ptr t3 = 
         $$ = mknode("ForStmt", t, t2);
     }
