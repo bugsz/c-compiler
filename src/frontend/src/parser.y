@@ -150,6 +150,18 @@ FN_DEF :
         strcpy($$->val, $2);
         $$->pos = @2;
     }
+    | TYPE_SPEC IDENTIFIER '(' PARAM_LIST ')' ';' {
+        $$ = mknode("FunctionDecl", $4);
+        $$->type_id = $1;
+        strcpy($$->val, $2);
+        $$->pos = @2;
+    }
+    | TYPE_SPEC IDENTIFIER '(' ')' ';' {
+        $$ = mknode("FunctionDecl");
+        $$->type_id = $1;
+        strcpy($$->val, $2);
+        $$->pos = @2;
+    }
     ;
 
 PARAM_LIST :
