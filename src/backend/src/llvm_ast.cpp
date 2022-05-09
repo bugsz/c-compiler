@@ -64,12 +64,15 @@ int getBinaryOpType(std::string binaryOp) {
     if(binaryOp == "/") return DIV;
     if(binaryOp == "<") return LT;
     if(binaryOp == ">") return GT;
+    if(binaryOp == "%") return REM;
+    if(binaryOp == "=" ) return ASSIGN;
     if(binaryOp == "<=") return LE;
     if(binaryOp == ">=") return GE;    
     if(binaryOp == "==") return EQ;
     if(binaryOp == "!=") return NE;
-    if(binaryOp == "=" ) return ASSIGN;
-    if(binaryOp =="/=" || binaryOp =="*="|| binaryOp =="-="|| binaryOp =="+=") return ASSIGNPLUS;
+    if(binaryOp == "/=" || binaryOp =="*="|| binaryOp =="-="|| binaryOp =="+=") return ASSIGNPLUS;
+    if(binaryOp == "&&") return LAND;
+    if(binaryOp == "||") return LOR;
     fprintf(stderr, "Unsupported binary operation: %s\n", binaryOp.c_str());
     exit(-1);
 }
@@ -80,6 +83,7 @@ int getUnaryOpType(std::string unaryOp) {
     if(unaryOp == "&") return REF;
     if(unaryOp == "*") return DEREF;
     if(unaryOp == "()") return CAST;
+    if(unaryOp == "!") return LNOT;
     return POS;
 }
 
@@ -892,7 +896,15 @@ Value *UnaryExprAST::codegen(bool wantPtr) {
             if(!casted) return logErrorV("Unsupported Cast");
             return casted;
         }
-
+        case LNOT: {
+            Value * right = rhs->codegen();
+            if(right->getType()->isFloatingPointTy())
+                return llvmBuilder->CreateFCmpOEQ(right, getInitVal(llvmBuilder->getDoubleTy()));
+            else{
+                right = createCast(right, llvmBuilder->getInt64Ty());
+                return llvmBuilder->CreateICmpEQ(right, llvmBuilder->getInt64(0));
+            }
+        }
         default: {
             auto errorMsg = "Invalid unary op" + op;
             return logErrorV(errorMsg.c_str());
@@ -901,9 +913,8 @@ Value *UnaryExprAST::codegen(bool wantPtr) {
 }
 
 Value *BinaryExprAST::codegen(bool wantPtr) {
-
+    // Assignment
     if (op_type == ASSIGN) {
-        std::string name;
         Value * variable = lhs->codegen(true);
         Value * val = rhs->codegen();
         if (!variable || !val) {
@@ -918,17 +929,33 @@ Value *BinaryExprAST::codegen(bool wantPtr) {
         return val;
     }
 
-
     Value *left = lhs->codegen();
     std::cout << "Value on lhs: " + getLLVMTypeStr(left) << std::endl;
     Value *right = rhs->codegen();
     std::cout << "Value on rhs: " + getLLVMTypeStr(right) << std::endl;
-
-
     if (!left || !right) {
         return logErrorV("lhs / rhs is not valid");
     }
 
+    // Logical operations
+    if(op_type == LAND || op_type ==  LOR){
+        if(left->getType()->isFloatingPointTy()){
+            left = llvmBuilder->CreateFCmpONE(left, getInitVal(llvmBuilder->getDoubleTy()));
+        }else{
+            left = createCast(left, llvmBuilder->getInt64Ty());
+            left = llvmBuilder->CreateICmpNE(left, llvmBuilder->getInt64(0));
+        }
+        if(right->getType()->isFloatingPointTy()){
+            right = llvmBuilder->CreateFCmpONE(right, getInitVal(llvmBuilder->getDoubleTy()));
+        }else{
+            right = createCast(right, llvmBuilder->getInt64Ty());
+            right = llvmBuilder->CreateICmpNE(right, llvmBuilder->getInt64(0));
+        }
+        return op_type == LAND ? llvmBuilder->CreateLogicalAnd(left, right) : llvmBuilder->CreateLogicalOr(left, right);
+    }
+
+
+    // Mathematics operations
     auto leftType = left->getType();
     auto rightType = right->getType();
 
@@ -942,18 +969,16 @@ Value *BinaryExprAST::codegen(bool wantPtr) {
         auto newRight = leftType->isPointerTy() ? right : left;
         left = newLeft;
         right = newRight;
-
         switch(op_type) {
             case ADD:
                 return llvmBuilder->CreateGEP(leftType->getPointerElementType(), left, right);
             case SUB:
                 right = llvmBuilder->CreateNeg(right);
-                return llvmBuilder->CreateGEP(leftType->getPointerElementType(), left, right);
+                return llvmBuilder->CreateGEP(leftType->getPointerElementType(), left, right);            
             default:
                 return logErrorV("Unsupported binary operation for pointer");
         }
     }
-
 
     if(leftType->isFloatingPointTy() || rightType->isFloatingPointTy()) {
         // always cast int to FP
@@ -1016,6 +1041,8 @@ Value *BinaryExprAST::codegen(bool wantPtr) {
                 return llvmBuilder->CreateICmpNE(left, right, "ine");
             case EQ:
                 return llvmBuilder->CreateICmpEQ(left, right, "ieq");
+            case REM:
+                return llvmBuilder->CreateSRem(left, right, "ieq");
             default:
                 return logErrorV("Invalid binary operator");
         }
