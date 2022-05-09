@@ -873,6 +873,14 @@ Value *UnaryExprAST::codegen(bool wantPtr) {
                 */
                 return right;
             }
+            if(!(right->getType()->getPointerElementType() == (wantPtr ? varType->getPointerTo() : varType))){
+                /* 
+                    this indicates right is already a ptr to array, since it's meaning less to assign to an array
+                    variable, we'd better run codegen() without want ptr flag
+                */
+                right = rhs->codegen();
+                return right;
+            }
             auto V = llvmBuilder->CreateLoad(wantPtr ? varType->getPointerTo() : varType, right);
             if (!V) return logErrorV("Unable to do dereferring");
             return V;
