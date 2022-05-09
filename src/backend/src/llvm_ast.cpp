@@ -694,7 +694,6 @@ Value *VarRefExprAST::codegen(bool wantPtr) {
         if(initializing){
             return gV->getInitializer();
         }else if(gV->getType()->getPointerElementType()->isArrayTy()){
-            print("!!!!!");
             return llvmBuilder->CreateGEP(gV->getType()->getPointerElementType(), gV, {llvmBuilder->getInt64(0), llvmBuilder->getInt64(0)});
         }else{
             return llvmBuilder->CreateLoad(V->getType()->getPointerElementType(), V);
