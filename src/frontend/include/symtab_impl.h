@@ -59,7 +59,10 @@ public:
     bool has_va_args() {
         return va_args;
     }
-
+    
+    int get_arg_type(int i) {
+        return param_type_id[i];
+    }
 private:
     // value type for expr/literal, return type for function
     int type_id;

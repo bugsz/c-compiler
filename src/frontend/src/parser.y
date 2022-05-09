@@ -59,7 +59,7 @@ extern int yycolno;
 %token RETURN BREAK CONTINUE
 %token TYPEDEF SIZEOF BUILTIN_ITOA BUILTIN_STRCAT BUILTIN_STRLEN BUILTIN_STRGET BUILTIN_EVAL
 
-%type <node> PROG FN_DEF PARAM_LIST PARAM_LIST_RIGHT PARAM_DECL
+%type <node> PROG FN_DECL FN_DEF PARAM_LIST PARAM_LIST_RIGHT PARAM_DECL
 %type <node> GLOBAL_DECL DECL_LIST DECL_LIST_RIGHT DECL DECL_DECLARATOR ARRAY_DECL INIT_LIST INIT_LIST_RIGHT
 %type <node> STMT COMPOUND_STMT SELECT_STMT EXPR_STMT ITERATE_STMT JMP_STMT MIX_LIST
 %type <node> EXPR ARG_LIST ARG_LIST_RIGHT FOR_EXPR 
@@ -99,8 +99,8 @@ PROG :
     ;
 
 GLOBAL_DECL : 
-    // FN_DECL
-    FN_DEF
+    FN_DECL
+    | FN_DEF
     | DECL
     | TYPE_ALIAS {$$ = NULL;}
     ;
@@ -111,19 +111,20 @@ TYPE_ALIAS :
     }
     ;
 
-// FN_DECL :
-//     | TYPE_SPEC IDENTIFIER '(' PARAM_LIST ')' ';' {
-//         $$ = mknode("FunctionDecl", $4);
-//         $$->type_id = $1;
-//         strcpy($$->val, $2);
-//         $$->pos = @2;
-//     }
-//     | TYPE_SPEC IDENTIFIER '(' ')' ';' {
-//         $$ = mknode("FunctionDecl");
-//         $$->type_id = $1;
-//         strcpy($$->val, $2);
-//         $$->pos = @2;
-//     }
+FN_DECL :
+    TYPE_SPEC IDENTIFIER '(' PARAM_LIST ')' ';' {
+        $$ = mknode("FunctionDecl", $4);
+        $$->type_id = $1;
+        strcpy($$->val, $2);
+        $$->pos = @2;
+    }
+    | TYPE_SPEC IDENTIFIER '(' ')' ';' {
+        $$ = mknode("FunctionDecl");
+        $$->type_id = $1;
+        strcpy($$->val, $2);
+        $$->pos = @2;
+    }
+    ;
 
 FN_DEF :
     TYPE_SPEC IDENTIFIER '(' PARAM_LIST ')' COMPOUND_STMT {
@@ -146,18 +147,6 @@ FN_DEF :
     }
     | TYPE_SPEC IDENTIFIER '(' ')' COMPOUND_STMT ';' {
         $$ = mknode("FunctionDecl", $5);
-        $$->type_id = $1;
-        strcpy($$->val, $2);
-        $$->pos = @2;
-    }
-    | TYPE_SPEC IDENTIFIER '(' PARAM_LIST ')' ';' {
-        $$ = mknode("FunctionDecl", $4);
-        $$->type_id = $1;
-        strcpy($$->val, $2);
-        $$->pos = @2;
-    }
-    | TYPE_SPEC IDENTIFIER '(' ')' ';' {
-        $$ = mknode("FunctionDecl");
         $$->type_id = $1;
         strcpy($$->val, $2);
         $$->pos = @2;

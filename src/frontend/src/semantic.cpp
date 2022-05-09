@@ -227,9 +227,9 @@ static void semantic_error(int* n_errs, ast_loc_t loc, const char* fmt, ...) {
 }
 
 static string check_decl(ast_node_ptr node) {
-    // if (node->type_id == TYPEID_VOID) {
-    //     return "cannot declare a void type variable";
-    // }
+    if (node->type_id == TYPEID_VOID) {
+        return "cannot declare a void type variable";
+    }
     if (string(node->token) == "ParmVarDecl" && node->type_id == TYPEID_STR) {
         return "cannot declare a string type parameter";
     }
@@ -394,7 +394,29 @@ static void semantic_check_impl(int* n_errs, ast_node_ptr node) {
         if (token == "FunctionDecl") {
             assert(sym_tab.get_cur_sym_tab()->parent == nullptr);
             if(is_declared(node->val)) {
-                semantic_error(n_errs, node->pos, "redefinition of '%s'", node->val);
+                bool isredef = false;
+                int args = 0;
+                auto sym_attr = sym_tab.get_global_sym_tab()->sym_tab_impl.at(node->val);
+                for(int i=0;i<node->n_child;i++) {
+                    if(string(node->child[i]->token) == "ParmVarDecl"){
+                        args++;
+                        if(node->child[i]->type_id != sym_attr.get_arg_type(i)){
+                            isredef = true;
+                            break;
+                        }
+                    }
+                    if(string(node->child[i]->token) == "VariadicParms"){
+                        isredef = !sym_attr.has_va_args();
+                    }
+                }
+                if(args != sym_attr.param_nums())
+                    isredef = true;
+                if(isredef)
+                    semantic_error(n_errs, node->pos, "conflicting types for '%s'", node->val);
+                else if(string(node->child[node->n_child-1]->token) == "FunctionDecl")
+                    semantic_check_impl(n_errs, node->child[node->n_child-1]);
+                else
+                    return;
             } else {
                 sym_tab.add(node->val, node->type_id, true);
             }

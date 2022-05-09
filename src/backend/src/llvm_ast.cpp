@@ -1084,6 +1084,9 @@ Function *FunctionDeclAST::codegen(bool wantPtr) {
     if (!currFunction) {
         return logErrorF(("Unknown function referenced" + p.getName()).c_str());
     }
+    if(currFunction->isDefinitionExact()){
+        return logErrorF(("redefinition of " + p.getName()).c_str());
+    }
     BasicBlock* entryBlock = BasicBlock::Create(*llvmContext, "entry", currFunction);
     llvmBuilder->SetInsertPoint(entryBlock);
     // if not void, ret value should be a variable!
