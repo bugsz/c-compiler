@@ -78,6 +78,8 @@ extern YYLTYPE yylloc;
 
 "#line"[ \t]+[0-9]+[ \t]+.*\n { set_include();}
 
+"__attribute__(("[^)]*"))" { set_col(); }
+
 [a-zA-Z_][a-zA-Z0-9_]*	{ set_col(); assert(yyleng < 50); return check_type(); }
 ("0"|[1-9]+[0-9]*)			{ set_col(); assert(yyleng < 50); yylval.str = strdup(yytext); return CONSTANT; }
 ("0"|[1-9]+[0-9]*)\.[0-9]+		{ set_col(); assert(yyleng < 50); yylval.str = strdup(yytext); return CONSTANT; }
