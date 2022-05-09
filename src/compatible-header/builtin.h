@@ -12,4 +12,6 @@ int puti(int n);
 int getchar();
 int gets(char* buf);
 void *malloc(int size);
-void free(void *p);
+void free(void* p);
+void exit(int status);
+void assert(int exp);
