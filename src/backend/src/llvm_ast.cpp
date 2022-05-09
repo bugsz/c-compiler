@@ -1130,7 +1130,7 @@ Function *FunctionDeclAST::codegen(bool wantPtr) {
     }
     verifyFunction(*currFunction, &errs());
     resetBlockForControl();
-    // llvmFPM->run(*currFunction);
+    llvmFPM->run(*currFunction);
     return currFunction;
 }
 
