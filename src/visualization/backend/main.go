@@ -142,7 +142,7 @@ func main() {
 		llvmAs.Stderr = buffer
 		genIR.Start()
 		_, err := llvmAs.Output()
-
+		genIR.Wait()
 		if err != nil {
 			generr := []byte("Fail to generate execuable file\n")
 			stderr := append([]byte("\nstderr:\n"), buffer.b.Bytes()...)
@@ -165,11 +165,9 @@ func main() {
 		case <-time.After(5 * time.Second):
 			err = errors.New("error: Time Limit Exceeded")
 			llvmJIT.Process.Kill()
-			llvmJIT.Wait()
 		case <-bufferTooLarge:
 			err = errors.New("error: Output Limit Exceeded")
 			llvmJIT.Process.Kill()
-			llvmJIT.Wait()
 		case <-workDone:
 		}
 		os.Remove(filename)
