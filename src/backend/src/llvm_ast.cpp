@@ -299,7 +299,6 @@ std::unique_ptr<ExprAST> generateBackendASTNode(ast_node_ptr root) {
                 auto child = root->child[i];
                 if (isEqual(child->token, "ParmVarDecl")) args.push_back(std::pair<std::string, int>((child->val), child->type_id));
                 if (isEqual(child->token, "VariadicParms")) isVarArg = true;
-                print(child->val);
             }
 
             auto prototype = std::make_unique<PrototypeAST>(name, root->type_id, args, isVarArg);
@@ -635,7 +634,7 @@ Value *TranslationUnitExprAST::codegen(bool wantPtr) {
     print("Global(s) Initializing End......");
 
     for (int i=0; i < expr_len; i++) {
-        exprList[i]->codegen();
+        if(exprList[i]->codegen() == nullptr) exit(-1);
     }
     return nullptr;
 }
@@ -1091,7 +1090,6 @@ Function *FunctionDeclAST::codegen(bool wantPtr) {
     llvmBuilder->SetInsertPoint(entryBlock);
     // if not void, ret value should be a variable!
     Type *retType = getVarType(p.retVal);
-    std::cout << "return type: " << getLLVMTypeStr(retType) << std::endl;
     if(!retType->isVoidTy()){
         retPtr = CreateEntryBlockAllocaWithTypeSize("ret_val", retType);
         llvmBuilder->CreateStore(getInitVal(retType), retPtr);
@@ -1103,7 +1101,6 @@ Function *FunctionDeclAST::codegen(bool wantPtr) {
     for (auto &arg : currFunction->args()) {
         AllocaInst *alloca = CreateEntryBlockAllocaWithTypeSize(arg.getName(), arg.getType());
         llvmBuilder->CreateStore(&arg, alloca);
-        std::cout << std::string(arg.getName()) << std::endl;
         NamedValues.top()[std::string(arg.getName())] = alloca;
     }
 
@@ -1129,9 +1126,7 @@ Function *FunctionDeclAST::codegen(bool wantPtr) {
     // Create default terminator if not(add a default return for all empty labels)
     auto iter = currFunction->getBasicBlockList().begin();
     auto end = currFunction->getBasicBlockList().end();
-    print("Check If Terminated");
     for(;iter != end ;++iter){
-        std::cout << iter->getName().data() << std::endl;
         if(!iter->getTerminator()){
             llvmBuilder->SetInsertPoint(dyn_cast<BasicBlock>(iter));
             llvmBuilder->CreateBr(retBlock);
@@ -1144,7 +1139,6 @@ Function *FunctionDeclAST::codegen(bool wantPtr) {
 }
 
 Value *CompoundStmtExprAST::codegen(bool wantPtr) {
-    print("New scope declared!");
     std::map<std::string, AllocaInst *> Scope = NamedValues.top();
     NamedValues.push(Scope);
     Value *retVal = llvmBuilder->getTrue();
@@ -1152,7 +1146,6 @@ Value *CompoundStmtExprAST::codegen(bool wantPtr) {
         retVal = expr->codegen();
         if(!retVal) return nullptr;
     }
-    print("Back to previous scope!");
     NamedValues.pop();
     return retVal;
 }
@@ -1179,10 +1172,10 @@ Value *ForExprAST::codegen(bool wantPtr) {
     Function *currFunction = llvmBuilder->GetInsertBlock()->getParent();
     Value *startExpr = start->codegen();
     if (!startExpr) return nullptr;    
-    BasicBlock *loopBlock = BasicBlock::Create(*llvmContext, "for_loop", currFunction);
-    BasicBlock *bodyBlock = BasicBlock::Create(*llvmContext, "for_body", currFunction);
-    BasicBlock *stepBlock = BasicBlock::Create(*llvmContext, "for_step", currFunction);
-    BasicBlock *afterBlock = BasicBlock::Create(*llvmContext, "after_for_loop", currFunction);
+    BasicBlock *afterBlock = BasicBlock::Create(*llvmContext, "after_for_loop", currFunction, retBlock);
+    BasicBlock *stepBlock = BasicBlock::Create(*llvmContext, "for_step", currFunction, afterBlock);
+    BasicBlock *bodyBlock = BasicBlock::Create(*llvmContext, "for_body", currFunction, stepBlock);
+    BasicBlock *loopBlock = BasicBlock::Create(*llvmContext, "for_loop", currFunction, bodyBlock);
 
     BlockForBreak.push(afterBlock);
     BlockForContinue.push(stepBlock);
@@ -1244,11 +1237,11 @@ Value *CallExprAST::codegen(bool wantPtr) {
 
 Value *IfExprAST::codegen(bool wantPtr) {
     Function *currFunction = llvmBuilder->GetInsertBlock()->getParent();
-    BasicBlock *ifBlock = BasicBlock::Create(*llvmContext, "if", currFunction);
+    BasicBlock *endifBlock = BasicBlock::Create(*llvmContext, "endif", currFunction, retBlock);
+    BasicBlock *thenBlock = BasicBlock::Create(*llvmContext, "then_case", currFunction, endifBlock);
+    BasicBlock *ifBlock = BasicBlock::Create(*llvmContext, "if", currFunction, thenBlock);
     llvmBuilder->CreateBr(ifBlock);
     llvmBuilder->SetInsertPoint(ifBlock);
-    BasicBlock *thenBlock = BasicBlock::Create(*llvmContext, "then_case", currFunction);
-    BasicBlock *endifBlock = BasicBlock::Create(*llvmContext, "endif", currFunction);
     Value *condValue = cond->codegen();
     if (!condValue) return nullptr;
     auto condType = condValue->getType();
@@ -1296,9 +1289,9 @@ Value *WhileExprAST::codegen(bool wantPtr) {
     print("Generate for while expr");
 
     Function *currFunction = llvmBuilder->GetInsertBlock()->getParent();
-    BasicBlock *entryBlock = BasicBlock::Create(*llvmContext, "entry", currFunction);
-    BasicBlock *loopBlock = BasicBlock::Create(*llvmContext, "while_loop_body", currFunction);
-    BasicBlock *endBlock = BasicBlock::Create(*llvmContext, "while_loop_end", currFunction);
+    BasicBlock *endBlock = BasicBlock::Create(*llvmContext, "while_loop_end", currFunction, retBlock);
+    BasicBlock *loopBlock = BasicBlock::Create(*llvmContext, "while_loop_body", currFunction, endBlock);
+    BasicBlock *entryBlock = BasicBlock::Create(*llvmContext, "entry", currFunction, loopBlock);
 
     BlockForBreak.push(endBlock);
     BlockForContinue.push(loopBlock);
@@ -1330,8 +1323,8 @@ Value *WhileExprAST::codegen(bool wantPtr) {
 Value *DoExprAST::codegen(bool wantPtr) {
     print("Generate do while expr");
     Function *currFunction = llvmBuilder->GetInsertBlock()->getParent();
-    BasicBlock *loopBlock = BasicBlock::Create(*llvmContext, "do_while_loop_body", currFunction);
-    BasicBlock *endBlock = BasicBlock::Create(*llvmContext, "do_while_loop_end", currFunction);
+    BasicBlock *endBlock = BasicBlock::Create(*llvmContext, "do_while_loop_end", currFunction, retBlock);
+    BasicBlock *loopBlock = BasicBlock::Create(*llvmContext, "do_while_loop_body", currFunction, endBlock);
 
     BlockForBreak.push(endBlock);
     BlockForContinue.push(loopBlock);
