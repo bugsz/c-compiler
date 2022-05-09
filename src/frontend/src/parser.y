@@ -80,7 +80,7 @@ extern int yycolno;
 %left SHL SHR
 %left '+' '-'
 %left '*' '/' '%'
-%right '!' '~' SIZEOF INC DEC
+%right '!' '~' SIZEOF
 %left '(' ')' '[' ']'
 
 %% 
@@ -99,8 +99,7 @@ PROG :
     ;
 
 GLOBAL_DECL : 
-    // | FN_DECL
-    // | FN_DEF
+    // FN_DECL
     FN_DEF
     | DECL
     | TYPE_ALIAS {$$ = NULL;}
@@ -111,6 +110,20 @@ TYPE_ALIAS :
         add_type_alias($3, $2);
     }
     ;
+
+// FN_DECL :
+//     | TYPE_SPEC IDENTIFIER '(' PARAM_LIST ')' ';' {
+//         $$ = mknode("FunctionDecl", $4);
+//         $$->type_id = $1;
+//         strcpy($$->val, $2);
+//         $$->pos = @2;
+//     }
+//     | TYPE_SPEC IDENTIFIER '(' ')' ';' {
+//         $$ = mknode("FunctionDecl");
+//         $$->type_id = $1;
+//         strcpy($$->val, $2);
+//         $$->pos = @2;
+//     }
 
 FN_DEF :
     TYPE_SPEC IDENTIFIER '(' PARAM_LIST ')' COMPOUND_STMT {
@@ -133,18 +146,6 @@ FN_DEF :
     }
     | TYPE_SPEC IDENTIFIER '(' ')' COMPOUND_STMT ';' {
         $$ = mknode("FunctionDecl", $5);
-        $$->type_id = $1;
-        strcpy($$->val, $2);
-        $$->pos = @2;
-    }
-    | TYPE_SPEC IDENTIFIER '(' PARAM_LIST ')' ';' {
-        $$ = mknode("FunctionDecl", $4);
-        $$->type_id = $1;
-        strcpy($$->val, $2);
-        $$->pos = @2;
-    }
-    | TYPE_SPEC IDENTIFIER '(' ')' ';' {
-        $$ = mknode("FunctionDecl");
         $$->type_id = $1;
         strcpy($$->val, $2);
         $$->pos = @2;
@@ -481,7 +482,7 @@ EXPR :
         strcpy(l1->val, "1");
         l1->pos = @2;
         $$ = mknode("BinaryOperator", $1, l1);
-        strcpy($$->val, "+=");
+        strcpy($$->val, "++");
         $$->pos = @2;
     }
     | EXPR DEC {
@@ -490,7 +491,7 @@ EXPR :
         strcpy(l1->val, "1");
         l1->pos = @2;
         $$ = mknode("BinaryOperator", $1, l1);
-        strcpy($$->val, "-=");
+        strcpy($$->val, "--");
         $$->pos = @2;
     }
     | INC EXPR {
