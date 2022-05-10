@@ -245,7 +245,8 @@ DECL_DECLARATOR :
 DECL :
     TYPE_SPEC DECL_LIST ';' {
         if ($1 >= TYPEID_VOID_PTR) {
-            $2->child[0]->type_id = -1; 
+            if(!$2->n_child) $2->type_id = -1;
+            else $2->child[0]->type_id = -1; 
             $1 = $1 - TYPEID_VOID_PTR + TYPEID_VOID;
         }
         transfer_type($2, $1);
