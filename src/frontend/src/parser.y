@@ -254,6 +254,18 @@ ARRAY_DECL :
         $$->pos = @3;
         strcpy($$->val, "length_tbd");
     }
+    // | '[' ']' '=' '{' INIT_LIST '}' {
+    //     ast_node_ptr temp = mknode("InitializerList", $5);
+    //     $$ = mknode("ArrayDecl", temp);
+    //     $$->pos = @3;
+    //     strcpy($$->val, "length_tbd");
+    // }
+    // | '[' ']' '=' '{' INIT_LIST '}' {
+    //     ast_node_ptr temp = mknode("InitializerList", $5);
+    //     $$ = mknode("ArrayDecl", temp);
+    //     $$->pos = @3;
+    //     strcpy($$->val, "length_tbd");
+    // }
     ;
 
 INIT_LIST :
