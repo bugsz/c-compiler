@@ -1,3 +1,4 @@
+#!/bin/sh
 CURDIR=$(cd $(dirname $0); pwd)
 cd $CURDIR/src/frontend
 sh ./run_script.sh
@@ -9,3 +10,4 @@ cd $CURDIR
 cd build
 cmake ..
 make
+cd $CURDIR/build

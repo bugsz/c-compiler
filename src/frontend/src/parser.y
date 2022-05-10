@@ -63,7 +63,7 @@ extern int yycolno;
 %type <node> GLOBAL_DECL DECL_LIST DECL_LIST_RIGHT DECL DECL_DECLARATOR ARRAY_DECL INIT_LIST INIT_LIST_RIGHT
 %type <node> STMT COMPOUND_STMT SELECT_STMT EXPR_STMT ITERATE_STMT JMP_STMT MIX_LIST
 %type <node> EXPR ARG_LIST ARG_LIST_RIGHT FOR_EXPR 
-%type <typeid> TYPE_SPEC
+%type <typeid> TYPE_SPEC PRIMITIVE_SPEC PTR_SPEC
 
 %nonassoc OUTERELSE
 %nonassoc ELSE
@@ -212,6 +212,20 @@ DECL_DECLARATOR :
         strcpy($$->val, $1);
         $$->pos = @1;
     }
+    | '*' IDENTIFIER {
+        // printf("%s\n", $2);
+        $$ = mknode("VarDecl");
+        strcpy($$->val, $2);
+        $$->pos = @1;
+        $$->type_id = -1;
+    }
+    | '*' IDENTIFIER '=' EXPR {
+        $$ = mknode("VarDecl", $4);
+        strcpy($$->val, $2);
+        $$->pos = @1;
+        $$->type_id = -1;
+    }
+
     | IDENTIFIER ARRAY_DECL {
         ast_node_ptr arr_decl = $2, temp;
         $2->pos = @2;
@@ -231,6 +245,8 @@ DECL_DECLARATOR :
 
 DECL :
     TYPE_SPEC DECL_LIST ';' {
+    // PRIMITIVE_SPEC DECL_LIST ';' {
+        if ($1 >= TYPEID_VOID_PTR) $2->child[0]->type_id = -1; 
         transfer_type($2, $1);
         $$ = $2;
     }
@@ -301,6 +317,11 @@ STMT :
     ;
 
 TYPE_SPEC :
+    PRIMITIVE_SPEC
+    | PTR_SPEC
+    ;
+
+PRIMITIVE_SPEC:
     CHAR {}
     | SHORT {}
     | INT {}
@@ -309,7 +330,10 @@ TYPE_SPEC :
     | DOUBLE {}
     | VOID {}
     | STRING {}
-    | VOID_PTR {}
+    ;
+
+PTR_SPEC: 
+    VOID_PTR {}
     | CHAR_PTR {}
     | SHORT_PTR {}
     | INT_PTR {}
@@ -317,6 +341,8 @@ TYPE_SPEC :
     | FLOAT_PTR {}
     | DOUBLE_PTR {}
     ;
+
+
 
 COMPOUND_STMT :
     '{' '}' { $$ = mknode("CompoundStmt"); }
@@ -729,9 +755,22 @@ void yyerror(int* n_errs, struct ast_node_impl* node, char* tmp_file, char *s) {
 
 void transfer_type(struct ast_node_impl* node, int type_id) {
     if(node == NULL) return;
+    printf("%s %s %d %d\n", node->token, node->val, node->type_id, type_id);
+    int tmp_type_id = node->type_id;
     node->type_id = type_id;
     if(strcmp(node->token, "VarDecl") == 0) {
-        return;
+        if(tmp_type_id == -1) {
+            // if it is a pointer, transfer to ptr type
+            // in this dirty fix, we don't consider the type of the first variable
+            if(type_id >= TYPEID_VOID_PTR) return ;
+            node->type_id = type_id + TYPEID_VOID_PTR - TYPEID_VOID;
+        }
+        else {
+            if (type_id >= TYPEID_VOID_PTR) 
+                node->type_id = type_id - TYPEID_VOID_PTR + TYPEID_VOID;
+        }
+
+        return; 
     } else if(strcmp(node->token, "ArrayDecl") == 0) {
         node->child[0]->type_id = type_id + TYPEID_VOID_PTR - TYPEID_VOID;
     } else {
