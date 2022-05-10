@@ -397,6 +397,9 @@ static void semantic_check_impl(int* n_errs, ast_node_ptr node) {
                 bool isredef = false;
                 int args = 0;
                 auto sym_attr = sym_tab.get_global_sym_tab()->sym_tab_impl.at(node->val);
+                if(sym_attr.get_type_name() != typeid_deref[node->type_id]){
+                    semantic_error(n_errs, node->pos, "conflicting types for '%s'", node->val);
+                }
                 for(int i=0;i<node->n_child;i++) {
                     if(string(node->child[i]->token) == "ParmVarDecl"){
                         args++;
