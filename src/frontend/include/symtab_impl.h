@@ -31,6 +31,10 @@ public:
         return is_func ? param_type_id.size() : -1;
     }
 
+    int get_type_id() {
+        return type_id;
+    } 
+    
     string get_type_name() {
         if (!is_func) {
             return typeid_deref[type_id];
@@ -70,7 +74,7 @@ private:
     // value type for expr/literal, return type for function
     int type_id;
     bool is_func;
-    bool va_args;
+    bool va_args = false ;
     vector<int> param_type_id;
 };
 

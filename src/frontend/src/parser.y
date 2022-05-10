@@ -245,27 +245,59 @@ ARRAY_DECL :
     | '[' CONSTANT ']' '=' '{' INIT_LIST '}' { 
         ast_node_ptr temp = mknode("InitializerList", $6);
         $$ = mknode("ArrayDecl", temp);
-        $$->pos = @4;
+        $$->pos = @1;
         strcpy($$->val, $2);
     }
     | '[' ']' '=' '{' INIT_LIST '}' {
         ast_node_ptr temp = mknode("InitializerList", $5);
         $$ = mknode("ArrayDecl", temp);
-        $$->pos = @3;
+        $$->pos = @1;
         strcpy($$->val, "length_tbd");
     }
-    // | '[' ']' '=' '{' INIT_LIST '}' {
-    //     ast_node_ptr temp = mknode("InitializerList", $5);
-    //     $$ = mknode("ArrayDecl", temp);
-    //     $$->pos = @3;
-    //     strcpy($$->val, "length_tbd");
-    // }
-    // | '[' ']' '=' '{' INIT_LIST '}' {
-    //     ast_node_ptr temp = mknode("InitializerList", $5);
-    //     $$ = mknode("ArrayDecl", temp);
-    //     $$->pos = @3;
-    //     strcpy($$->val, "length_tbd");
-    // }
+    | '[' ']' '=' CONSTANT {
+        if(get_literal_type($4) != TYPEID_STR) {
+            yyerror(n_errs, root, tmp_file, "array initializer must be an initializer list or wide string literal");
+        }
+        $$->type_id = TYPEID_CHAR;
+        ast_node_ptr temp = mknode("InitializerList");
+        temp->type_id = TYPEID_CHAR;
+        for(int i = 1; i < strlen($4)-1; i++){
+            ast_node_ptr ch = mknode("Literal");
+            ch->val[0] = $4[i];
+            ch->val[1] = 0;
+            ch->type_id = TYPEID_CHAR;
+            append_child(temp, ch);
+        }
+        ast_node_ptr ch = mknode("Literal");
+        ch->val[0] = 0;
+        ch->type_id = TYPEID_CHAR;
+        append_child(temp, ch);
+        $$ = mknode("ArrayDecl", temp);
+        $$->pos = @1;
+        strcpy($$->val, "length_tbd");
+    }
+    | '[' CONSTANT ']' '=' CONSTANT {
+        if(get_literal_type($5) != TYPEID_STR) {
+            yyerror(n_errs, root, tmp_file, "array initializer must be an initializer list or wide string literal");
+        }
+        $$->type_id = TYPEID_CHAR;
+        ast_node_ptr temp = mknode("InitializerList");
+        temp->type_id = TYPEID_CHAR;
+        for(int i = 1; i < strlen($5)-1; i++){
+            ast_node_ptr ch = mknode("Literal");
+            ch->val[0] = $5[i];
+            ch->val[1] = 0;
+            ch->type_id = TYPEID_CHAR;
+            append_child(temp, ch);
+        }
+        ast_node_ptr ch = mknode("Literal");
+        ch->val[0] = 0;
+        ch->type_id = TYPEID_CHAR;
+        append_child(temp, ch);
+        $$ = mknode("ArrayDecl", temp);
+        $$->pos = @1;
+        strcpy($$->val, $2);
+    }
     ;
 
 INIT_LIST :

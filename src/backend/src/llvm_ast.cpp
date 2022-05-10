@@ -836,7 +836,11 @@ Value *LiteralExprAST::codegen(bool wantPtr) {
 
             //4. Return a cast to an i8*
             return ConstantExpr::getBitCast(globalDeclaration, charType->getPointerTo());
-       }
+        }
+        case TYPEID_CHAR: {
+            auto charCode = ConstantInt::get(*llvmContext, APInt(8, value[0]));
+            return charCode;
+        }
         default:
             return logErrorV("Invalid type!");
     }

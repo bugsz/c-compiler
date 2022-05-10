@@ -395,9 +395,10 @@ static void semantic_check_impl(int* n_errs, ast_node_ptr node) {
             assert(sym_tab.get_cur_sym_tab()->parent == nullptr);
             if(is_declared(node->val)) {
                 bool isredef = false;
+                bool va_args = false;
                 int args = 0;
                 auto sym_attr = sym_tab.get_global_sym_tab()->sym_tab_impl.at(node->val);
-                if(sym_attr.get_type_name() != typeid_deref[node->type_id]){
+                if(sym_attr.get_type_id() != node->type_id){
                     semantic_error(n_errs, node->pos, "conflicting types for '%s'", node->val);
                 }
                 for(int i=0;i<node->n_child;i++) {
@@ -409,10 +410,10 @@ static void semantic_check_impl(int* n_errs, ast_node_ptr node) {
                         }
                     }
                     if(string(node->child[i]->token) == "VariadicParms"){
-                        isredef = !sym_attr.has_va_args();
+                        va_args = true;
                     }
                 }
-                if(args != sym_attr.param_nums())
+                if(args != sym_attr.param_nums() || va_args != sym_attr.has_va_args())
                     isredef = true;
                 if(isredef)
                     semantic_error(n_errs, node->pos, "conflicting types for '%s'", node->val);
@@ -655,12 +656,14 @@ static void semantic_check_impl(int* n_errs, ast_node_ptr node) {
             int init_num = node->child[1]->n_child;
             if (string(node->val) == "length_tbd") {
                 sprintf(node->val, "%d", init_num);
+            } else if (node->type_id != TYPEID_CHAR && node->child[1]->type_id == TYPEID_CHAR){
+                semantic_error(n_errs, node->pos, "initializing wide char array with non-wide string literal");
             } else {
                 int len = atoi(node->val);
                 if (len < init_num) {
                     semantic_error(n_errs, node->pos, "array length %d is smaller than initializer list size %d", len, init_num);
                 }
-            }
+            } 
         } 
     } else if (token == "ArraySubscriptExpr") {
         assert(node->n_child == 2);
