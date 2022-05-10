@@ -99,6 +99,15 @@ public:
     }
     
     void enter_scope(string name) {
+        if(name != ""){
+            vector<_table*> funcs = get_global_sym_tab()->child;
+            for(auto iter = funcs.begin(); iter != funcs.end(); iter++){
+                if((*iter)->name == name){
+                    cur_table = *iter;
+                    return;
+                }
+            }
+        }
         _table* new_table = new _table(false, name == "" ? "Annonymous" : name);
         new_table->parent = cur_table;
         cur_table->child.push_back(new_table);
