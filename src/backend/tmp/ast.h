@@ -125,9 +125,8 @@ public :
     : name(name), args(std::move(args)) {}
     std::string &getName() { return name; }
 
-Function *codegen();
+    Function *codegen();
 
-    // TODO: support for multiple data type
 };
 
 class FunctionAST {

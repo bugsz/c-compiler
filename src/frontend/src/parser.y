@@ -59,11 +59,11 @@ extern int yycolno;
 %token RETURN BREAK CONTINUE
 %token TYPEDEF SIZEOF BUILTIN_ITOA BUILTIN_STRCAT BUILTIN_STRLEN BUILTIN_STRGET BUILTIN_EVAL
 
-%type <node> PROG FN_DEF PARAM_LIST PARAM_LIST_RIGHT PARAM_DECL
+%type <node> PROG FN_DECL FN_DEF PARAM_LIST PARAM_LIST_RIGHT PARAM_DECL
 %type <node> GLOBAL_DECL DECL_LIST DECL_LIST_RIGHT DECL DECL_DECLARATOR ARRAY_DECL INIT_LIST INIT_LIST_RIGHT
 %type <node> STMT COMPOUND_STMT SELECT_STMT EXPR_STMT ITERATE_STMT JMP_STMT MIX_LIST
-%type <node> EXPR ARG_LIST ARG_LIST_RIGHT FOR_EXPR
-%type <typeid> TYPE_SPEC
+%type <node> EXPR ARG_LIST ARG_LIST_RIGHT FOR_EXPR 
+%type <typeid> TYPE_SPEC PRIMITIVE_SPEC PTR_SPEC
 
 %nonassoc OUTERELSE
 %nonassoc ELSE
@@ -99,7 +99,8 @@ PROG :
     ;
 
 GLOBAL_DECL : 
-    FN_DEF
+    FN_DECL
+    | FN_DEF
     | DECL
     | TYPE_ALIAS {$$ = NULL;}
     ;
@@ -107,6 +108,21 @@ GLOBAL_DECL :
 TYPE_ALIAS :
     TYPEDEF TYPE_SPEC IDENTIFIER ';' {
         add_type_alias($3, $2);
+    }
+    ;
+
+FN_DECL :
+    TYPE_SPEC IDENTIFIER '(' PARAM_LIST ')' ';' {
+        $$ = mknode("ProtoDecl", $4);
+        $$->type_id = $1;
+        strcpy($$->val, $2);
+        $$->pos = @2;
+    }
+    | TYPE_SPEC IDENTIFIER '(' ')' ';' {
+        $$ = mknode("ProtoDecl");
+        $$->type_id = $1;
+        strcpy($$->val, $2);
+        $$->pos = @2;
     }
     ;
 
@@ -123,14 +139,14 @@ FN_DEF :
         strcpy($$->val, $2);
         $$->pos = @2;
     }
-    | TYPE_SPEC IDENTIFIER '(' PARAM_LIST ')' ';' {
-        $$ = mknode("FunctionDecl", $4);
+    | TYPE_SPEC IDENTIFIER '(' PARAM_LIST ')' COMPOUND_STMT ';' {
+        $$ = mknode("FunctionDecl", $4, $6);
         $$->type_id = $1;
         strcpy($$->val, $2);
         $$->pos = @2;
     }
-    | TYPE_SPEC IDENTIFIER '(' ')' ';' {
-        $$ = mknode("FunctionDecl");
+    | TYPE_SPEC IDENTIFIER '(' ')' COMPOUND_STMT ';' {
+        $$ = mknode("FunctionDecl", $5);
         $$->type_id = $1;
         strcpy($$->val, $2);
         $$->pos = @2;
@@ -196,6 +212,19 @@ DECL_DECLARATOR :
         strcpy($$->val, $1);
         $$->pos = @1;
     }
+    | '*' IDENTIFIER {
+        $$ = mknode("VarDecl");
+        strcpy($$->val, $2);
+        $$->pos = @1;
+        $$->type_id = -1;
+    }
+    | '*' IDENTIFIER '=' EXPR {
+        $$ = mknode("VarDecl", $4);
+        strcpy($$->val, $2);
+        $$->pos = @1;
+        $$->type_id = -1;
+    }
+
     | IDENTIFIER ARRAY_DECL {
         ast_node_ptr arr_decl = $2, temp;
         $2->pos = @2;
@@ -215,6 +244,11 @@ DECL_DECLARATOR :
 
 DECL :
     TYPE_SPEC DECL_LIST ';' {
+        if ($1 >= TYPEID_VOID_PTR) {
+            if(!$2->n_child) $2->type_id = -1;
+            else $2->child[0]->type_id = -1; 
+            $1 = $1 - TYPEID_VOID_PTR + TYPEID_VOID;
+        }
         transfer_type($2, $1);
         $$ = $2;
     }
@@ -229,14 +263,58 @@ ARRAY_DECL :
     | '[' CONSTANT ']' '=' '{' INIT_LIST '}' { 
         ast_node_ptr temp = mknode("InitializerList", $6);
         $$ = mknode("ArrayDecl", temp);
-        $$->pos = @4;
+        $$->pos = @1;
         strcpy($$->val, $2);
     }
     | '[' ']' '=' '{' INIT_LIST '}' {
         ast_node_ptr temp = mknode("InitializerList", $5);
         $$ = mknode("ArrayDecl", temp);
-        $$->pos = @3;
+        $$->pos = @1;
         strcpy($$->val, "length_tbd");
+    }
+    | '[' ']' '=' CONSTANT {
+        if(get_literal_type($4) != TYPEID_STR) {
+            yyerror(n_errs, root, tmp_file, "array initializer must be an initializer list or wide string literal");
+        }
+        $$->type_id = TYPEID_CHAR;
+        ast_node_ptr temp = mknode("InitializerList");
+        temp->type_id = TYPEID_CHAR;
+        for(int i = 1; i < strlen($4)-1; i++){
+            ast_node_ptr ch = mknode("Literal");
+            ch->val[0] = $4[i];
+            ch->val[1] = 0;
+            ch->type_id = TYPEID_CHAR;
+            append_child(temp, ch);
+        }
+        ast_node_ptr ch = mknode("Literal");
+        ch->val[0] = 0;
+        ch->type_id = TYPEID_CHAR;
+        append_child(temp, ch);
+        $$ = mknode("ArrayDecl", temp);
+        $$->pos = @1;
+        strcpy($$->val, "length_tbd");
+    }
+    | '[' CONSTANT ']' '=' CONSTANT {
+        if(get_literal_type($5) != TYPEID_STR) {
+            yyerror(n_errs, root, tmp_file, "array initializer must be an initializer list or wide string literal");
+        }
+        $$->type_id = TYPEID_CHAR;
+        ast_node_ptr temp = mknode("InitializerList");
+        temp->type_id = TYPEID_CHAR;
+        for(int i = 1; i < strlen($5)-1; i++){
+            ast_node_ptr ch = mknode("Literal");
+            ch->val[0] = $5[i];
+            ch->val[1] = 0;
+            ch->type_id = TYPEID_CHAR;
+            append_child(temp, ch);
+        }
+        ast_node_ptr ch = mknode("Literal");
+        ch->val[0] = 0;
+        ch->type_id = TYPEID_CHAR;
+        append_child(temp, ch);
+        $$ = mknode("ArrayDecl", temp);
+        $$->pos = @1;
+        strcpy($$->val, $2);
     }
     ;
 
@@ -273,6 +351,11 @@ STMT :
     ;
 
 TYPE_SPEC :
+    PRIMITIVE_SPEC
+    | PTR_SPEC
+    ;
+
+PRIMITIVE_SPEC:
     CHAR {}
     | SHORT {}
     | INT {}
@@ -281,7 +364,10 @@ TYPE_SPEC :
     | DOUBLE {}
     | VOID {}
     | STRING {}
-    | VOID_PTR {}
+    ;
+
+PTR_SPEC: 
+    VOID_PTR {}
     | CHAR_PTR {}
     | SHORT_PTR {}
     | INT_PTR {}
@@ -289,6 +375,8 @@ TYPE_SPEC :
     | FLOAT_PTR {}
     | DOUBLE_PTR {}
     ;
+
+
 
 COMPOUND_STMT :
     '{' '}' { $$ = mknode("CompoundStmt"); }
@@ -467,7 +555,7 @@ EXPR :
         strcpy(l1->val, "1");
         l1->pos = @2;
         $$ = mknode("BinaryOperator", $1, l1);
-        strcpy($$->val, "+=");
+        strcpy($$->val, "++");
         $$->pos = @2;
     }
     | EXPR DEC {
@@ -476,7 +564,7 @@ EXPR :
         strcpy(l1->val, "1");
         l1->pos = @2;
         $$ = mknode("BinaryOperator", $1, l1);
-        strcpy($$->val, "-=");
+        strcpy($$->val, "--");
         $$->pos = @2;
     }
     | INC EXPR {
@@ -656,6 +744,16 @@ ITERATE_STMT :
         ast_node_ptr t3 = 
         $$ = mknode("ForStmt", t, t2);
     }
+    | FOR '(' TYPE_SPEC IDENTIFIER '=' EXPR ';' FOR_EXPR EXPR ')' STMT {
+        ast_node_ptr delim = mknode("ForDelimiter");
+        ast_node_ptr vardecl = mknode("VarDecl", $6);
+        vardecl->type_id = $3;
+        strcpy(vardecl->val, $4);
+        ast_node_ptr t = mknode("TO_BE_MERGED", vardecl, $8);
+        ast_node_ptr t2 = mknode("TO_BE_MERGED", $9, delim, $11);
+        ast_node_ptr t3 = mknode("ForStmt", t, t2);
+        $$ = mknode("CompoundStmt", t3);
+    }
     | FOR '(' FOR_EXPR FOR_EXPR ')' STMT {
         ast_node_ptr delim = mknode("ForDelimiter");
         ast_node_ptr t = mknode("TO_BE_MERGED", $3, $4);
@@ -691,9 +789,21 @@ void yyerror(int* n_errs, struct ast_node_impl* node, char* tmp_file, char *s) {
 
 void transfer_type(struct ast_node_impl* node, int type_id) {
     if(node == NULL) return;
+    int tmp_type_id = node->type_id;
     node->type_id = type_id;
     if(strcmp(node->token, "VarDecl") == 0) {
-        return;
+        if(tmp_type_id == -1) {
+            // if it is a pointer, transfer to ptr type
+            // in this dirty fix, we don't consider the type of the first variable
+            if(type_id >= TYPEID_VOID_PTR) return ;
+            node->type_id = type_id + TYPEID_VOID_PTR - TYPEID_VOID;
+        }
+        else {
+            if (type_id >= TYPEID_VOID_PTR) 
+                node->type_id = type_id - TYPEID_VOID_PTR + TYPEID_VOID;
+        }
+
+        return; 
     } else if(strcmp(node->token, "ArrayDecl") == 0) {
         node->child[0]->type_id = type_id + TYPEID_VOID_PTR - TYPEID_VOID;
     } else {

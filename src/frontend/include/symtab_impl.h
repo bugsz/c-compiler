@@ -31,6 +31,10 @@ public:
         return is_func ? param_type_id.size() : -1;
     }
 
+    int get_type_id() {
+        return type_id;
+    } 
+    
     string get_type_name() {
         if (!is_func) {
             return typeid_deref[type_id];
@@ -56,15 +60,30 @@ public:
         va_args = true;
     }
 
+    void set_body(bool has = true) {
+        body = true;
+    }
+
     bool has_va_args() {
         return va_args;
     }
 
+    bool has_body() {
+        return body;
+    }
+
+    int get_arg_type(int i) {
+        if(i >= param_type_id.size()){
+            return TYPEID_VOID;
+        };
+        return param_type_id[i];
+    }
 private:
     // value type for expr/literal, return type for function
     int type_id;
     bool is_func;
-    bool va_args;
+    bool va_args = false ;
+    bool body = false;
     vector<int> param_type_id;
 };
 
@@ -95,6 +114,15 @@ public:
     }
     
     void enter_scope(string name) {
+        // if(name != ""){
+        //     vector<_table*> funcs = get_global_sym_tab()->child;
+        //     for(auto iter = funcs.begin(); iter != funcs.end(); iter++){
+        //         if((*iter)->name == name){
+        //             cur_table = *iter;
+        //             return;
+        //         }
+        //     }
+        // }
         _table* new_table = new _table(false, name == "" ? "Annonymous" : name);
         new_table->parent = cur_table;
         cur_table->child.push_back(new_table);
@@ -107,10 +135,25 @@ public:
         }
         cur_table = cur_table->parent;
     }
-    
+
     void add(const char* name, int type, bool is_func = false, string value = "") {
         cur_table->sym_tab_impl.insert({ string(name), SymbolAttr(type, is_func) });
         cur_table->key_value[string(name)] = value;
+    }
+
+    void remove(const char* name) {
+        assert(cur_table == global_sym_tab);
+        // actually just clear the function declaration
+        cur_table->sym_tab_impl.erase(string(name));
+        cur_table->key_value.erase(string(name));
+        // also need to clear the function body
+        vector<_table*> & funcs = get_global_sym_tab()->child;
+        for(auto iter = funcs.begin(); iter != funcs.end(); iter++){
+            if((*iter)->name == name){
+                *funcs.erase(iter);
+                break;
+            }
+        }
     }
 
     string get_value(const char* name) {

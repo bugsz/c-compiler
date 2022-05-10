@@ -142,7 +142,7 @@ func main() {
 		llvmAs.Stderr = buffer
 		genIR.Start()
 		_, err := llvmAs.Output()
-
+		genIR.Wait()
 		if err != nil {
 			generr := []byte("Fail to generate execuable file\n")
 			stderr := append([]byte("\nstderr:\n"), buffer.b.Bytes()...)
