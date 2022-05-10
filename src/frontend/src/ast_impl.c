@@ -90,7 +90,7 @@ static void print_node(ast_node_ptr node) {
     } else {
         sprintf(type, " '%s'", strcmp(node->token, "FunctionDecl") == 0 ? get_function_type(node->val) : typeid_deref[node->type_id]);
     }
-    // printf("%s %p%s %s%s\n", node->token, node, position, node->val, type);
+    printf("%s %p%s %s%s\n", node->token, node, position, node->val, type);
 }
 
 static void print_ast_impl(ast_node_ptr node) {

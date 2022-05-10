@@ -385,19 +385,23 @@ static void semantic_check_impl(int* n_errs, ast_node_ptr node) {
                 sym_tab.add(node->val, node->type_id);
             }
             if (token == "ParmVarDecl") {
-                assert(string(node->parent->token) == "FunctionDecl");
+                assert(string(node->parent->token) == "FunctionDecl" || string(node->parent->token) == "ProtoDecl");
                 assert(sym_tab.get_cur_sym_tab()->parent != nullptr);
                 sym_tab.get_global_sym_tab()->sym_tab_impl.find(node->parent->val)->second.add_param(node->type_id);
             }
         }
-    } else if (token == "CompoundStmt" || token == "FunctionDecl") {
-        if (token == "FunctionDecl") {
+    } else if (token == "CompoundStmt" || token == "FunctionDecl" || token == "ProtoDecl") {
+        if (token == "FunctionDecl" || token == "ProtoDecl") {
             assert(sym_tab.get_cur_sym_tab()->parent == nullptr);
             if(is_declared(node->val)) {
                 bool isredef = false;
                 bool va_args = false;
                 int args = 0;
-                auto sym_attr = sym_tab.get_global_sym_tab()->sym_tab_impl.at(node->val);
+
+                SymbolAttr sym_attr = sym_tab.get_global_sym_tab()->sym_tab_impl.at(node->val);
+                if(sym_attr.has_body()){
+                    semantic_error(n_errs, node->pos, "redefinition of '%s'", node->val);
+                }
                 if(sym_attr.get_type_id() != node->type_id){
                     semantic_error(n_errs, node->pos, "conflicting types for '%s'", node->val);
                 }
@@ -417,21 +421,16 @@ static void semantic_check_impl(int* n_errs, ast_node_ptr node) {
                     isredef = true;
                 if(isredef)
                     semantic_error(n_errs, node->pos, "conflicting types for '%s'", node->val);
-                else if(string(node->child[node->n_child-1]->token) == "CompoundStmt"){
-                    sym_tab.enter_scope(node->val);
-                    semantic_check_impl(n_errs, node->child[node->n_child-1]);
-                    sym_tab.exit_scope();
-                    return;
-                }else{
-                    return;
+                else{
+                    sym_tab.remove(node->val);
                 }
-            } else {
-                sym_tab.add(node->val, node->type_id, true);
             }
+            sym_tab.add(node->val, node->type_id, true);
         }
         already_checked = true;
         if (token == "CompoundStmt" && string(node->parent->token) == "FunctionDecl") {
             already_checked = false;
+            sym_tab.get_global_sym_tab()->sym_tab_impl.at(node->parent->val).set_body(true);
         }
         if (already_checked) {
             sym_tab.enter_scope(node->val);
@@ -639,7 +638,7 @@ static void semantic_check_impl(int* n_errs, ast_node_ptr node) {
             node->type_id = node->child[0]->type_id;
         }
     } else if (token == "VariadicParms") {
-        assert(string(node->parent->token) == "FunctionDecl");
+        assert(string(node->parent->token) == "FunctionDecl" || string(node->parent->token) == "ProtoDecl");
         assert(sym_tab.get_cur_sym_tab()->parent != nullptr);
         sym_tab.get_global_sym_tab()->sym_tab_impl.find(node->parent->val)->second.set_va_args();
     } else if (token == "ArrayDecl") {
@@ -701,4 +700,22 @@ void semantic_check(int* n_errs, ast_node_ptr root, int w_flag) {
     warning_flag = w_flag;
     sym_tab.init();
     semantic_check_impl(n_errs, root);
+    int valid_nodes = 0;
+    ast_node_ptr * child = new ast_node_ptr[root->n_child];
+    ast_node_ptr * begin = child;
+    for (int i = 0;i <root->n_child; i++) {
+        if(
+            sym_tab.get_global_sym_tab()->sym_tab_impl.at(string(root->child[i]->val)).has_body()
+            && string(root->child[i]->token) == "ProtoDecl"
+        ){
+        }else{
+            if(string(root->child[i]->token) == "ProtoDecl"){
+                strcpy(root->child[i]->token, "FunctionDecl");
+            }
+            *begin++ = root->child[i];
+            valid_nodes++;
+        };
+    }
+    root->n_child = valid_nodes;
+    root->child = child;
 }

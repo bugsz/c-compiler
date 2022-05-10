@@ -1061,22 +1061,22 @@ Value *BinaryExprAST::codegen(bool wantPtr) {
 
 Function *PrototypeAST::codegen(bool wantPtr) {
     auto func = getFunction(name);
-    if(func){
-        return func;
+    if(!func){
+        std::vector<Type *> llvmArgs;
+        for(auto iter=args.begin(); iter!=args.end(); iter++){        
+            llvmArgs.push_back(getVarType((*iter).second));
+        }
+        FunctionType *functionType = FunctionType::get(getVarType(retVal), llvmArgs, va);
+        func = Function::Create(functionType, Function::ExternalLinkage, name, llvmModule.get());
+        func->setCallingConv(CallingConv::C);
     }
-    std::vector<Type *> llvmArgs;
-    for(auto iter=args.begin(); iter!=args.end(); iter++){        
-        llvmArgs.push_back(getVarType((*iter).second));
-    }
-    FunctionType *functionType = FunctionType::get(getVarType(retVal), llvmArgs, va);
-    Function *F = Function::Create(functionType, Function::ExternalLinkage, name, llvmModule.get());
-    F->setCallingConv(CallingConv::C);
     auto iter = this->args.begin();
-    for (auto &arg: F->args()) {
+    for (auto &arg: func->args()) {
+        std::cout << iter->first << std::endl;
         arg.setName(iter->first);
         iter++;
     }
-    return F;
+    return func;
 }
 
 Function *FunctionDeclAST::codegen(bool wantPtr) {

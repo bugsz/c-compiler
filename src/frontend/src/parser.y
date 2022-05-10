@@ -113,14 +113,13 @@ TYPE_ALIAS :
 
 FN_DECL :
     TYPE_SPEC IDENTIFIER '(' PARAM_LIST ')' ';' {
-        // printf("fn_decl: %s\n", $2);
-        $$ = mknode("FunctionDecl", $4);
+        $$ = mknode("ProtoDecl", $4);
         $$->type_id = $1;
         strcpy($$->val, $2);
         $$->pos = @2;
     }
     | TYPE_SPEC IDENTIFIER '(' ')' ';' {
-        $$ = mknode("FunctionDecl");
+        $$ = mknode("ProtoDecl");
         $$->type_id = $1;
         strcpy($$->val, $2);
         $$->pos = @2;
@@ -245,8 +244,6 @@ DECL_DECLARATOR :
 
 DECL :
     TYPE_SPEC DECL_LIST ';' {
-    // PRIMITIVE_SPEC DECL_LIST ';' {
-        // printf("Decl: %d\n", $1);
         if ($1 >= TYPEID_VOID_PTR) {
             $2->child[0]->type_id = -1; 
             $1 = $1 - TYPEID_VOID_PTR + TYPEID_VOID;
@@ -791,7 +788,6 @@ void yyerror(int* n_errs, struct ast_node_impl* node, char* tmp_file, char *s) {
 
 void transfer_type(struct ast_node_impl* node, int type_id) {
     if(node == NULL) return;
-    // printf("%s %s %d %d\n", node->token, node->val, node->type_id, type_id);
     int tmp_type_id = node->type_id;
     node->type_id = type_id;
     if(strcmp(node->token, "VarDecl") == 0) {
