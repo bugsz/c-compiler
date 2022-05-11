@@ -1,11 +1,12 @@
 #pragma once
+
 #include<bits/stdc++.h>
 #include "frontend.h"
 
 enum BinaryOpType {
     ADD = 0,
     SUB,
-    MUL, 
+    MUL,
     DIV,
     EQ,
     LT,
@@ -58,16 +59,23 @@ enum ASTNodeType {
 };
 
 int getBinaryOpType(std::string binaryOp);
+
 int getUnaryOpType(std::string unaryOp);
+
 bool isEqual(char *a, std::string b);
+
 int ptr2raw(int ptr);
+
 ASTNodeType getNodeType(std::string token);
+
 std::string filterString(std::string str);
+
 void print(std::string a);
+
 void print_node(ast_node_ptr node);
 
 template<typename TO, typename FROM>
-std::unique_ptr<TO> static_unique_pointer_cast (std::unique_ptr<FROM>&& old){
-    return std::unique_ptr<TO>{static_cast<TO*>(old.release())};
+std::unique_ptr<TO> static_unique_pointer_cast(std::unique_ptr<FROM> &&old) {
+    return std::unique_ptr<TO>{static_cast<TO *>(old.release())};
 }
 
