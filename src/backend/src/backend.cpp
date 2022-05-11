@@ -1,3 +1,5 @@
+#include <unistd.h>
+#include <fcntl.h>
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Host.h"
 #include "llvm/Support/TargetSelect.h"
