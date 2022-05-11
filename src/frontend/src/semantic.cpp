@@ -701,20 +701,32 @@ void semantic_check(int* n_errs, ast_node_ptr root, int w_flag) {
     sym_tab.init();
     semantic_check_impl(n_errs, root);
     int valid_nodes = 0;
+    bool has_entry = false;
     ast_node_ptr * child = new ast_node_ptr[root->n_child];
     ast_node_ptr * begin = child;
-    for (int i = 0;i <root->n_child; i++) {
+    for (int i=0; i<root->n_child; i++) {
         if(
             string(root->child[i]->token) == "ProtoDecl" &&
             sym_tab.get_global_sym_tab()->sym_tab_impl.at(string(root->child[i]->val)).has_body()
         ){
+            continue;
         }else{
+            if(
+                string(root->child[i]->token) == "FunctionDecl" &&
+                string(root->child[i]->val) == "main" &&
+                sym_tab.get_global_sym_tab()->sym_tab_impl.at(string(root->child[i]->val)).has_body()
+            ){
+                has_entry = true;
+            }
             if(string(root->child[i]->token) == "ProtoDecl"){
                 strcpy(root->child[i]->token, "FunctionDecl");
             }
             *begin++ = root->child[i];
             valid_nodes++;
         };
+    }
+    if(!has_entry){
+        semantic_warning(root->child[root->n_child-1]->pos, "implicit entry/start for main executable");
     }
     root->n_child = valid_nodes;
     root->child = child;
