@@ -705,8 +705,8 @@ void semantic_check(int* n_errs, ast_node_ptr root, int w_flag) {
     ast_node_ptr * begin = child;
     for (int i = 0;i <root->n_child; i++) {
         if(
+            string(root->child[i]->token) == "ProtoDecl" &&
             sym_tab.get_global_sym_tab()->sym_tab_impl.at(string(root->child[i]->val)).has_body()
-            && string(root->child[i]->token) == "ProtoDecl"
         ){
         }else{
             if(string(root->child[i]->token) == "ProtoDecl"){

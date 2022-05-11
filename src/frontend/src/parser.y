@@ -49,7 +49,7 @@ extern int yycolno;
 };
 
 %token <str> IDENTIFIER
-%token <typeid> CHAR SHORT INT LONG FLOAT DOUBLE VOID STRING
+%token <typeid> VOID CHAR SHORT INT LONG FLOAT DOUBLE STRING
 %token <typeid> VOID_PTR CHAR_PTR SHORT_PTR INT_PTR LONG_PTR FLOAT_PTR DOUBLE_PTR
 %token <str> CONSTANT
 %token LE GE EQ NE LAND LOR SHL SHR INC DEC
@@ -63,7 +63,7 @@ extern int yycolno;
 %type <node> GLOBAL_DECL DECL_LIST DECL_LIST_RIGHT DECL DECL_DECLARATOR ARRAY_DECL INIT_LIST INIT_LIST_RIGHT
 %type <node> STMT COMPOUND_STMT SELECT_STMT EXPR_STMT ITERATE_STMT JMP_STMT MIX_LIST
 %type <node> EXPR ARG_LIST ARG_LIST_RIGHT FOR_EXPR 
-%type <typeid> TYPE_SPEC PRIMITIVE_SPEC PTR_SPEC
+%type <typeid> TYPE_SPEC
 
 %nonassoc OUTERELSE
 %nonassoc ELSE
@@ -216,20 +216,20 @@ DECL_DECLARATOR :
         $$ = mknode("VarDecl");
         strcpy($$->val, $2);
         $$->pos = @1;
-        $$->type_id = -1;
+        $$->type_id = TYPEID_VOID_PTR - TYPEID_VOID;
     }
     | '*' IDENTIFIER '=' EXPR {
         $$ = mknode("VarDecl", $4);
         strcpy($$->val, $2);
         $$->pos = @1;
-        $$->type_id = -1;
+        $$->type_id = TYPEID_VOID_PTR - TYPEID_VOID;
     }
-
     | IDENTIFIER ARRAY_DECL {
         ast_node_ptr arr_decl = $2, temp;
         $2->pos = @2;
         temp = mknode("VarDecl");
         temp->pos = @1;
+        temp->type_id = TYPEID_VOID_PTR - TYPEID_VOID;
         strcpy(temp->val, $1);
         append_child(arr_decl, temp);
         assert(arr_decl->n_child == 2 || arr_decl->n_child == 1);
@@ -244,14 +244,14 @@ DECL_DECLARATOR :
 
 DECL :
     TYPE_SPEC DECL_LIST ';' {
-        if ($1 >= TYPEID_VOID_PTR) {
-            if(!$2->n_child) $2->type_id = -1;
-            else $2->child[0]->type_id = -1; 
-            $1 = $1 - TYPEID_VOID_PTR + TYPEID_VOID;
+        if($2->n_child > 1 && $1 >= TYPEID_VOID_PTR) {
+            $2 -> child[0] -> type_id = $1;
+            transfer_type($2 -> child[1], $1 - TYPEID_VOID_PTR);
+        }else{
+            transfer_type($2, $1);
         }
-        transfer_type($2, $1);
         $$ = $2;
-    }
+    } 
     ;
 
 ARRAY_DECL :
@@ -351,11 +351,6 @@ STMT :
     ;
 
 TYPE_SPEC :
-    PRIMITIVE_SPEC
-    | PTR_SPEC
-    ;
-
-PRIMITIVE_SPEC:
     CHAR {}
     | SHORT {}
     | INT {}
@@ -364,10 +359,7 @@ PRIMITIVE_SPEC:
     | DOUBLE {}
     | VOID {}
     | STRING {}
-    ;
-
-PTR_SPEC: 
-    VOID_PTR {}
+    | VOID_PTR {}
     | CHAR_PTR {}
     | SHORT_PTR {}
     | INT_PTR {}
@@ -375,8 +367,6 @@ PTR_SPEC:
     | FLOAT_PTR {}
     | DOUBLE_PTR {}
     ;
-
-
 
 COMPOUND_STMT :
     '{' '}' { $$ = mknode("CompoundStmt"); }
@@ -629,7 +619,7 @@ EXPR :
         $$ = mknode("CallExpr", id, $3); 
         $$->pos = @1;
     }
-    | IDENTIFIER     { 
+    | IDENTIFIER { 
         $$ = mknode("DeclRefExpr");
         strcpy($$->val, $1);
         $$->pos = @1;
@@ -789,26 +779,9 @@ void yyerror(int* n_errs, struct ast_node_impl* node, char* tmp_file, char *s) {
 
 void transfer_type(struct ast_node_impl* node, int type_id) {
     if(node == NULL) return;
-    int tmp_type_id = node->type_id;
-    node->type_id = type_id;
-    if(strcmp(node->token, "VarDecl") == 0) {
-        if(tmp_type_id == -1) {
-            // if it is a pointer, transfer to ptr type
-            // in this dirty fix, we don't consider the type of the first variable
-            if(type_id >= TYPEID_VOID_PTR) return ;
-            node->type_id = type_id + TYPEID_VOID_PTR - TYPEID_VOID;
-        }
-        else {
-            if (type_id >= TYPEID_VOID_PTR) 
-                node->type_id = type_id - TYPEID_VOID_PTR + TYPEID_VOID;
-        }
-
-        return; 
-    } else if(strcmp(node->token, "ArrayDecl") == 0) {
-        node->child[0]->type_id = type_id + TYPEID_VOID_PTR - TYPEID_VOID;
-    } else {
-        for(int i = 0; i < node->n_child; i++) {
-            transfer_type(node->child[i], type_id);
-        }
+    if(strcmp(node -> token, "Literal") == 0 || strcmp(node -> token, "InitializerList") == 0) return;
+    node->type_id += type_id;
+    for(int i = 0; i < node->n_child; i++) {
+        transfer_type(node->child[i], type_id);
     }
 }
