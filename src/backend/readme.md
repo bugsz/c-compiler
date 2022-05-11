@@ -1,11 +1,8 @@
 # Backend
 
-
-
 ## Examples
+
 + Please refer to `project-root/test/test.c`
-
-
 
 ## Features
 
@@ -17,8 +14,6 @@
 + built-in function like `printf`
 + ...
 
-
-
 ## Compilation
 
 ### Prerequisites
@@ -26,8 +21,6 @@
 + GNU CMake >= 3.13.4 (lower is ok but you have to change cmakelist.txt)
 + A C/C++ compiler with >=`c99` & >=`c++17` support
 + llvm-12
-
-
 
 ### Command
 
@@ -50,7 +43,8 @@
 
   For more information, please refer to `frontend/readme.md`
 
-+ Two files will be generated: `output.ll` and `output.o`. Either use `clang++ output.ll -o ./main` or `clang++ output.o -o ./main` to generate executable file.
++ Two files will be generated: `output.ll` and `output.o`. Either use `clang++ output.ll -o ./main`
+  or `clang++ output.o -o ./main` to generate executable file.
 
   
 
