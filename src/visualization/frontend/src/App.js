@@ -161,7 +161,7 @@ function App() {
                   <Button type="primary" onClick={handleCompile}>Compile</Button>
                 </Space>
               }
-              colSpan={horizontal ? "100%":"30%"}
+              colSpan={horizontal ? "100%":"32%"}
               bodyStyle={{height:horizontal ?'50vh':'100%'}}
             >
             <Editor
@@ -182,7 +182,7 @@ function App() {
                     <Button type="primary" onClick={handleRefresh}>Refresh</Button>
                   </Space>
                 }
-                colSpan={horizontal ? "100%":"40%"}
+                colSpan={horizontal ? "100%":"38%"}
               >
             <Graph ref={graphRef} data={data}></Graph>
             </ProCard>

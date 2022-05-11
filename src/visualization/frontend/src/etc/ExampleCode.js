@@ -4,9 +4,9 @@ export const Examples = [
         name: 'Introduction',
         code: 
 `/*
-A "builtin.h" header file will be added to your code
-automatically, so the following functions and defines
-are always availiable.
+A "builtin.h" header file will be added to 
+your  code automatically, so the following 
+functions and defines are always availiable.
 #define NULL 0
 int printf(char *format, ...);
 int sprintf(char *buf, char *format, ...);
