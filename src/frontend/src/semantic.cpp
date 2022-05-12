@@ -162,8 +162,9 @@ static int expr_type_check(ast_node_ptr left, ast_node_ptr right, ast_node_ptr o
         && string(op->val) != "=") {
         return -1;
     }
-    if (get_function_type(left->val) != nullptr ||
-        get_function_type(right->val) != nullptr) { // check if the identifier is a function
+    if ((sym_tab.get(left->val) == -1 && get_function_type(left->val) != nullptr) ||
+        (sym_tab.get(right->val) == -1 && get_function_type(right->val) != nullptr)) { 
+        // check if the identifier is a function
         return -1;
     }
     if (string(op->val) == "=") {
