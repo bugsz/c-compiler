@@ -101,13 +101,8 @@ Function *FunctionDeclAST::codegen(bool wantPtr) {
 
 Value *CallExprAST::codegen(bool wantPtr) {
     std::cout << "Call to: " + callee << std::endl;
-    // 如果是builtin function
-    if(callee.find("__builtin_") == 0){
-        auto builtin_ret = getBuiltinFunction(callee, args);
-        if(builtin_ret) return builtin_ret;
-    }
-
-    Function *calleeFunction = llvmModule->getFunction(callee);
+    
+    Function *calleeFunction = getFunction(callee);
     if (!calleeFunction) return logErrorV("Unknown function");
     if (calleeFunction -> arg_size() != args.size() && !calleeFunction->isVarArg()) 
         logErrorV("Incorrect args");

@@ -57,7 +57,7 @@ extern int yycolno;
 %token IF ELSE
 %token DO FOR WHILE 
 %token RETURN BREAK CONTINUE
-%token TYPEDEF SIZEOF BUILTIN_ITOA BUILTIN_STRCAT BUILTIN_STRLEN BUILTIN_STRGET BUILTIN_EVAL
+%token TYPEDEF SIZEOF ISFP BUILTIN_ITOA BUILTIN_STRCAT BUILTIN_STRLEN BUILTIN_STRGET BUILTIN_EVAL
 
 %type <node> PROG FN_DECL FN_DEF PARAM_LIST PARAM_LIST_RIGHT PARAM_DECL
 %type <node> GLOBAL_DECL DECL_LIST DECL_LIST_RIGHT DECL DECL_DECLARATOR ARRAY_DECL INIT_LIST INIT_LIST_RIGHT
@@ -638,6 +638,15 @@ EXPR :
         char s[2]={0};
         s[0] = temp + '0';
         strcpy($$->val, s);
+    }
+    | ISFP '(' TYPE_SPEC ')' {
+        $$ = mknode("Literal");
+        $$->type_id = TYPEID_INT;
+        $$->pos = @1;
+        if($3 >= TYPEID_FLOAT && $3 <= TYPEID_DOUBLE)
+            strcpy($$->val, "1");
+        else
+            strcpy($$->val, "0");
     }
     | SIZEOF '(' EXPR ')' {
         $$ = mknode("__SIZEOF", $3);

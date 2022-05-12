@@ -51,7 +51,8 @@ std::unique_ptr<ExprAST> generateBackendASTNode(ast_node_ptr root) {
         case FUNCTIONDECL: {
             std::vector<std::pair<std::string, int>> args;
             std::string name(val);    
-            
+            name = getFunctionName(name);
+
             int param_end = root->n_child;
             std::unique_ptr<ExprAST> compoundStmt;
 
@@ -202,10 +203,10 @@ std::unique_ptr<ExprAST> generateBackendASTNode(ast_node_ptr root) {
 
         case CALLEXPR: {
             auto name = std::string(root->child[0]->val);
+            name = getFunctionName(name);
             std::vector<std::unique_ptr<ExprAST>> args;
-            for(int i=1;i<root->n_child;i++) args.push_back(
-                generateBackendASTNode(root->child[i])
-            );
+            for(int i=1;i<root->n_child;i++) 
+                args.push_back(generateBackendASTNode(root->child[i]));
             auto call = std::make_unique<CallExprAST>(name, std::move(args));
             return call;
         }

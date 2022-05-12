@@ -440,7 +440,7 @@ static void semantic_check_impl(int* n_errs, ast_node_ptr node) {
             sym_tab.exit_scope();
         }
     } else if (token == "DeclRefExpr") {
-        if (get_symbol_type(node->val) < 0 && string(node->val).find("__builtin_") != 0) {
+        if (get_symbol_type(node->val) < 0 && string(node->val).find("__builtin_") != 0 && string(node->val).find("__llvm_") != 0 ) {
             semantic_error(n_errs, node->pos, "use of undeclared identifier '%s'", node->val);
             assert(node->parent != nullptr);
             if (string(node->parent->token) == "CallExpr" && node == node->parent->child[0]) {

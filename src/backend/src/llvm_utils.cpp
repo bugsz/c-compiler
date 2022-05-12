@@ -58,22 +58,19 @@ GlobalVariable *createGlob(Type *type, std::string name) {
     return gv;
 }
 
+std::string getFunctionName(std::string name){
+    if(name.find("__builtin_") == 0)
+        name = name.substr(strlen("__builtin_"), name.length());
+    if(name.find("__llvm_") == 0)
+        name = name.replace(0, strlen("__llvm_"), "llvm.");
+    return name;
+}
+
 Function *getFunction(std::string name) {
     if (auto *F = llvmModule->getFunction(name)) {
         return F;
     }
     return nullptr;
-}
-
-Value *getBuiltinFunction(std::string callee, std::vector<std::unique_ptr<ExprAST>> &args) {
-    std::vector<Value *> varArgs;
-    std::string func_name = callee.substr(strlen("__builtin_"), callee.length());
-    auto func = getFunction(func_name);
-    if(!func){
-        fprintf(stderr, "error: use of unknown builtin '%s'\n", callee.c_str());
-        exit(-1);
-    }
-    return llvmBuilder->CreateCall(func, varArgs);
 }
 
 bool isValidBinaryOperand(Value *value) {

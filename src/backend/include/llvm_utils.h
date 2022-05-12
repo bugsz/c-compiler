@@ -53,8 +53,8 @@ Function *logErrorF(const char *str);
 
 Constant *getInitVal(Type *type);
 GlobalVariable *createGlob(Type *type, std::string name);
+std::string getFunctionName(std::string name);
 Function *getFunction(std::string name);
-Value *getBuiltinFunction(std::string callee, std::vector<std::unique_ptr<ExprAST>> &args);
 
 bool isValidBinaryOperand(Value *value);
 
