@@ -440,7 +440,7 @@ static void semantic_check_impl(int* n_errs, ast_node_ptr node) {
             sym_tab.exit_scope();
         }
         if(token == "CompoundStmt") {
-            node->type_id = node->child[node->n_child - 1]->type_id;
+            node->type_id = node->n_child ? node->child[node->n_child - 1]->type_id : TYPEID_VOID;
         }
     } else if (token == "DeclRefExpr") {
         if (get_symbol_type(node->val) < 0 && string(node->val).find("__builtin_") != 0) {
