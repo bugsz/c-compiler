@@ -28,7 +28,9 @@ find_library(ZJUCC_LIB libzjucc.a ./src/frontend)
 # aux_source_directory(./src/backend SRC_LIST)
 
 
-set(SRC_LIST ./src/backend/src/llvm_ast.cpp)
+# set(SRC_LIST ./src/backend/src/llvm_ast.cpp ./src/backend/src/type_utils.cpp ./src/backend/src/llvm_utils.cpp ./src/backend/src/backend.cpp)
+aux_source_directory(./src/backend/src SRC_LIST)
+aux_source_directory(./src/backend/src/ast SRC_LIST)
 message(STATUS "SRC_LIST: ${SRC_LIST}")
 # aux_source_directory(./src/backend/src SRC_LIST)
 

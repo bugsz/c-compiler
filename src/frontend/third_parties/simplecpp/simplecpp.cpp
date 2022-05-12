@@ -9,7 +9,7 @@
 
 /*
  * simplecpp - A simple and high-fidelity C/C++ preprocessor library
- * Copyright (C) 2016-2022 DanielL Marjamäki.
+ * Copyright (C) 2016-2022 Daniel Marjamäki.
  *
  * This library is free software: you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -336,7 +336,7 @@ std::string simplecpp::TokenList::stringify() const
 
         if (sameline(tok->previous, tok)) {
             int diff = tok->location.col - tok->previous->location.col - tok->previous->str().length();
-            if (diff > 0)
+            if (diff != 0)
                 ret << ' ';    
         }
 
@@ -3024,7 +3024,6 @@ void simplecpp::preprocess(simplecpp::TokenList &output, const simplecpp::TokenL
     macros.insert(std::make_pair("__INT32_MIN__", Macro("__INT32_MIN__", std::to_string(std::numeric_limits<int>::min()), files)));
     macros.insert(std::make_pair("__INT64_MAX__", Macro("__INT64_MAX__", std::to_string(std::numeric_limits<long>::max()), files)));
     macros.insert(std::make_pair("__INT64_MIN__", Macro("__INT64_MIN__", std::to_string(std::numeric_limits<long>::min()), files)));
-    // macros.insert(std::make_pair("printf", Macro("printf", "__builtin_printf", files)));
 
     if (!dui.std.empty()) {
         std::string std_def = simplecpp::getCStdString(dui.std);

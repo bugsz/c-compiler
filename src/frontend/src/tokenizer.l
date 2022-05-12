@@ -70,12 +70,12 @@ extern YYLTYPE yylloc;
 "typedef"   { set_col(); return TYPEDEF; }
 
 "sizeof"    { set_col(); return SIZEOF; }
+"isfp"      { set_col(); return ISFP; }
 "__builtin_itoa" { set_col(); return BUILTIN_ITOA; }
-"__builtin_strcat" { set_col(); return BUILTIN_STRCAT; }
-"__builtin_strlen" { set_col(); return BUILTIN_STRLEN; }
-"__builtin_strget" { set_col(); return BUILTIN_STRGET; }
-"__builtin_eval"   { set_col(); return BUILTIN_EVAL; }
-
+"__builtin_strcat"      { set_col(); return BUILTIN_STRCAT; }
+"__builtin_strlen"      { set_col(); return BUILTIN_STRLEN; }
+"__builtin_strget"      { set_col(); return BUILTIN_STRGET; }
+"__builtin_eval"        { set_col(); return BUILTIN_EVAL; }
 "#line"[ \t]+[0-9]+[ \t]+.*\n { set_include();}
 
 "__attribute__(("[^)]*"))" { set_col(); }
