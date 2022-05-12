@@ -343,7 +343,42 @@ static string const_fold(int* n_errs, ast_node_ptr left, ast_node_ptr right, str
         }
         int res = atoi(left->val) || atoi(right->val);
         return to_string(res);
-    }
+    } else if (op == ">>") {
+        if (typel > TYPEID_LONG || typer > TYPEID_LONG) {
+            semantic_error(n_errs, left->pos, "invalid operands to binary expression");
+            return "";
+        }
+        long res = atol(left->val) >> atol(right->val);
+        return to_string(res);
+    } else if (op == "<<") {
+        if (typel > TYPEID_LONG || typer > TYPEID_LONG) {
+            semantic_error(n_errs, left->pos, "invalid operands to binary expression");
+            return "";
+        }
+        long res = atol(left->val) << atol(right->val);
+        return to_string(res);
+    } else if (op == "&") {
+        if (typel > TYPEID_LONG || typer > TYPEID_LONG) {
+            semantic_error(n_errs, left->pos, "invalid operands to binary expression");
+            return "";
+        }
+        long res = atol(left->val) & atol(right->val);
+        return to_string(res);
+    } else if (op == "|") {
+        if (typel > TYPEID_LONG || typer > TYPEID_LONG) {
+            semantic_error(n_errs, left->pos, "invalid operands to binary expression");
+            return "";
+        }
+        long res = atol(left->val) && atol(right->val);
+        return to_string(res);
+    } else if (op == "^") {
+        if (typel > TYPEID_LONG || typer > TYPEID_LONG) {
+            semantic_error(n_errs, left->pos, "invalid operands to binary expression");
+            return "";
+        }
+        long res = atol(left->val) ^ atol(right->val);
+        return to_string(res);
+    } 
     return "";
 }
 
@@ -438,6 +473,9 @@ static void semantic_check_impl(int* n_errs, ast_node_ptr node) {
                 semantic_check_impl(n_errs, node->child[i]);
             }
             sym_tab.exit_scope();
+        }
+        if(token == "CompoundStmt") {
+            node->type_id = node->n_child ? node->child[node->n_child - 1]->type_id : TYPEID_VOID;
         }
     } else if (token == "DeclRefExpr") {
         if (get_symbol_type(node->val) < 0 && string(node->val).find("__builtin_") != 0 && string(node->val).find("__llvm_") != 0 ) {
