@@ -342,7 +342,9 @@ enum BinaryOpType {
     ASSIGNPLUS,
     LAND,
     LOR,
-    REM
+    REM,
+    INC,
+    DEC
     // todo: 位运算
 };
 
