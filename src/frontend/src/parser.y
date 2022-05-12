@@ -369,15 +369,21 @@ TYPE_SPEC :
     ;
 
 COMPOUND_STMT :
-    '{' '}' { $$ = mknode("CompoundStmt"); }
-    | '{' MIX_LIST '}' { $$ = mknode("CompoundStmt", $2); }
+    '{' '}' { 
+        $$ = mknode("CompoundStmt");
+    }
+    | '{' MIX_LIST '}' {
+        $$ = mknode("CompoundStmt", $2);
+    }
     ;
 
 MIX_LIST :
     DECL MIX_LIST {
         $$ = mknode("TO_BE_MERGED", $1, $2);
     }
-    | STMT MIX_LIST {$$ = mknode("TO_BE_MERGED", $1, $2);}
+    | STMT MIX_LIST {
+        $$ = mknode("TO_BE_MERGED", $1, $2);
+    }
     | STMT {$$ = $1;}
     | DECL {$$ = $1;}
     ;
@@ -397,7 +403,6 @@ EXPR :
         $$ = mknode("BinaryOperator", $1, $3);
         strcpy($$->val, "<");
         $$->pos = @2;
-
     }
     | EXPR '>' EXPR  { 
         $$ = mknode("BinaryOperator", $1, $3);
@@ -695,14 +700,19 @@ EXPR :
             sprintf($$->val, "%.16lf", res);
         }
     }
-    | CONSTANT     { 
+    | CONSTANT { 
         $$ = mknode("Literal");
         $$->type_id = get_literal_type($1);
         if($$->type_id < 0) yyerror(n_errs, root, tmp_file, "integer constant is too large for its type");
         strcpy($$->val, $1);
         $$->pos = @1;
     }
-    | '(' EXPR ')'    { $$ = $2; }
+    | '(' EXPR ')' { 
+        $$ = $2;
+    }
+    | '(' COMPOUND_STMT ')' {
+        $$ = $2;
+    }
     ;
 
 ARG_LIST :
