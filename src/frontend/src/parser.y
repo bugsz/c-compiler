@@ -779,7 +779,10 @@ void yyerror(int* n_errs, struct ast_node_impl* node, char* tmp_file, char *s) {
 
 void transfer_type(struct ast_node_impl* node, int type_id) {
     if(node == NULL) return;
-    if(strcmp(node -> token, "Literal") == 0 || strcmp(node -> token, "InitializerList") == 0) return;
+    if( strcmp(node -> token, "Literal") == 0 
+        || strcmp(node -> token, "InitializerList") == 0
+        || strcmp(node -> token, "ExplicitCastExpr") == 0
+    ) return;
     node->type_id += type_id;
     for(int i = 0; i < node->n_child; i++) {
         transfer_type(node->child[i], type_id);

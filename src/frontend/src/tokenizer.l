@@ -49,6 +49,7 @@ extern YYLTYPE yylloc;
 "double"	{ set_col(); yylval.typeid = TYPEID_DOUBLE; return DOUBLE; }
 "void"		{ set_col(); yylval.typeid = TYPEID_VOID; return VOID; }
 "string"    { set_col(); yylval.typeid = TYPEID_STR; return STRING; }
+"__builtin_va_list"    { set_col(); yylval.typeid = TYPEID_CHAR_PTR; return TYPEID_CHAR_PTR; }
 
 "void"[ \t\r\n]*\*   { set_col(); yylval.typeid = TYPEID_VOID_PTR; return VOID_PTR; }
 "char"[ \t\r\n]*\*   { set_col(); yylval.typeid = TYPEID_CHAR_PTR; return CHAR_PTR; }
@@ -71,11 +72,10 @@ extern YYLTYPE yylloc;
 
 "sizeof"    { set_col(); return SIZEOF; }
 "__builtin_itoa" { set_col(); return BUILTIN_ITOA; }
-"__builtin_strcat" { set_col(); return BUILTIN_STRCAT; }
-"__builtin_strlen" { set_col(); return BUILTIN_STRLEN; }
-"__builtin_strget" { set_col(); return BUILTIN_STRGET; }
-"__builtin_eval"   { set_col(); return BUILTIN_EVAL; }
-
+"__builtin_strcat"      { set_col(); return BUILTIN_STRCAT; }
+"__builtin_strlen"      { set_col(); return BUILTIN_STRLEN; }
+"__builtin_strget"      { set_col(); return BUILTIN_STRGET; }
+"__builtin_eval"        { set_col(); return BUILTIN_EVAL; }
 "#line"[ \t]+[0-9]+[ \t]+.*\n { set_include();}
 
 "__attribute__(("[^)]*"))" { set_col(); }

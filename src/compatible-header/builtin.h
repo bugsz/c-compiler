@@ -1,3 +1,6 @@
+#ifndef __BUILTIN_H
+#define __BUILTIN_H
+
 #define NULL 0
 int printf(char *format, ...);
 int sprintf(char *buf, char *format, ...);
@@ -20,3 +23,5 @@ int gets(char* buf);
 void *malloc(int size);
 void free(void* p);
 void exit(int status);
+
+#endif /* __BUILTIN_H */
