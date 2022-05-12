@@ -336,7 +336,7 @@ std::string simplecpp::TokenList::stringify() const
 
         if (sameline(tok->previous, tok)) {
             int diff = tok->location.col - tok->previous->location.col - tok->previous->str().length();
-            if (diff > 0)
+            if (diff != 0)
                 ret << ' ';    
         }
 
