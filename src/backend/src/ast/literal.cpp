@@ -15,7 +15,7 @@
 using namespace llvm;
 
 Value *LiteralExprAST::codegen(bool wantPtr) {
-    print("LiteralExpr, typeid: " + std::to_string(this->getType()));
+    // print("LiteralExpr, typeid: " + std::to_string(this->getType()));
     switch(this->getType()) {
         case TYPEID_INT: {
             auto intCode = ConstantInt::get(*llvmContext, APInt(32, atoi(value.c_str())));

@@ -9,11 +9,11 @@
 using namespace llvm;
 
 Value *VarRefExprAST::codegen(bool wantPtr) {
-    std::cout << "VarRefExpr: " << name << std::endl;
-    std::cout << "WantPtr: " << wantPtr << std::endl;
+    // std::cout << "VarRefExpr: " << name << std::endl;
+    // std::cout << "WantPtr: " << wantPtr << std::endl;
     int isGlobal = 0;
     auto V = getVariable(name, isGlobal);
-    std::cout << "Value type: " << getLLVMTypeStr(V->getType()) << std::endl;
+    // std::cout << "Value type: " << getLLVMTypeStr(V->getType()) << std::endl;
     if (!V) {
         return nullptr;
     }
@@ -21,7 +21,7 @@ Value *VarRefExprAST::codegen(bool wantPtr) {
         return V;
     }
     if(isGlobal) {
-        std::cout << "Find global var: " << name << std::endl;
+        // std::cout << "Find global var: " << name << std::endl;
         GlobalVariable *gV = static_cast<GlobalVariable *>(V);
         if(initializing){
             return gV->getInitializer();

@@ -15,7 +15,7 @@
 std::unique_ptr<ExprAST> generateBackendASTNode(ast_node_ptr root) {
     if (!root) return nullptr;
     ASTNodeType nodeType = getNodeType(std::string(root->token));
-    print_node(root);
+    // print_node(root);
 
     char val[MAX_TOKEN_LEN], token[MAX_TOKEN_LEN];
     strcpy(val, root->val);
@@ -169,7 +169,6 @@ std::unique_ptr<ExprAST> generateBackendASTNode(ast_node_ptr root) {
                 exprList.push_back(std::move(null));
             }
             for(int i=0;i<root->n_child;i++) exprList.push_back(generateBackendASTNode(root->child[i]));
-            // std::cout << "CompoundStmt has: " << exprList.size() << std::endl;
             auto compound = std::make_unique<CompoundStmtExprAST>(std::move(exprList));
             return compound;
         }

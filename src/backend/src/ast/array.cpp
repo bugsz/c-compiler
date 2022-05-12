@@ -34,7 +34,7 @@ Value *ArrayExprAST::codegen(bool wantPtr) {
 }
 
 Value *GlobalArrayExprAST::codegen(bool wantPtr) {
-    std::cout << "GlobalArrayExpr" << std::endl;
+    // std::cout << "GlobalArrayExpr" << std::endl;
     auto varType = getVarType(init->getType());
     auto arrayType = ArrayType::get(varType, init->getSize());
 

@@ -77,7 +77,6 @@ static void print_node(ast_node_ptr node) {
         sprintf(position, " <%d:%d>", node->pos.last_line, node->pos.last_column);
     }
     if (strcmp(node->token, "TranslationUnitDecl") == 0 ||
-        strcmp(node->token, "CompoundStmt") == 0 ||
         strcmp(node->token, "DeclStmt") == 0 ||
         strcmp(node->token, "ForStmt") == 0 ||
         strcmp(node->token, "IfStmt") == 0 ||

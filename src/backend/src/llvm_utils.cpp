@@ -92,12 +92,12 @@ Value *getVariable(std::string name) {
 Value *getVariable(std::string name, int &isGlobal) {
     auto V = NamedValues.top()[name];
     if(V) {
-        std::cout << "Find local variable " << name << std::endl;
+        // std::cout << "Find local variable " << name << std::endl;
         return V;
     }
     auto key = llvmModule->getGlobalVariable(name);
     if (key) {
-        std::cout << "Find global variable: " << name << std::endl;
+        // std::cout << "Find global variable: " << name << std::endl;
         isGlobal = 1;
         return key;
     }
@@ -151,14 +151,14 @@ Type *getVarType(int type_id) {
 // 将value转成想要的type类型
 Value *createCast(Value *value, Type *type) {
     if(!value) return nullptr;
-    std::cout << "val-type:" << getLLVMTypeStr(value) << " want-type: " << getLLVMTypeStr(type) << std::endl;
+    // std::cout << "val-type:" << getLLVMTypeStr(value) << " want-type: " << getLLVMTypeStr(type) << std::endl;
     if(value->getType() == type){
-        print("No need to cast");
+        // print("No need to cast");
         return value;
     }
     auto val_type = value->getType();
     if(val_type->isFloatingPointTy()){
-        print("Val belongs to FloatingPoint");
+        // print("Val belongs to FloatingPoint");
         if(type->isFloatingPointTy()){
             return llvmBuilder->CreateFPCast(value, type);
         }else if(type->isIntegerTy()){
@@ -168,7 +168,7 @@ Value *createCast(Value *value, Type *type) {
         }
     }
     if(val_type->isIntegerTy()){
-        print("Val belongs to Integer");
+        // print("Val belongs to Integer");
         if(type->isFloatingPointTy()){
             return llvmBuilder->CreateCast(Instruction::SIToFP, value, type);
         }else if(type->isIntegerTy()){
@@ -178,7 +178,7 @@ Value *createCast(Value *value, Type *type) {
         }
     }
     if(val_type->isPtrOrPtrVectorTy()){
-        print("Val belongs to Pointer");
+        // print("Val belongs to Pointer");
         if(type->isFloatingPointTy()){
             return nullptr;
         }else if(type->isIntegerTy()){
@@ -187,7 +187,7 @@ Value *createCast(Value *value, Type *type) {
             return llvmBuilder->CreatePointerCast(value, type);
         }
     }
-    print("Unknown type to be cast");
+    // print("Unknown type to be cast");
     return nullptr;
 }
 

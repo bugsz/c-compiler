@@ -12,10 +12,10 @@
 using namespace llvm;
 
 Value *VarExprAST::codegen(bool wantPtr) {
-    print("VarExpr, typeid: " + std::to_string(type));
+    // print("VarExpr, typeid: " + std::to_string(type));
     Function *currFunction = llvmBuilder->GetInsertBlock()->getParent();
     auto varType = getVarType(this->getType());
-    std::cout << getLLVMTypeStr(varType) << std::endl;
+    // std::cout << getLLVMTypeStr(varType) << std::endl;
     Value *initVal;
     if(init) {
         initVal = init->codegen();
@@ -34,7 +34,7 @@ Value *VarExprAST::codegen(bool wantPtr) {
 
 Value *GlobalVarExprAST::codegen(bool wantPtr) {
     auto varType = getVarType(this->init->getType());
-    print("GlobalVarExpr, Name: " + init->name + " Type: " + getLLVMTypeStr(varType));
+    // print("GlobalVarExpr, Name: " + init->name + " Type: " + getLLVMTypeStr(varType));
 
     Value *initVal;
 

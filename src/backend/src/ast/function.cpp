@@ -29,7 +29,6 @@ Function *PrototypeAST::codegen(bool wantPtr) {
     }
     auto iter = this->args.begin();
     for (auto &arg: func->args()) {
-        std::cout << iter->first << std::endl;
         arg.setName(iter->first);
         iter++;
     }
@@ -83,7 +82,7 @@ Function *FunctionDeclAST::codegen(bool wantPtr) {
         currFunction->eraseFromParent();
         return logErrorF("Error reading body");
     }
-    print("Build Successfully");
+    // print("Build Successfully");
     // Create default terminator if not(add a default return for all empty labels)
     auto iter = currFunction->getBasicBlockList().begin();
     auto end = currFunction->getBasicBlockList().end();
@@ -116,14 +115,14 @@ Value *CallExprAST::codegen(bool wantPtr) {
             if (!argValue) return logErrorV("Incorrect type function arg");
             iter++;
         }
-        std::cout << "Arg value: " + getLLVMTypeStr(argValue) << std::endl;
+        // std::cout << "Arg value: " + getLLVMTypeStr(argValue) << std::endl;
         argsValue.push_back(argValue);
     }
     return llvmBuilder->CreateCall(calleeFunction, argsValue);
 }
 
 Value *ReturnStmtExprAST::codegen(bool wantPtr) {
-    print("Find return stmt");
+    // print("Find return stmt");
     Function *currFunction = llvmBuilder->GetInsertBlock()->getParent();
     if(!retPtr){
         return llvmBuilder->CreateBr(retBlock);

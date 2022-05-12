@@ -13,7 +13,7 @@ using namespace llvm;
 
 
 Value *ArraySubExprAST::codegen(bool wantPtr) {
-    std::cout<<"Array Sub"<<"Want Ptr:" << wantPtr<<std::endl;
+    // std::cout<<"Array Sub"<<"Want Ptr:" << wantPtr<<std::endl;
     static Value* zero = llvmBuilder->getInt64(0);
     auto index = sub->codegen();
     if (!index) return nullptr;
@@ -46,7 +46,7 @@ Value *ArraySubExprAST::codegen(bool wantPtr) {
 
 Value *UnaryExprAST::codegen(bool wantPtr) {
     int opType = getUnaryOpType(op);
-    print("Unary op: " + op);
+    // print("Unary op: " + op);
     auto varType = getVarType(type);
     Value *right;    
 
@@ -138,9 +138,9 @@ Value *BinaryExprAST::codegen(bool wantPtr) {
     }
 
     Value *left = lhs->codegen();
-    std::cout << "Value on lhs: " + getLLVMTypeStr(left) << std::endl;
+    // std::cout << "Value on lhs: " + getLLVMTypeStr(left) << std::endl;
     Value *right = rhs->codegen();
-    std::cout << "Value on rhs: " + getLLVMTypeStr(right) << std::endl;
+    // std::cout << "Value on rhs: " + getLLVMTypeStr(right) << std::endl;
     if (!left || !right) {
         return logErrorV("lhs / rhs is not valid");
     }
@@ -172,7 +172,7 @@ Value *BinaryExprAST::codegen(bool wantPtr) {
     }
 
     if(leftType->isPointerTy() || rightType->isPointerTy()) {
-        print("Pointer operation");
+        // print("Pointer operation");
         auto newLeft = leftType->isPointerTy() ? left : right;
         auto newRight = leftType->isPointerTy() ? right : left;
         left = newLeft;
