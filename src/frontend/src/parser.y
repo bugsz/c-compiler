@@ -801,6 +801,7 @@ void transfer_type(struct ast_node_impl* node, int type_id) {
     if( strcmp(node -> token, "Literal") == 0 
         || strcmp(node -> token, "InitializerList") == 0
         || strcmp(node -> token, "ExplicitCastExpr") == 0
+        || strcmp(node->token, "CompoundStmt") == 0
     ) return;
     node->type_id += type_id;
     for(int i = 0; i < node->n_child; i++) {
