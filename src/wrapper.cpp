@@ -8,15 +8,11 @@
 #include <vector>
 #include <cstring>
 #include <unistd.h>
-#include <wait.h>
+
 #include <iostream>
 
-// frontend header is here
 #include "frontend/frontend.h"
-
-// include backend header here in the future
-// ......
-void backend_entry(lib_frontend_ret ret);
+#include "backend/backend.h"
 
 using namespace std;
 
@@ -75,9 +71,7 @@ int main(int argc, const char** argv) {
     // frontend API call is here
     lib_frontend_ret ret = frontend_entry(argc, argv);
     // backend API call is here
-    // *TODO*: complete this part with backend public APIs in the future...
-    // ......
-    backend_entry(ret);
+    backend_entry(ret, "output.o");
 
     // wrapper is here
     Linker ld = Linker();

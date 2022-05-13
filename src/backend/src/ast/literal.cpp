@@ -39,7 +39,7 @@ Value *LiteralExprAST::codegen(bool wantPtr) {
             return doubleCode;
         }
         case TYPEID_STR: {
-            std::cout << "Creating string literal: " << value << std::endl;
+            // std::cout << "Creating string literal: " << value << std::endl;
 
             auto str = this->value;
             auto charType = IntegerType::get(*llvmContext, 8);

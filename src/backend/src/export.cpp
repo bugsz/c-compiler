@@ -19,15 +19,7 @@
 #include "tree_gen.h"
 
 using namespace llvm;
-
 static std::unique_ptr<ExprAST> ast;
-void run_lib_backend(int argc, const char **argv) {
-    auto frontend_ret = frontend_entry(argc, argv);
-    ast = generateBackendAST(frontend_ret);
-    print("Finish generating AST for backend");
-    ast->codegen();
-}
-
 void initializeModule() {
     llvmContext = std::make_unique<LLVMContext>();
     llvmModule = std::make_unique<Module>("JIT", *llvmContext);
@@ -43,7 +35,7 @@ void initializeModule() {
     llvmFPM->doInitialization();
 }
 
-int compile() {
+int compile(std::string filename) {
     InitializeAllTargetInfos();
     InitializeAllTargets();
     InitializeAllTargetMCs();
@@ -64,8 +56,6 @@ int compile() {
 
     llvmModule->setDataLayout(theTargetMachine->createDataLayout());
 
-    auto filename = "output.o";
-    std::cout << "Using output filename: " << filename << std::endl; 
     std::error_code EC;
     raw_fd_ostream dest(filename, EC, sys::fs::OF_None);
 
@@ -82,43 +72,9 @@ int compile() {
     return 0;
 }
 
-void save() {
-    std::string IRText;
-    raw_string_ostream OS(IRText);
-    OS << *llvmModule;
-    OS.flush();
-    #ifdef IRONLY
-        std::cout << IRText;
-    #else
-        std::string fileName("output.ll");
-        std::ofstream outFile;
-        outFile.open(fileName);
-        outFile << IRText;
-        std::cout << "IR code saved to " + fileName << std::endl;
-        outFile.close();
-    #endif
-}
-
-int main(int argc, const char **argv) {
-    #ifdef IRONLY
-        int stdout_fd = dup(STDOUT_FILENO);
-        close(STDOUT_FILENO);
-        int devnull = open("/dev/null", O_WRONLY);
-        dup2(devnull, STDOUT_FILENO);
-    #endif
-    
+int backend_entry(lib_frontend_ret ret, std::string filename) {
     initializeModule();
-    run_lib_backend(argc, argv);
-    // llvmModule->print(errs(), nullptr);
-
-    #ifndef IRONLY
-        save();
-        int status_code = compile();
-        std::cout << "Compile end with status code: " << status_code << std::endl << std::endl;
-    #else
-        close(devnull);
-    	dup2(stdout_fd, STDOUT_FILENO);
-        save();
-    #endif
-    return 0;
+    ast = generateBackendAST(ret);
+    ast->codegen();
+    return compile(filename);
 }

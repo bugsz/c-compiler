@@ -28,17 +28,17 @@ extern std::unique_ptr<IRBuilder<>> llvmBuilder;
 extern std::unique_ptr<legacy::FunctionPassManager> llvmFPM;
 
 Value *TranslationUnitExprAST::codegen(bool wantPtr) {
-    print("TranslationUnit");
+    // print("TranslationUnit");
     int globalVar_len = globalVarList.size();
     int expr_len = exprList.size();
-    print("Global vars: "+ std::to_string(globalVar_len) + "\nExprs: " + std::to_string(expr_len));
-    print("Global(s) Initializing Pass......");
+    // print("Global vars: "+ std::to_string(globalVar_len) + "\nExprs: " + std::to_string(expr_len));
+    // print("Global(s) Initializing Pass......");
     initializing = true;
     for (int i=0; i < globalVar_len; i++) {
         globalVarList[i]->codegen();
     }
     initializing = false;
-    print("Global(s) Initializing End......");
+    // print("Global(s) Initializing End......");
 
     for (int i=0; i < expr_len; i++) {
         if(exprList[i]->codegen() == nullptr) exit(-1);
