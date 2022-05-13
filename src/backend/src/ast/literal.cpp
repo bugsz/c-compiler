@@ -17,10 +17,23 @@ using namespace llvm;
 Value *LiteralExprAST::codegen(bool wantPtr) {
     // print("LiteralExpr, typeid: " + std::to_string(this->getType()));
     switch(this->getType()) {
+        case TYPEID_CHAR: {
+            auto charCode = ConstantInt::get(*llvmContext, APInt(8, value[0]));
+            return charCode;
+        }
+        case TYPEID_SHORT: {
+            auto charCode = ConstantInt::get(*llvmContext, APInt(16, atoi(value.c_str())));
+            return charCode;
+        }
         case TYPEID_INT: {
             auto intCode = ConstantInt::get(*llvmContext, APInt(32, atoi(value.c_str())));
             return intCode;
         }
+        case TYPEID_LONG: {
+            auto longCode = ConstantInt::get(*llvmContext, APInt(64, atoll(value.c_str())));
+            return longCode;
+        }
+        case TYPEID_FLOAT:
         case TYPEID_DOUBLE: {
             auto doubleCode = ConstantFP::get(*llvmContext, APFloat(atof(value.c_str())));
             return doubleCode;
@@ -53,10 +66,6 @@ Value *LiteralExprAST::codegen(bool wantPtr) {
 
             //4. Return a cast to an i8*
             return ConstantExpr::getBitCast(globalDeclaration, charType->getPointerTo());
-        }
-        case TYPEID_CHAR: {
-            auto charCode = ConstantInt::get(*llvmContext, APInt(8, value[0]));
-            return charCode;
         }
         default:
             return logErrorV("Invalid type!");
