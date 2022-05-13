@@ -129,7 +129,8 @@ std::unique_ptr<ExprAST> generateBackendASTNode(ast_node_ptr root) {
         }
 
         case BINARYOPERATOR: {
-            int op_type = getBinaryOpType(std::string(val));
+            std::string op = std::string(val);
+            int op_type = getBinaryOpType(op);
             if( strcmp(root->child[0]->token, "UnaryOperator") == 0 && strcmp(root->child[0]->val, "&") == 0
                 && (op_type == ASSIGN || op_type == ASSIGNPLUS || op_type == DEC || op_type == INC)
             ){
@@ -140,7 +141,7 @@ std::unique_ptr<ExprAST> generateBackendASTNode(ast_node_ptr root) {
             auto RHS = generateBackendASTNode(root->child[1]);
             if(op_type == ASSIGNPLUS || op_type == INC || op_type == DEC){
                 auto left = generateBackendASTNode(root->child[0]);
-                auto right = std::make_unique<BinaryExprAST>(getBinaryOpType(std::string(1, val[0])), std::move(LHS), std::move(RHS));
+                auto right = std::make_unique<BinaryExprAST>(getBinaryOpType(op.substr(0, op.length()-1)), std::move(LHS), std::move(RHS));
                 return std::make_unique<BinaryExprAST>(op_type == ASSIGNPLUS ? ASSIGN:op_type, std::move(left), std::move(right));
             }else{
                 return std::make_unique<BinaryExprAST>(op_type, std::move(LHS), std::move(RHS));

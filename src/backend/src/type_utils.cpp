@@ -14,11 +14,18 @@ int getBinaryOpType(std::string binaryOp) {
     if(binaryOp == ">=") return GE;    
     if(binaryOp == "==") return EQ;
     if(binaryOp == "!=") return NE;
-    if(binaryOp == "/=" || binaryOp =="*="|| binaryOp =="-="|| binaryOp =="+=") return ASSIGNPLUS;
+    if(binaryOp == "/="|| binaryOp == "*="|| binaryOp == "-="|| binaryOp == "+=" || \
+       binaryOp == "&="|| binaryOp == "|="|| binaryOp == "^="|| binaryOp == "<<="|| binaryOp == ">>=") \
+       return ASSIGNPLUS;
     if(binaryOp == "++") return INC;
     if(binaryOp == "--") return DEC;
     if(binaryOp == "&&") return LAND;
     if(binaryOp == "||") return LOR;
+    if(binaryOp == "<<") return SHL;
+    if(binaryOp == ">>") return SHR;
+    if(binaryOp == "&") return AND;
+    if(binaryOp == "|") return OR;
+    if(binaryOp == "^") return XOR;
     fprintf(stderr, "Unsupported binary operation: %s\n", binaryOp.c_str());
     exit(-1);
 }
@@ -29,6 +36,7 @@ int getUnaryOpType(std::string unaryOp) {
     if(unaryOp == "&") return REF;
     if(unaryOp == "*") return DEREF;
     if(unaryOp == "()") return CAST;
+    if(unaryOp == "~") return NOT;
     if(unaryOp == "!") return LNOT;
     return POS;
 }
