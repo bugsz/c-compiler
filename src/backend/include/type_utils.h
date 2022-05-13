@@ -20,8 +20,12 @@ enum BinaryOpType {
     LOR,
     REM,
     INC,
-    DEC
-    // todo: 位运算
+    DEC,
+    SHL,
+    SHR,
+    AND,
+    OR,
+    XOR
 };
 
 enum UnaryOpType {
@@ -30,6 +34,7 @@ enum UnaryOpType {
     DEREF,
     REF,
     CAST,
+    NOT,
     LNOT
 };
 

@@ -61,13 +61,11 @@ Value *UnaryExprAST::codegen(bool wantPtr) {
             else 
                 return llvmBuilder->CreateNeg(right);
         }
-        
         case REF: {
             Value * ptr = rhs->codegen(true);          
             if (!ptr) return logErrorV("Referring to a undefined variable");
             return ptr;
         }
-
         case DEREF: {
             Value *right = rhs->codegen(wantPtr);
             if (!right) return logErrorV("Unable to do dereferring");
@@ -93,12 +91,15 @@ Value *UnaryExprAST::codegen(bool wantPtr) {
             if (!V) return logErrorV("Unable to do dereferring");
             return V;
         }
-
         case CAST: {
             Value * right = rhs->codegen();
             Value * casted = createCast(right, getVarType(type));
             if(!casted) return logErrorV("Unsupported Cast");
             return casted;
+        }
+        case NOT: {
+            Value * right = rhs->codegen();
+            return llvmBuilder->CreateNot(right);
         }
         case LNOT: {
             Value * right = rhs->codegen();
@@ -251,6 +252,16 @@ Value *BinaryExprAST::codegen(bool wantPtr) {
                 return llvmBuilder->CreateICmpEQ(left, right, "ieq");
             case REM:
                 return llvmBuilder->CreateSRem(left, right, "ieq");
+            case SHL:
+                return llvmBuilder->CreateShl(left, right, "ishl");
+            case SHR:
+                return llvmBuilder->CreateAShr(left, right, "ishr");
+            case AND:
+                return llvmBuilder->CreateAnd(left, right, "iand");
+            case OR:
+                return llvmBuilder->CreateOr(left, right, "ior");
+            case XOR:
+                return llvmBuilder->CreateXor(left, right, "xor");
             default:
                 return logErrorV("Invalid binary operator");
         }
