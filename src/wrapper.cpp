@@ -18,8 +18,8 @@ using namespace std;
 
 #define GNU_LD  "/usr/bin/ld"
 #define DEFAULT_LINKER  GNU_LD
-#define ZJUCC_CRT_DIR "./runtime"
-#define DEFAULT_LIBC_DIR ZJUCC_CRT_DIR
+#define LIBC_DIR "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/lib"
+#define DEFAULT_LIBC_DIR LIBC_DIR
 
 // Wrapper class for system linker
 class Linker {
@@ -77,7 +77,7 @@ int main(int argc, const char** argv) {
     Linker ld = Linker();
     ld.add_object("output.o"); // *TODO*: use filename from backend output in the future ...
     ld.set_target(ret.output_file); // *TODO*: use filename from frontend output in the future ...
-
     ld.exec();
+    unlink("output.o");
     return 0;
 }
