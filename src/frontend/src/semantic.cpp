@@ -117,7 +117,7 @@ int get_type_alias(const char* name) {
 }
 
 static int ptr_deref_type(int type_id) {
-    assert(type_id >= TYPEID_VOID_PTR && type_id <= TYPEID_DOUBLE_PTR);
+    assert(type_id >= TYPEID_VOID_PTR && type_id <= TYPEID_DOUBLE_PPTR);
     int diff = TYPEID_VOID_PTR - TYPEID_VOID;
     return type_id - diff;
 }
