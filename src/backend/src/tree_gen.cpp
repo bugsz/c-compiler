@@ -104,7 +104,7 @@ std::unique_ptr<ExprAST> generateBackendASTNode(ast_node_ptr root) {
             std::vector<std::unique_ptr<ExprAST>> init;
             if (arraySize >= 0 && root->n_child > 1) {
                 auto child = root->child[1];
-                for(int i=0; i<root->n_child; i++){
+                for(int i=0; i<root->child[1]->n_child; i++){
                     init.push_back(generateBackendASTNode(child->child[i]));
                 }
             }else{
