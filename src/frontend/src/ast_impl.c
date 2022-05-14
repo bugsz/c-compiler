@@ -16,9 +16,9 @@
 #include "config.h"
 
 const char* typeid_deref[] = {
-    "void", "char", "short", "int", "long", "float", "double", "string",
+    "void", "char", "short", "int", "long", "float", "double", 
     "void *", "char *", "short *", "int *", "long *", "float *", "double *",
-    "void **", "char **", "short **", "int **", "long **", "float **", "double **"
+    "void **", "char **", "short **", "int **", "long **", "float **", "double **", "string"
 };
 
 ast_node_ptr mknode_impl(const char* token, ...) {

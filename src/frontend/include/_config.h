@@ -40,7 +40,6 @@
 
 enum TYPEID {
     TYPEID_OVERFLOW = -1,
-    TYPEID_STR,
     TYPEID_VOID,
     TYPEID_CHAR,
     TYPEID_SHORT,
@@ -62,6 +61,7 @@ enum TYPEID {
     TYPEID_LONG_PPTR,
     TYPEID_FLOAT_PPTR,
     TYPEID_DOUBLE_PPTR,
+    TYPEID_STR
 };
 
 #ifdef __APPLE__
