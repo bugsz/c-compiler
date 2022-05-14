@@ -123,7 +123,7 @@ static int ptr_deref_type(int type_id) {
 }
 
 static int ptr_ref_type(int type_id) {
-    assert(type_id >= TYPEID_VOID && type_id <= TYPEID_DOUBLE);
+    assert(type_id >= TYPEID_VOID && type_id <= TYPEID_DOUBLE_PTR);
     int diff = TYPEID_VOID_PTR - TYPEID_VOID;
     return type_id + diff;
 }
