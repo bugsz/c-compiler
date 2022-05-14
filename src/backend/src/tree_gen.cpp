@@ -109,7 +109,7 @@ std::unique_ptr<ExprAST> generateBackendASTNode(ast_node_ptr root) {
                 }
             }
 
-            auto array = std::make_unique<ArrayExprAST>(ptr2raw(var->getType()), var->getName(), arraySize, std::move(init));
+            auto array = std::make_unique<ArrayExprAST>(root->type_id, var->getName(), arraySize, std::move(init));
             
             return array;
         }
