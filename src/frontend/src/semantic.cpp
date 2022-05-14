@@ -146,13 +146,13 @@ static int expr_type_check(ast_node_ptr uni, ast_node_ptr op) {
         return -1;
     }
     if (string(op->val) == "*") {
-        if (uni->type_id < TYPEID_VOID_PTR || uni->type_id > TYPEID_DOUBLE_PTR
+        if (uni->type_id < TYPEID_VOID_PTR || uni->type_id > TYPEID_DOUBLE_PPTR
             || string(uni->token) == "Literal")
             return -1;
         return ptr_deref_type(uni->type_id);
     }
     if (string(op->val) == "&") {
-        if (uni->type_id <= TYPEID_VOID || uni->type_id > TYPEID_DOUBLE
+        if (uni->type_id <= TYPEID_VOID || uni->type_id > TYPEID_DOUBLE_PTR
             || string(uni->token) == "Literal")
             return -1;
         return ptr_ref_type(uni->type_id);
@@ -165,7 +165,7 @@ static int expr_type_check(ast_node_ptr left, ast_node_ptr right, ast_node_ptr o
         || left->type_id == TYPEID_STR || right->type_id == TYPEID_STR) {
         return -1;
     }
-    if (left->type_id >= TYPEID_VOID_PTR && right->type_id >= TYPEID_VOID_PTR
+    if (left->type_id >= TYPEID_VOID_PPTR && right->type_id >= TYPEID_VOID_PPTR
         && string(op->val) != "=") {
         return -1;
     }
