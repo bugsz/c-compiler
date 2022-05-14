@@ -63,7 +63,7 @@ extern int yycolno;
 %type <node> PROG FN_DECL FN_DEF PARAM_LIST PARAM_LIST_RIGHT PARAM_DECL
 %type <node> GLOBAL_DECL DECL_LIST DECL_LIST_RIGHT DECL DECL_DECLARATOR ARRAY_DECL INIT_LIST INIT_LIST_RIGHT
 %type <node> STMT COMPOUND_STMT SELECT_STMT EXPR_STMT ITERATE_STMT JMP_STMT MIX_LIST
-%type <node> EXPR ARG_LIST ARG_LIST_RIGHT FOR_EXPR 
+%type <node> EXPR EXPR_NO_CONSTANT ARG_LIST ARG_LIST_RIGHT FOR_EXPR 
 %type <typeid> TYPE_SPEC
 
 %nonassoc OUTERELSE
@@ -253,11 +253,28 @@ DECL_DECLARATOR :
         }
         $$ = arr_decl;
     }
+    | '*' IDENTIFIER ARRAY_DECL {
+        ast_node_ptr arr_decl = $3, temp;
+        $3->pos = @3;
+        temp = mknode("VarDecl");
+        temp->pos = @2;
+        temp->type_id = TYPEID_VOID_PPTR - TYPEID_VOID;
+        arr_decl -> type_id = TYPEID_VOID_PTR - TYPEID_VOID;
+        strcpy(temp->val, $2);
+        append_child(arr_decl, temp);
+        assert(arr_decl->n_child == 2 || arr_decl->n_child == 1);
+        if(arr_decl->n_child == 2) {
+            ast_node_ptr t = arr_decl->child[0];
+            arr_decl->child[0] = arr_decl->child[1];
+            arr_decl->child[1] = t;
+        }
+        $$ = arr_decl;
+    }
     ;
 
 DECL :
     TYPE_SPEC DECL_LIST ';' {
-        if($2->n_child > 1) {
+        if(strcmp($2->token, "TO_BE_MERGED") == 0) {
             $2 -> child[0] -> type_id = $1;
             while($1 >= TYPEID_VOID_PTR){
                 $1 -= TYPEID_VOID_PTR;
@@ -274,7 +291,12 @@ ARRAY_DECL :
     '[' CONSTANT ']' {
         $$ = mknode("ArrayDecl");
         $$->pos = @1;
-        strcpy($$->val, $2);
+        strcpy($$->val, $2);    
+    }
+    |'[' EXPR_NO_CONSTANT ']' {
+        $$ = mknode("ArrayDecl", $2);
+        $$->pos = @1;
+        strcpy($$->val, "-1");
     }
     | '[' CONSTANT ']' '=' '{' INIT_LIST '}' { 
         ast_node_ptr temp = mknode("InitializerList", $6);
@@ -422,6 +444,19 @@ FOR_EXPR :
     | EXPR ';' { $$ = $1; }
 
 EXPR :
+    EXPR_NO_CONSTANT {
+        $$ = $1;
+    }
+    | CONSTANT { 
+        $$ = mknode("Literal");
+        $$->type_id = get_literal_type($1);
+        if($$->type_id < 0) yyerror(n_errs, root, tmp_file, "integer constant is too large for its type");
+        strcpy($$->val, $1);
+        $$->pos = @1;
+    }
+    ;
+
+EXPR_NO_CONSTANT :
     EXPR '<' EXPR    { 
         $$ = mknode("BinaryOperator", $1, $3);
         strcpy($$->val, "<");
@@ -728,13 +763,6 @@ EXPR :
             }
             sprintf($$->val, "%.16lf", res);
         }
-    }
-    | CONSTANT { 
-        $$ = mknode("Literal");
-        $$->type_id = get_literal_type($1);
-        if($$->type_id < 0) yyerror(n_errs, root, tmp_file, "integer constant is too large for its type");
-        strcpy($$->val, $1);
-        $$->pos = @1;
     }
     | '(' EXPR ')' { 
         $$ = $2;

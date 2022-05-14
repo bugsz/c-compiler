@@ -697,7 +697,7 @@ static void semantic_check_impl(int* n_errs, ast_node_ptr node) {
         } else {
             sym_tab.add(node->child[0]->val, node->child[0]->type_id);
         }
-        if (node->n_child == 2) {
+        if (string(node->child[node->n_child-1]->token) == "InitializerList") {
             int init_num = node->child[1]->n_child;
             if (string(node->val) == "length_tbd") {
                 sprintf(node->val, "%d", init_num);

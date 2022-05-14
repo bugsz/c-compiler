@@ -12,23 +12,37 @@
 using namespace llvm;
 
 Value *ArrayExprAST::codegen(bool wantPtr) {
-    auto varType = getVarType(this->getType());
-    auto arrayType = ArrayType::get(varType, size);
-    auto arrayPtr = llvmBuilder->CreateAlloca(arrayType, nullptr, name);
-    NamedValues.top()[name] = arrayPtr;
-
-    int initSize = 0;
-    if(init.size() == 1) initSize = size;
-    if(init.size() > 1) initSize = init.size();
-
-    auto zeroInit = llvmBuilder->getInt64(0);
-    for (int i=0; i < initSize; i++) {
-        auto defaultValue = (init.size() == 1) ? init[0]->codegen() : init[i]->codegen();
-        defaultValue = createCast(defaultValue, varType);
-        if(!defaultValue) return logErrorV("Initializer type don't match");
-        auto index = llvmBuilder->getInt64(i);
-        auto arrayElem = llvmBuilder->CreateGEP(arrayType, arrayPtr, {zeroInit, index});
-        llvmBuilder->CreateStore(defaultValue, arrayElem);
+    Type* varType = getVarType(type);
+    Type* arrayType;
+    AllocaInst* arrayPtr;
+    if(size >= 0){
+        // use a constant to create array
+        arrayType = ArrayType::get(varType, size);
+        arrayPtr = llvmBuilder->CreateAlloca(arrayType, nullptr, name);
+        NamedValues.top()[name] = arrayPtr;
+        int initSize = 0;
+        if(init.size() == 1) initSize = size;
+        if(init.size() > 1) initSize = init.size();
+        auto zeroInit = llvmBuilder->getInt64(0);
+        for (int i = 0; i < initSize; i++) {
+            auto defaultValue = (init.size() == 1) ? init[0]->codegen() : init[i]->codegen();
+            defaultValue = createCast(defaultValue, varType);
+            if(!defaultValue) return logErrorV("Initializer type don't match");
+            auto index = llvmBuilder->getInt64(i);
+            auto arrayElem = llvmBuilder->CreateGEP(arrayType, arrayPtr, {zeroInit, index});
+            llvmBuilder->CreateStore(defaultValue, arrayElem);
+        }
+    }else{
+        // use variables to create array (describe dimensions)
+        int initSize = init.size();
+        Value * exprsize = init[0]->codegen();
+        if(!exprsize->getType()->isIntegerTy()){
+            return logErrorV("array size must be an integer");
+        }
+        auto array = CreateEntryBlockAllocaWithTypeSize("", varType, exprsize);
+        arrayPtr = CreateEntryBlockAllocaWithTypeSize(name, varType->getPointerTo());
+        llvmBuilder->CreateStore(array, arrayPtr);
+        NamedValues.top()[name] = arrayPtr;
     }
     return arrayPtr;
 }
