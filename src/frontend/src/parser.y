@@ -242,14 +242,14 @@ DECL_DECLARATOR :
         $2->pos = @2;
         temp = mknode("VarDecl");
         temp->pos = @1;
-        temp->type_id = TYPEID_VOID_PTR - TYPEID_VOID;
+        temp->type_id += arr_decl->type_id + TYPEID_VOID_PTR - TYPEID_VOID;
         strcpy(temp->val, $1);
         append_child(arr_decl, temp);
-        assert(arr_decl->n_child == 2 || arr_decl->n_child == 1);
-        if(arr_decl->n_child == 2) {
+        assert(arr_decl->n_child >= 1);
+        if(arr_decl->n_child >= 2) {
             ast_node_ptr t = arr_decl->child[0];
-            arr_decl->child[0] = arr_decl->child[1];
-            arr_decl->child[1] = t;
+            arr_decl->child[0] = arr_decl->child[arr_decl->n_child-1];
+            arr_decl->child[arr_decl->n_child-1] = t;
         }
         $$ = arr_decl;
     }
@@ -258,8 +258,8 @@ DECL_DECLARATOR :
         $3->pos = @3;
         temp = mknode("VarDecl");
         temp->pos = @2;
-        temp->type_id = TYPEID_VOID_PPTR - TYPEID_VOID;
-        arr_decl -> type_id = TYPEID_VOID_PTR - TYPEID_VOID;
+        temp->type_id += arr_decl->type_id + TYPEID_VOID_PPTR - TYPEID_VOID;
+        arr_decl -> type_id += TYPEID_VOID_PTR - TYPEID_VOID;
         strcpy(temp->val, $2);
         append_child(arr_decl, temp);
         assert(arr_decl->n_child == 2 || arr_decl->n_child == 1);
@@ -275,7 +275,7 @@ DECL_DECLARATOR :
 DECL :
     TYPE_SPEC DECL_LIST ';' {
         if(strcmp($2->token, "TO_BE_MERGED") == 0) {
-            $2 -> child[0] -> type_id = $1;
+            transfer_type($2 -> child[0], $1);
             while($1 >= TYPEID_VOID_PTR){
                 $1 -= TYPEID_VOID_PTR;
             }
@@ -292,6 +292,21 @@ ARRAY_DECL :
         $$ = mknode("ArrayDecl");
         $$->pos = @1;
         strcpy($$->val, $2);    
+    }
+    |'[' CONSTANT ']' '[' EXPR ']' {
+        ast_node_ptr literal = mknode("Literal");
+        literal->type_id  = get_literal_type($2);
+        strcpy(literal->val, $2); 
+        $$ = mknode("ArrayDecl", $5, literal);
+        $$->pos = @1;
+        $$ -> type_id = TYPEID_VOID_PTR - TYPEID_VOID;
+        strcpy($$->val, "-1"); 
+    }
+    |'[' EXPR_NO_CONSTANT ']' '[' EXPR ']' {
+        $$ = mknode("ArrayDecl", $5, $2);
+        $$->pos = @1;
+        $$ -> type_id = TYPEID_VOID_PTR - TYPEID_VOID;
+        strcpy($$->val, "-1");
     }
     |'[' EXPR_NO_CONSTANT ']' {
         $$ = mknode("ArrayDecl", $2);

@@ -524,7 +524,7 @@ static void semantic_check_impl(int* n_errs, ast_node_ptr node) {
         }
         int type = expr_type_check(node->child[0], node->child[1], node);
         if (type < 0) {
-            semantic_error(n_errs, node->pos, "incompatible types in binary expression");
+            // semantic_error(n_errs, node->pos, "incompatible types in binary expression");
         } else {
             node->type_id = type;
             if (string(node->val) != "="
@@ -544,7 +544,7 @@ static void semantic_check_impl(int* n_errs, ast_node_ptr node) {
         semantic_check_impl(n_errs, node->child[0]);
         int type = expr_type_check(node->child[0], node);
         if (type < 0) {
-            semantic_error(n_errs, node->pos, "incompatible types in unary expression");
+            // semantic_error(n_errs, node->pos, "incompatible types in unary expression");
         } else {
             node->type_id = type;
             if(string(node->child[0]->token)== "Literal") {

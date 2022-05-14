@@ -36,7 +36,8 @@ class ArrayExprAST : public ExprAST {
     int type;
     std::string name;
     int size;
-
+    int rows;
+    int cols;
 public:    
     std::vector<std::unique_ptr<ExprAST>> init;
     const std::string &getName() const { return name; }

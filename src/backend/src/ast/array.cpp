@@ -35,14 +35,55 @@ Value *ArrayExprAST::codegen(bool wantPtr) {
     }else{
         // use variables to create array (describe dimensions)
         int initSize = init.size();
-        Value * exprsize = init[0]->codegen();
-        if(!exprsize->getType()->isIntegerTy()){
-            return logErrorV("array size must be an integer");
+        assert(initSize == 1 || initSize == 2);
+        if(initSize == 1){
+            Value * totalsize = init[0]->codegen();
+            if(!totalsize->getType()->isIntegerTy()){
+                return logErrorV("array size must be an integer");
+            }
+            auto array = CreateEntryBlockAllocaWithTypeSize("", varType, totalsize);
+            arrayPtr = CreateEntryBlockAllocaWithTypeSize(name, varType->getPointerTo());
+            llvmBuilder->CreateStore(array, arrayPtr);
+            NamedValues.top()[name] = arrayPtr;
+        }else{
+            assert(varType->isPointerTy());
+            Value * rows = init[0]->codegen();
+            Value * cols = init[1]->codegen();
+            if(!rows->getType()->isIntegerTy() || !cols->getType()->isIntegerTy())
+                return logErrorV("array size must be an integer");     
+            rows = createCast(rows, llvmBuilder->getInt64Ty());
+            cols = createCast(cols, llvmBuilder->getInt64Ty());
+            Value * totalsize = llvmBuilder->CreateNUWMul(rows, cols);
+            auto array = CreateEntryBlockAllocaWithTypeSize("", varType->getPointerElementType(), totalsize);
+            auto arrayPtrs = CreateEntryBlockAllocaWithTypeSize("", varType, rows);
+            // for loop to initialize
+            Function *currFunction = llvmBuilder->GetInsertBlock()->getParent();
+            BasicBlock *endBlock = BasicBlock::Create(*llvmContext, "init_end", currFunction, retBlock);
+            BasicBlock *loopBlock = BasicBlock::Create(*llvmContext, "init_body", currFunction, endBlock);
+            BasicBlock *entryBlock = BasicBlock::Create(*llvmContext, "init_entry", currFunction, loopBlock);
+            auto condVar = CreateEntryBlockAllocaWithTypeSize("", llvmBuilder->getInt64Ty());
+            llvmBuilder->CreateStore(rows, condVar);
+            llvmBuilder->CreateBr(entryBlock);
+            llvmBuilder->SetInsertPoint(entryBlock);
+            auto endVal = llvmBuilder->CreateICmpNE(
+                llvmBuilder->CreateLoad(llvmBuilder->getInt64Ty(), condVar), 
+                getInitVal(llvmBuilder->getInt64Ty()), 
+                "init_comp");
+            llvmBuilder->CreateCondBr(endVal, loopBlock, endBlock);
+            llvmBuilder->SetInsertPoint(loopBlock);
+            auto val = llvmBuilder->CreateLoad(llvmBuilder->getInt64Ty(), condVar);
+            llvmBuilder->CreateStore(llvmBuilder->CreateSub(val, llvmBuilder->getInt64(1)), condVar);
+            val = llvmBuilder->CreateLoad(llvmBuilder->getInt64Ty(), condVar);
+            auto offset = llvmBuilder->CreateMul(cols, val);
+            auto addr = llvmBuilder->CreateGEP(varType->getPointerElementType(), array, offset);
+            auto addrptr = llvmBuilder->CreateGEP(varType, arrayPtrs, val);
+            llvmBuilder->CreateStore(addr, addrptr);
+            llvmBuilder->CreateBr(entryBlock);
+            llvmBuilder->SetInsertPoint(endBlock);
+            arrayPtr = CreateEntryBlockAllocaWithTypeSize(name, varType->getPointerTo());
+            llvmBuilder->CreateStore(arrayPtrs, arrayPtr);
+            NamedValues.top()[name] = arrayPtr;
         }
-        auto array = CreateEntryBlockAllocaWithTypeSize("", varType, exprsize);
-        arrayPtr = CreateEntryBlockAllocaWithTypeSize(name, varType->getPointerTo());
-        llvmBuilder->CreateStore(array, arrayPtr);
-        NamedValues.top()[name] = arrayPtr;
     }
     return arrayPtr;
 }
@@ -50,6 +91,9 @@ Value *ArrayExprAST::codegen(bool wantPtr) {
 Value *GlobalArrayExprAST::codegen(bool wantPtr) {
     // std::cout << "GlobalArrayExpr" << std::endl;
     auto varType = getVarType(init->getType());
+    if(init->getSize() < 0){
+        return logErrorV("Variable length array declaration not allowed at file scope");
+    }
     auto arrayType = ArrayType::get(varType, init->getSize());
 
     llvmModule->getOrInsertGlobal(init->getName(), arrayType);
