@@ -142,7 +142,24 @@ Type *getVarType(int type_id) {
         case TYPEID_FLOAT_PTR:
             return Type::getFloatPtrTy(*llvmContext);        
         case TYPEID_DOUBLE_PTR:
-            return Type::getDoublePtrTy(*llvmContext);        
+            return Type::getDoublePtrTy(*llvmContext);
+        case TYPEID_VOID_PPTR:
+            return Type::getInt8PtrTy(*llvmContext)->getPointerTo();
+        case TYPEID_CHAR_PPTR:
+            return Type::getInt8PtrTy(*llvmContext)->getPointerTo();
+        case TYPEID_SHORT_PPTR:
+            return Type::getInt16PtrTy(*llvmContext)->getPointerTo();        
+        case TYPEID_INT_PPTR:
+            if(INTEGER_BITWIDTH == 32) 
+                return Type::getInt32PtrTy(*llvmContext)->getPointerTo();
+            else 
+                return Type::getInt64PtrTy(*llvmContext)->getPointerTo();
+        case TYPEID_LONG_PPTR:
+            return Type::getInt64PtrTy(*llvmContext)->getPointerTo();        
+        case TYPEID_FLOAT_PPTR:
+            return Type::getFloatPtrTy(*llvmContext)->getPointerTo();        
+        case TYPEID_DOUBLE_PPTR:
+            return Type::getDoublePtrTy(*llvmContext)->getPointerTo();              
         default:
             return nullptr;
     }
