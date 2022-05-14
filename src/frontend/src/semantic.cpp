@@ -95,6 +95,13 @@ int get_type_size(int type_id){
     case TYPEID_LONG_PTR:
     case TYPEID_FLOAT_PTR:
     case TYPEID_DOUBLE_PTR:
+    case TYPEID_VOID_PPTR:
+    case TYPEID_CHAR_PPTR:
+    case TYPEID_SHORT_PPTR:
+    case TYPEID_INT_PPTR:
+    case TYPEID_LONG_PPTR:
+    case TYPEID_FLOAT_PPTR:
+    case TYPEID_DOUBLE_PPTR:
         return sizeof(void*);
     default:
         return -1;

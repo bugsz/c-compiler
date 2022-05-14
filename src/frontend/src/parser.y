@@ -49,8 +49,9 @@ extern int yycolno;
 };
 
 %token <str> IDENTIFIER
-%token <typeid> STRING VOID CHAR SHORT INT LONG FLOAT DOUBLE
+%token <typeid> VOID CHAR SHORT INT LONG FLOAT DOUBLE
 %token <typeid> VOID_PTR CHAR_PTR SHORT_PTR INT_PTR LONG_PTR FLOAT_PTR DOUBLE_PTR
+%token <typeid> VOID_PPTR CHAR_PPTR SHORT_PPTR INT_PPTR LONG_PPTR FLOAT_PPTR DOUBLE_PPTR STRING
 %token <str> CONSTANT
 %token LE GE EQ NE LAND LOR SHL SHR INC DEC
 %token ADD_ASSIGN SUB_ASSIGN MUL_ASSIGN DIV_ASSIGN MOD_ASSIGN AND_ASSIGN XOR_ASSIGN OR_ASSIGN SHL_ASSIGN SHR_ASSIGN
@@ -224,6 +225,18 @@ DECL_DECLARATOR :
         $$->pos = @1;
         $$->type_id = TYPEID_VOID_PTR - TYPEID_VOID;
     }
+    | '*' '*' IDENTIFIER {
+        $$ = mknode("VarDecl");
+        strcpy($$->val, $3);
+        $$->pos = @1;
+        $$->type_id = TYPEID_VOID_PPTR - TYPEID_VOID;
+    }
+    | '*' '*' IDENTIFIER '=' EXPR {
+        $$ = mknode("VarDecl", $5);
+        strcpy($$->val, $3);
+        $$->pos = @1;
+        $$->type_id = TYPEID_VOID_PPTR - TYPEID_VOID;
+    }
     | IDENTIFIER ARRAY_DECL {
         ast_node_ptr arr_decl = $2, temp;
         $2->pos = @2;
@@ -244,9 +257,12 @@ DECL_DECLARATOR :
 
 DECL :
     TYPE_SPEC DECL_LIST ';' {
-        if($2->n_child > 1 && $1 >= TYPEID_VOID_PTR) {
+        if($2->n_child > 1) {
             $2 -> child[0] -> type_id = $1;
-            transfer_type($2 -> child[1], $1 - TYPEID_VOID_PTR);
+            while($1 >= TYPEID_VOID_PTR){
+                $1 -= TYPEID_VOID_PTR;
+            }
+            transfer_type($2 -> child[1], $1);
         }else{
             transfer_type($2, $1);
         }
@@ -358,7 +374,6 @@ TYPE_SPEC :
     | FLOAT {}
     | DOUBLE {}
     | VOID {}
-    | STRING {}
     | VOID_PTR {}
     | CHAR_PTR {}
     | SHORT_PTR {}
@@ -366,6 +381,14 @@ TYPE_SPEC :
     | LONG_PTR {}
     | FLOAT_PTR {}
     | DOUBLE_PTR {}
+    | VOID_PPTR {}
+    | CHAR_PPTR {}
+    | SHORT_PPTR {}
+    | INT_PPTR {}
+    | LONG_PPTR {}
+    | FLOAT_PPTR {}
+    | DOUBLE_PPTR {}
+    | STRING {}
     ;
 
 COMPOUND_STMT :
