@@ -610,11 +610,8 @@ EXPR :
         $$->type_id = $2;
         $$->pos = @1;
     }
-    | IDENTIFIER '[' EXPR ']' {
-        ast_node_ptr temp = mknode("DeclRefExpr");
-        strcpy(temp->val, $1);
-        temp->pos = @1;
-        $$ = mknode("ArraySubscriptExpr", temp, $3);
+    | EXPR '[' EXPR ']' {
+        $$ = mknode("ArraySubscriptExpr", $1, $3);
         $$->pos = @1;
     }
     | IDENTIFIER '(' ARG_LIST ')' { 

@@ -23,7 +23,8 @@ struct ast_yyltype {
 };
 
 enum TYPEID {
-    TYPEID_VOID = 0,
+    TYPEID_OVERFLOW = -1,
+    TYPEID_VOID,
     TYPEID_CHAR,
     TYPEID_SHORT,
     TYPEID_INT,
@@ -38,6 +39,13 @@ enum TYPEID {
     TYPEID_LONG_PTR,
     TYPEID_FLOAT_PTR,
     TYPEID_DOUBLE_PTR,
+    TYPEID_VOID_PPTR,
+    TYPEID_CHAR_PPTR,
+    TYPEID_SHORT_PPTR,
+    TYPEID_INT_PPTR,
+    TYPEID_LONG_PPTR,
+    TYPEID_FLOAT_PPTR,
+    TYPEID_DOUBLE_PPTR,
 };
 
 struct ast_node_impl {

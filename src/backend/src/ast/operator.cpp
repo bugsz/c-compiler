@@ -30,6 +30,12 @@ Value *ArraySubExprAST::codegen(bool wantPtr) {
             arrayPtr,
             castIndex
         );
+    }else if(varPtr->getType()->isPointerTy()){
+        elementPtr = llvmBuilder->CreateGEP(
+            elementType,
+            varPtr,
+            castIndex
+        );
     }else{
         // safeway
         elementPtr = llvmBuilder->CreateGEP(
