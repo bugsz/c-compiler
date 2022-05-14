@@ -24,6 +24,7 @@ struct ast_yyltype {
 
 enum TYPEID {
     TYPEID_OVERFLOW = -1,
+    TYPEID_STR,
     TYPEID_VOID,
     TYPEID_CHAR,
     TYPEID_SHORT,
@@ -31,7 +32,6 @@ enum TYPEID {
     TYPEID_LONG,
     TYPEID_FLOAT,
     TYPEID_DOUBLE,
-    TYPEID_STR,
     TYPEID_VOID_PTR,
     TYPEID_CHAR_PTR,
     TYPEID_SHORT_PTR,
