@@ -179,7 +179,7 @@ PARAM_DECL :
         $$->pos = @2;
     }
     | TYPE_SPEC IDENTIFIER '[' ']' {
-        if($1 >= TYPEID_VOID_PTR)
+        if($1 >= TYPEID_VOID_PPTR)
             yyerror(n_errs, root, tmp_file, "multi-dimensional pointer is not supported");
         $$ = mknode("ParmVarDecl");
         $$->type_id = $1 + TYPEID_VOID_PTR - TYPEID_VOID;
