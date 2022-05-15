@@ -90,33 +90,38 @@ Value *ArrayExprAST::codegen(bool wantPtr) {
 
 Value *GlobalArrayExprAST::codegen(bool wantPtr) {
     // std::cout << "GlobalArrayExpr" << std::endl;
-    auto varType = getVarType(init->getType());
+    Type* varType = getVarType(init->getType());
+    ArrayType* arrayType;
+    std::vector<Constant *> initVals;
     if(init->getSize() < 0){
-        return logErrorV("Variable length array declaration not allowed at file scope");
+        while(varType->isPointerTy()){
+            varType = varType->getPointerElementType();
+        }
+        int initSize = init->init.size()-1;
+        arrayType = ArrayType::get(varType, dyn_cast<ConstantInt>(init->init[initSize]->codegen())->getLimitedValue());
+        for (int i = initSize-1; i >= 0; i--) {
+            arrayType = ArrayType::get(arrayType, dyn_cast<ConstantInt>(init->init[i]->codegen())->getLimitedValue());
+        }
+    }else{
+        arrayType = ArrayType::get(varType, init->getSize());
+        int totalSize = init->getSize();
+        int initSize = init->init.size() == 1 ? totalSize : init->init.size();
+        for (int i = 0; i < initSize; i++) {
+            auto initVal = init->init[init->init.size() == 1 ? 0: i]->codegen();
+            initVal = createCast(initVal, varType);
+            if(!initVal){
+                return logErrorV((std::string("Unsupported initializatin from "+ getLLVMTypeStr(initVal->getType()) +" to " + getLLVMTypeStr(varType)).c_str()));
+            }
+            initVals.push_back(dyn_cast<Constant>(initVal));
+        }
+        for(int i = initSize; i < totalSize; i++) {
+            auto initVal = getInitVal(varType);
+            initVals.push_back(initVal);
+        }
     }
-    auto arrayType = ArrayType::get(varType, init->getSize());
-
     llvmModule->getOrInsertGlobal(init->getName(), arrayType);
     GlobalVariable *gv = llvmModule->getNamedGlobal(name);
     gv->setConstant(false);
-    std::vector<Constant *> initVals;
-    
-    int totalSize = init->getSize();
-    int initSize = init->init.size() == 1 ? totalSize : init->init.size();
-    for (int i = 0; i < initSize; i++) {
-        auto initVal = init->init[init->init.size() == 1 ? 0: i]->codegen();
-        initVal = createCast(initVal, varType);
-        if(!initVal){
-            return logErrorV((std::string("Unsupported initializatin from "+ getLLVMTypeStr(initVal->getType()) +" to " + getLLVMTypeStr(varType)).c_str()));
-        }
-        initVals.push_back(dyn_cast<Constant>(initVal));
-    }
-
-    for(int i = initSize; i < totalSize; i++) {
-        auto initVal = getInitVal(varType);
-        initVals.push_back(initVal);
-    }
-
     auto initArray = ConstantArray::get(arrayType, initVals);
     gv->setInitializer(initArray);
     return getInitVal(varType);
