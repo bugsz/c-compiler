@@ -59,10 +59,11 @@ Value *UnaryExprAST::codegen(bool wantPtr) {
 
     switch (opType) {
         case POS: {
-            Value *right = rhs->codegen();
+            right = rhs->codegen();
             return right;
         }
         case NEG: {
+            right = rhs->codegen();
             if (right->getType()->isFloatingPointTy())
                 return llvmBuilder->CreateFNeg(right);
             else 
