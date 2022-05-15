@@ -77,31 +77,21 @@ bool isValidBinaryOperand(Value *value) {
     return (value->getType()->isFloatingPointTy() || value->getType()->isIntegerTy());
 }
 
-Value *getVariable(std::string name) {
-    auto V = NamedValues.top()[name];
-    if(V) {
-        return V;
-    }
-    auto key = llvmModule->getGlobalVariable(name);
-    if (key) {
-        return key;
-    }
-    return nullptr;
-}
 
 Value *getVariable(std::string name, int &isGlobal) {
-    auto V = NamedValues.top()[name];
-    if(V) {
+    Value * var = nullptr;
+    if(!NamedValues.empty())
+        var = NamedValues.top()[name];
+    if(var) {
         // std::cout << "Find local variable " << name << std::endl;
-        return V;
+        return var;
     }
-    auto key = llvmModule->getGlobalVariable(name);
-    if (key) {
+    var = llvmModule->getGlobalVariable(name);
+    if (var) {
         // std::cout << "Find global variable: " << name << std::endl;
         isGlobal = 1;
-        return key;
     }
-    return nullptr;
+    return var;
 }
 
 
