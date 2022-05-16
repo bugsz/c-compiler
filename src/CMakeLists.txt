@@ -10,21 +10,22 @@ set(CMAKE_CXX_COMPILER clang++)
 find_package(LLVM 13 REQUIRED CONFIG)
 message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}")
 message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
-message(STATUS "Using LLVM path ${LLVM_INCLUDE_DIRS}")
+message(STATUS "Using LLVM include path ${LLVM_INCLUDE_DIRS}")
+message(STATUS "Using LLVM lib path ${LLVM_LIBRARY_DIR}")
 
-include_directories(${LLVM_INCLUDE_DIRS})
 separate_arguments(LLVM_DEFINITIONS_LIST NATIVE_COMMAND ${LLVM_DEFINITIONS})
 add_definitions(${LLVM_DEFINITIONS_LIST})
 
+include_directories(${LLVM_INCLUDE_DIRS})
+
+link_directories(${LLVM_LIBRARY_DIR})
 find_library(ZJUCC_LIB libzjucc.a ./frontend)
 find_library(ZJUCC_LIB_BACKEND libzjucc_backend.a ./backend)
 
 add_compile_options(-Wno-unused-result)
-message(${LLVM_TARGETS_TO_BUILD})
-llvm_map_components_to_libnames(llvm_libs ${LLVM_TARGETS_TO_BUILD} support core irreader codegen mc mcparser option)
-
 SET(CMAKE_EXE_LINKER_FLAGS "-Wno-unused-result")
+
 add_executable(${PROJECT_NAME} ./wrapper.cpp)
-target_link_libraries(${PROJECT_NAME} ${llvm_libs})
+target_link_libraries(${PROJECT_NAME} LLVM)
 target_link_libraries(${PROJECT_NAME} ${ZJUCC_LIB})
 target_link_libraries(${PROJECT_NAME} ${ZJUCC_LIB_BACKEND})
