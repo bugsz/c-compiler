@@ -165,7 +165,7 @@ static int expr_type_check(ast_node_ptr left, ast_node_ptr right, ast_node_ptr o
         || left->type_id == TYPEID_STR || right->type_id == TYPEID_STR) {
         return -1;
     }
-    if (left->type_id >= TYPEID_VOID_PPTR && right->type_id >= TYPEID_VOID_PPTR
+    if (left->type_id >= TYPEID_VOID_PTR && right->type_id >= TYPEID_VOID_PTR
         && string(op->val) != "=") {
         return -1;
     }
