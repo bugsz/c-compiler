@@ -137,7 +137,7 @@ func main() {
 		var req RunCodeRequest
 		c.BindJSON(&req)
 		tmp_file, _ := os.CreateTemp("./", "tmp_")
-		io.Copy(tmp_file, req.Code)
+		io.Copy(tmp_file, bytes.NewReader([]byte(req.Code)))
 		genIR := exec.Command("./llvm_wrapper", "-f", tmp_file.Name())
 		buffer := new(ThreadSafeBuffer)
 		genIR.Stderr = buffer
