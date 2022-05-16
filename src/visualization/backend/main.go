@@ -116,7 +116,7 @@ func main() {
 
 	r.POST("/GetAST", func(c *gin.Context) {
 		buffer := new(bytes.Buffer)
-		tmp_file, _ := os.CreateTemp("", "tmp_")
+		tmp_file, _ := os.CreateTemp("./", "tmp_")
 		io.Copy(tmp_file, c.Request.Body)
 		cmd := exec.Command("./serializer", "-f", tmp_file.Name())
 		cmd.Stderr = buffer
@@ -135,7 +135,7 @@ func main() {
 	r.POST("/GetRunningResult", func(c *gin.Context) {
 		var req RunCodeRequest
 		c.BindJSON(&req)
-		tmp_file, _ := os.CreateTemp("", "tmp_")
+		tmp_file, _ := os.CreateTemp("./", "tmp_")
 		io.Copy(tmp_file, c.Request.Body)
 		genIR := exec.Command("./llvm_wrapper", "-f", tmp_file.Name())
 		buffer := new(ThreadSafeBuffer)
