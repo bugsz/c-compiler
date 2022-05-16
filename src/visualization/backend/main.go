@@ -123,6 +123,7 @@ func main() {
 		bytes, err := cmd.Output()
 		if err != nil {
 			c.Data(400, "plaintext", buffer.Bytes())
+			os.Remove(tmp_file.Name())
 			return
 		}
 		os.Remove(tmp_file.Name())
