@@ -18,10 +18,7 @@ echo "${RED_BOLD}Backend start${NORMAL}"
     export GIN_MODE=release
     touch $CURDIR/bin/update.sh
     echo "git pull &&" >> $CURDIR/bin/update.sh
-    echo "sh ../build.sh NEW_BUILD &&" >> $CURDIR/bin/update.sh
-    echo "cd ../../frontend &&" >> $CURDIR/bin/update.sh
-    echo "yarn install &&" >> $CURDIR/bin/update.sh 
-    echo "yarn build" >> $CURDIR/bin/update.sh
-    echo "cp -r ../../compatible-header/*.h ../backend/bin" >> $CURDIR/bin/update.sh
+    echo "sh ../build.sh &&" >> $CURDIR/bin/update.sh
+    echo "cp -r ../../../compatible-header/*.h ./" >> $CURDIR/bin/update.sh
     cp -r $CURDIR/../../compatible-header/* $CURDIR/bin
     exec nohup $CURDIR/bin/${filename} &

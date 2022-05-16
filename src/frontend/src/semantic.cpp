@@ -162,8 +162,9 @@ static int expr_type_check(ast_node_ptr left, ast_node_ptr right, ast_node_ptr o
         && string(op->val) != "=") {
         return -1;
     }
-    if (get_function_type(left->val) != nullptr ||
-        get_function_type(right->val) != nullptr) { // check if the identifier is a function
+    if ((sym_tab.get(left->val) == -1 && get_function_type(left->val) != nullptr) ||
+        (sym_tab.get(right->val) == -1 && get_function_type(right->val) != nullptr)) { 
+        // check if the identifier is a function
         return -1;
     }
     if (string(op->val) == "=") {
@@ -343,7 +344,42 @@ static string const_fold(int* n_errs, ast_node_ptr left, ast_node_ptr right, str
         }
         int res = atoi(left->val) || atoi(right->val);
         return to_string(res);
-    }
+    } else if (op == ">>") {
+        if (typel > TYPEID_LONG || typer > TYPEID_LONG) {
+            semantic_error(n_errs, left->pos, "invalid operands to binary expression");
+            return "";
+        }
+        long res = atol(left->val) >> atol(right->val);
+        return to_string(res);
+    } else if (op == "<<") {
+        if (typel > TYPEID_LONG || typer > TYPEID_LONG) {
+            semantic_error(n_errs, left->pos, "invalid operands to binary expression");
+            return "";
+        }
+        long res = atol(left->val) << atol(right->val);
+        return to_string(res);
+    } else if (op == "&") {
+        if (typel > TYPEID_LONG || typer > TYPEID_LONG) {
+            semantic_error(n_errs, left->pos, "invalid operands to binary expression");
+            return "";
+        }
+        long res = atol(left->val) & atol(right->val);
+        return to_string(res);
+    } else if (op == "|") {
+        if (typel > TYPEID_LONG || typer > TYPEID_LONG) {
+            semantic_error(n_errs, left->pos, "invalid operands to binary expression");
+            return "";
+        }
+        long res = atol(left->val) && atol(right->val);
+        return to_string(res);
+    } else if (op == "^") {
+        if (typel > TYPEID_LONG || typer > TYPEID_LONG) {
+            semantic_error(n_errs, left->pos, "invalid operands to binary expression");
+            return "";
+        }
+        long res = atol(left->val) ^ atol(right->val);
+        return to_string(res);
+    } 
     return "";
 }
 
@@ -443,7 +479,7 @@ static void semantic_check_impl(int* n_errs, ast_node_ptr node) {
             node->type_id = node->n_child ? node->child[node->n_child - 1]->type_id : TYPEID_VOID;
         }
     } else if (token == "DeclRefExpr") {
-        if (get_symbol_type(node->val) < 0 && string(node->val).find("__builtin_") != 0) {
+        if (get_symbol_type(node->val) < 0 && string(node->val).find("__builtin_") != 0 && string(node->val).find("__llvm_") != 0 ) {
             semantic_error(n_errs, node->pos, "use of undeclared identifier '%s'", node->val);
             assert(node->parent != nullptr);
             if (string(node->parent->token) == "CallExpr" && node == node->parent->child[0]) {
@@ -704,20 +740,32 @@ void semantic_check(int* n_errs, ast_node_ptr root, int w_flag) {
     sym_tab.init();
     semantic_check_impl(n_errs, root);
     int valid_nodes = 0;
+    bool has_entry = false;
     ast_node_ptr * child = new ast_node_ptr[root->n_child];
     ast_node_ptr * begin = child;
-    for (int i = 0;i <root->n_child; i++) {
+    for (int i=0; i<root->n_child; i++) {
         if(
             string(root->child[i]->token) == "ProtoDecl" &&
             sym_tab.get_global_sym_tab()->sym_tab_impl.at(string(root->child[i]->val)).has_body()
         ){
+            continue;
         }else{
+            if(
+                string(root->child[i]->token) == "FunctionDecl" &&
+                string(root->child[i]->val) == "main" &&
+                sym_tab.get_global_sym_tab()->sym_tab_impl.at(string(root->child[i]->val)).has_body()
+            ){
+                has_entry = true;
+            }
             if(string(root->child[i]->token) == "ProtoDecl"){
                 strcpy(root->child[i]->token, "FunctionDecl");
             }
             *begin++ = root->child[i];
             valid_nodes++;
         };
+    }
+    if(!has_entry){
+        semantic_warning(root->child[root->n_child-1]->pos, "implicit entry/start for main executable");
     }
     root->n_child = valid_nodes;
     root->child = child;
