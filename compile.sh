@@ -1,6 +1,7 @@
 #!/bin/sh
 CURDIR=$(cd $(dirname $0); pwd)
 cd $CURDIR/src/frontend
+./configure
 make -j8
 
 cd $CURDIR
