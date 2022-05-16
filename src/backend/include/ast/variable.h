@@ -58,10 +58,8 @@ class GlobalVarExprAST : public ExprAST {
 public:
     GlobalVarExprAST(std::unique_ptr<VarExprAST> init)
             : init(std::move(init)) {
-        // std::cout << "global var" << std::endl;
         type = this->init->getType();
         name = this->init->getName();
-        // std::cout << type << " " << name << std::endl;
     }
 
     Value *codegen(bool wantPtr = false) override;

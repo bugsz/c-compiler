@@ -77,31 +77,20 @@ bool isValidBinaryOperand(Value *value) {
     return (value->getType()->isFloatingPointTy() || value->getType()->isIntegerTy());
 }
 
-Value *getVariable(std::string name) {
-    auto V = NamedValues.top()[name];
-    if(V) {
-        return V;
-    }
-    auto key = llvmModule->getGlobalVariable(name);
-    if (key) {
-        return key;
-    }
-    return nullptr;
-}
-
 Value *getVariable(std::string name, int &isGlobal) {
-    auto V = NamedValues.top()[name];
-    if(V) {
+    Value * var = nullptr;
+    if(!NamedValues.empty())
+        var = NamedValues.top()[name];
+    if(var) {
         // std::cout << "Find local variable " << name << std::endl;
-        return V;
+        return var;
     }
-    auto key = llvmModule->getGlobalVariable(name);
-    if (key) {
+    var = llvmModule->getGlobalVariable(name);
+    if (var) {
         // std::cout << "Find global variable: " << name << std::endl;
         isGlobal = 1;
-        return key;
     }
-    return nullptr;
+    return var;
 }
 
 
@@ -142,7 +131,24 @@ Type *getVarType(int type_id) {
         case TYPEID_FLOAT_PTR:
             return Type::getFloatPtrTy(*llvmContext);        
         case TYPEID_DOUBLE_PTR:
-            return Type::getDoublePtrTy(*llvmContext);        
+            return Type::getDoublePtrTy(*llvmContext);
+        case TYPEID_VOID_PPTR:
+            return Type::getInt8PtrTy(*llvmContext)->getPointerTo();
+        case TYPEID_CHAR_PPTR:
+            return Type::getInt8PtrTy(*llvmContext)->getPointerTo();
+        case TYPEID_SHORT_PPTR:
+            return Type::getInt16PtrTy(*llvmContext)->getPointerTo();        
+        case TYPEID_INT_PPTR:
+            if(INTEGER_BITWIDTH == 32) 
+                return Type::getInt32PtrTy(*llvmContext)->getPointerTo();
+            else 
+                return Type::getInt64PtrTy(*llvmContext)->getPointerTo();
+        case TYPEID_LONG_PPTR:
+            return Type::getInt64PtrTy(*llvmContext)->getPointerTo();        
+        case TYPEID_FLOAT_PPTR:
+            return Type::getFloatPtrTy(*llvmContext)->getPointerTo();        
+        case TYPEID_DOUBLE_PPTR:
+            return Type::getDoublePtrTy(*llvmContext)->getPointerTo();              
         default:
             return nullptr;
     }

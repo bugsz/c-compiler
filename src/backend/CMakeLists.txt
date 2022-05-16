@@ -12,31 +12,32 @@ set(PROJECT_NAME zjucc_backend)
 find_package(LLVM 13 REQUIRED CONFIG)
 message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}")
 message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
-message(STATUS "Using LLVM path ${LLVM_INCLUDE_DIRS}")
+message(STATUS "Using LLVM include path ${LLVM_INCLUDE_DIRS}")
+message(STATUS "Using LLVM lib path ${LLVM_LIBRARY_DIR}")
 
-
-include_directories(${LLVM_INCLUDE_DIRS})
 separate_arguments(LLVM_DEFINITIONS_LIST NATIVE_COMMAND ${LLVM_DEFINITIONS})
 add_definitions(${LLVM_DEFINITIONS_LIST})
 
-find_library(ZJUCC_LIB libzjucc.a ../frontend)
+link_directories(${LLVM_LIBRARY_DIR})
+find_library(ZJUCC_LIB libzjucc.a ./src/frontend)
 
-aux_source_directory(./src SRC_LIST)
-aux_source_directory(./src/ast SRC_LIST)
+include_directories(${LLVM_INCLUDE_DIRS})
+include_directories(./src/backend/include)
+include_directories(./src/frontend)
+
+aux_source_directory(./src/backend/src SRC_LIST)
+aux_source_directory(./src/backend/src/ast SRC_LIST)
 message(STATUS "SRC_LIST: ${SRC_LIST}")
 
-
-include_directories(./include)
-include_directories(../frontend)
-
 add_compile_options(-Wno-unused-result)
-add_library(${PROJECT_NAME} ${SRC_LIST})
-message(${LLVM_TARGETS_TO_BUILD})
-# llvm_map_components_to_libnames(llvm_libs support core irreader executionEngine target native)
-llvm_map_components_to_libnames(llvm_libs ${LLVM_TARGETS_TO_BUILD} support core irreader codegen mc mcparser option)
-
-# SET(CMAKE_EXE_LINKER_FLAGS "-Wl,-znodelete")
 SET(CMAKE_EXE_LINKER_FLAGS "-Wno-unused-result")
 
-target_link_libraries(${PROJECT_NAME} ${llvm_libs})
+add_executable(${PROJECT_NAME} ${SRC_LIST})
+target_link_libraries(${PROJECT_NAME} LLVM)
 target_link_libraries(${PROJECT_NAME} ${ZJUCC_LIB})
+
+option(IRONLY "Only output IR codes to stdout" OFF)
+if(IRONLY)
+    message(STATUS "Only output IR codes to stdout")
+    ADD_DEFINITIONS(-DIRONLY)
+endif()

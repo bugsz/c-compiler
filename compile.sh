@@ -1,13 +1,11 @@
 #!/bin/sh
 CURDIR=$(cd $(dirname $0); pwd)
 cd $CURDIR/src/frontend
-sh ./run_script.sh
-sh ./configure
-make
+make -j8
 
 cd $CURDIR
 ! test -d build && mkdir build
 cd build
 cmake ..
-make
+make -j8
 cd $CURDIR/build

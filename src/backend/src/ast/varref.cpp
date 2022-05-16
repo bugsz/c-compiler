@@ -13,10 +13,10 @@ Value *VarRefExprAST::codegen(bool wantPtr) {
     // std::cout << "WantPtr: " << wantPtr << std::endl;
     int isGlobal = 0;
     auto V = getVariable(name, isGlobal);
-    // std::cout << "Value type: " << getLLVMTypeStr(V->getType()) << std::endl;
     if (!V) {
-        return nullptr;
+        return logErrorV("Undefined variable");
     }
+
     if(wantPtr) {
         return V;
     }
