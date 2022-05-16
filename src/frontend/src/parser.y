@@ -158,6 +158,9 @@ PARAM_LIST :
         $$ = mknode("TO_BE_MERGED", $1, $2);
     }
     | PARAM_DECL
+    | VOID {
+        $$ = mknode("NullStmt");
+    }
     ;
 
 PARAM_LIST_RIGHT :
