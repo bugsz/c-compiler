@@ -24,7 +24,7 @@ void __assert_rtn(char *__func, char *__file, int __line, char *__assertion);
 #endif
 
 #define assert(expr)                                                \
-  ({if((expr) == 0)                                                 \
+  ({if(!(expr))                                                 \
     __assert(#expr, __FILE__, __LINE__, (char *) 0);                \
   })                                                                \
 
