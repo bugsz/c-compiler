@@ -32,7 +32,6 @@ extern std::stack<std::map<std::string, AllocaInst *>> NamedValues;
 extern std::unique_ptr<IRBuilder<>> llvmBuilder;
 extern std::unique_ptr<legacy::FunctionPassManager> llvmFPM;
 
-extern std::stack<BasicBlock *> BlockForEndif;
 extern std::stack<BasicBlock *> BlockForBreak;
 extern std::stack<BasicBlock *> BlockForContinue;
 

@@ -16,7 +16,6 @@ std::stack<std::map<std::string, AllocaInst *>> NamedValues;
 std::unique_ptr<IRBuilder<>> llvmBuilder;
 std::unique_ptr<legacy::FunctionPassManager> llvmFPM;
 
-std::stack<BasicBlock *> BlockForEndif;
 std::stack<BasicBlock *> BlockForBreak;
 std::stack<BasicBlock *> BlockForContinue;
 
