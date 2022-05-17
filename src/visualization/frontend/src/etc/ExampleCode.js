@@ -128,7 +128,7 @@ int div() {
     },
     {
         id: 7,
-        name: 'Variadic function',
+        name: 'Variadic Function',
         code: `#include "arg.h"
 #include "math.h"
 double stddev(int count, ...) 
@@ -207,21 +207,46 @@ int main(){
     int c = a;
     int d = 255;
     char e = d;
-    printf("%d %d %d\\n", a, b, c, d, e);
-    d = d+1;
-    printf("%d %d %d\\n", a, b, c, d, e);
+    printf("%lf %d %d %d %d\\n", a, b, c, d, e);
+    e++;
+    d++;
+    printf("%lf %d %d %d %d\\n", a, b, c, d, e);
     return 0;
 }`
     },
     {
         id: 11,
-        name: 'String',
-        code: `int main() {
-    string s = "String Test";
+        name: 'Array',
+        code: `#define ROW 5
+#define COL 5
+int main(){
+    int arr[ROW][COL];
+    int val = 1;
+    int Row = ROW;
+    int Col = COL;
+    int num = 1;
+    int row = 0;
+    int col = -1;
+    while (val <= ROW * COL){
+        for (int i = 0; i < Col; ++i){
+            col += num;
+            arr[row][col] = val++;
+        }
+        Col--;
+        Row--;
+        for (int i = 0; i < Row; ++i){
+            row += num;
+            arr[row][col] = val++;
+        }		
+        num = -num;
+    }
 
-    printf("%s", s);
-
-    return 0;
+    for (int i = 0; i < ROW; ++i){
+        for (int j = 0; j < COL; ++j){
+            printf("%4d\\t", arr[i][j]);
+        }
+        printf("\\n");
+    }
 }`
     },
     {
