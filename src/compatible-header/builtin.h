@@ -10,6 +10,7 @@ char *strcpy(char *destin, char *source);
 char *strncpy(char *dest, char *src, int n);
 char *strdup(char *s);
 char *strcat(char *str1, char *str2);
+char *strncat(char *dest, char *src, int n);
 char *strset(char *str, char ch);
 char *strnset(char *str, char ch, int n);
 int strcmp(char *str1, char *str2);
