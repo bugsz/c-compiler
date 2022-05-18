@@ -92,14 +92,49 @@ int div() {
     },
     {
         id: 5,
-        name: 'For Loop',
-        code: `int main() {
-    int b = 255;
+        name: 'Manachar Algorithm',
+        code: `int min(int a, int b) {
+    if(a < b) return a;
+    return b;
+}
 
-    for (int i = 0; i < b; i += 1) {
-        b -= 1;
+int countSubstrings(char* s) {
+    int n = strlen(s);
+    char* t = malloc(sizeof(char) * (n * 2 + 4));
+    t[0] = '$', t[1] = '#';
+    for (int i = 0; i < n; i++) {
+        t[2 * i + 2] = s[i];
+        t[2 * i + 3] = '#';
     }
-    return 0;
+    t[2 * n + 2] = '!';
+    t[2 * n + 3] = '\\0';
+    n = 2 * n + 3;
+
+    int f[n];
+    memset(f, 0, n*sizeof(int));
+    int iMax = 0, rMax = 0, ans = 0;
+    for (int i = 1; i < n; ++i) {
+        // 初始化 f[i]
+        if(i <= rMax)
+            f[i] = min(rMax - i + 1, f[2 * iMax - i]);
+        else
+            f[i] = 1;
+        // 中心拓展
+        while (t[i + f[i]] == t[i - f[i]]) ++f[i];
+        // 动态维护 iMax 和 rMax
+        if (i + f[i] - 1 > rMax) {
+            iMax = i;
+            rMax = i + f[i] - 1;
+        }
+        // 统计答案, 当前贡献为 (f[i] - 1) / 2 上取整
+        ans += (f[i] / 2);
+    }
+    free(t);
+    return ans;
+}
+
+int main(){
+    printf("%d\\n", countSubstrings("cabcbabcbabcba"));
 }
 `
     },
