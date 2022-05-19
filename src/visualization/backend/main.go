@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"os"
 	"os/exec"
@@ -115,14 +116,17 @@ func main() {
 
 	r.POST("/GetAST", func(c *gin.Context) {
 		buffer := new(bytes.Buffer)
-		cmd := exec.Command("./serializer", "-stdin")
-		cmd.Stdin = c.Request.Body
+		tmp_file, _ := os.CreateTemp("./", "tmp_")
+		io.Copy(tmp_file, c.Request.Body)
+		cmd := exec.Command("./serializer", "-f", tmp_file.Name())
 		cmd.Stderr = buffer
 		bytes, err := cmd.Output()
 		if err != nil {
 			c.Data(400, "plaintext", buffer.Bytes())
+			os.Remove(tmp_file.Name())
 			return
 		}
+		os.Remove(tmp_file.Name())
 		curAST := &AST{}
 		json.Unmarshal(bytes, curAST)
 		curAST.Children = curAST.Children[definitions:]
@@ -132,9 +136,10 @@ func main() {
 	r.POST("/GetRunningResult", func(c *gin.Context) {
 		var req RunCodeRequest
 		c.BindJSON(&req)
+		tmp_file, _ := os.CreateTemp("./", "tmp_")
+		io.Copy(tmp_file, bytes.NewReader([]byte(req.Code)))
+		genIR := exec.Command("./llvm_wrapper", "-f", tmp_file.Name())
 		buffer := new(ThreadSafeBuffer)
-		genIR := exec.Command("./llvm_wrapper", "-stdin")
-		genIR.Stdin = bytes.NewReader([]byte(req.Code))
 		genIR.Stderr = buffer
 		filename := uuid.Must(uuid.NewV4()).String()
 		llvmAs := exec.Command("llvm-as", "-o", filename)
@@ -148,8 +153,10 @@ func main() {
 			stderr := append([]byte("\nstderr:\n"), buffer.b.Bytes()...)
 			errMsg := append(append(generr, stderr...), err.Error()...)
 			c.Data(400, "plaintext", errMsg)
+			os.Remove(tmp_file.Name())
 			return
 		}
+		os.Remove(tmp_file.Name())
 		workDone := make(chan struct{}, 1)
 		bufferTooLarge := make(chan struct{}, 1)
 		stdout := &LimitedBuffer{maxSize: 5000, bufferTooLarge: bufferTooLarge}
