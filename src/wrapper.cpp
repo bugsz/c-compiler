@@ -3,11 +3,12 @@
  *  zy_pan@zju.edu.cn
  *  Mon Apr 25, 2022
  */
-
+#include <bits/stdc++.h>
 #include <string>
 #include <vector>
 #include <cstring>
 #include <unistd.h>
+#include <sys/wait.h>
 
 #include <iostream>
 
@@ -16,9 +17,11 @@
 
 using namespace std;
 
-#define GNU_LD  "/usr/bin/ld"
+#define GNU_LD  "/usr/bin/gcc"
 #define DEFAULT_LINKER  GNU_LD
+#ifndef LIBC_DIR
 #define LIBC_DIR "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/lib"
+#endif
 #define DEFAULT_LIBC_DIR LIBC_DIR
 
 // Wrapper class for system linker
@@ -42,7 +45,7 @@ public:
 
     void set_link_library(string link_dir = DEFAULT_LIBC_DIR, string lib_name = "c") {
         ld_args.push_back("-L" + link_dir);
-        ld_args.push_back("-l" + lib_name);
+        ld_args.push_back("-l" + lib_name); 
     }
     
     void exec() {

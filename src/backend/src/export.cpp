@@ -51,7 +51,7 @@ int compile(std::string filename) {
     auto target = TargetRegistry::lookupTarget(targetTriple, error);
 
     TargetOptions opt;
-    auto RM = Optional<Reloc::Model>();
+    auto RM = Optional<Reloc::Model>(Reloc::Model::DynamicNoPIC);
     auto theTargetMachine = target->createTargetMachine(targetTriple, cpu, features, opt, RM);
 
     llvmModule->setDataLayout(theTargetMachine->createDataLayout());
