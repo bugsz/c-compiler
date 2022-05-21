@@ -19,10 +19,10 @@ using namespace std;
 
 #define GNU_LD  "/usr/bin/gcc"
 #define DEFAULT_LINKER  GNU_LD
+
 #ifndef LIBC_DIR
-#define LIBC_DIR "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/lib"
+#define LIBC_DIR DEFAULT_LIBC_DIR
 #endif
-#define DEFAULT_LIBC_DIR LIBC_DIR
 
 // Wrapper class for system linker
 class Linker {
@@ -43,7 +43,7 @@ public:
         ld_args.push_back(filename);
     }
 
-    void set_link_library(string link_dir = DEFAULT_LIBC_DIR, string lib_name = "c") {
+    void set_link_library(string link_dir = LIBC_DIR, string lib_name = "c") {
         ld_args.push_back("-L" + link_dir);
         ld_args.push_back("-l" + lib_name); 
     }

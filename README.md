@@ -44,18 +44,21 @@
 
 ### Prerequisites
 
-#### Backend
-
-+ GNU CMake >= 3.13.4 (lower is ok but you have to change cmakelist.txt)
-+ A C/C++ compiler with >=`c99` & >=`c++17` support
-+ llvm-13
-
 #### Frontend
 
 + GNU Autotools(automake, autoconf)
 + flex & bison
   * Note: The program passed tests with flex version >= 2.6.4 & bison version >= 3.7.5. Lower version of bison may result in compilation failure. 
   * For macOS, you need to install the latest version of bison through Homebrew or other sources. Then, you need to modify the generated Makefile by replacing `bison`（in Makefile, just search for `YACC = bison -y`） with the newer vesion's path, for example, `/opt/homebrew/opt/bison/bin/bison`.
+
+
+#### Backend
+
++ GNU CMake >= 3.13.4 (lower is ok but you have to change cmakelist.txt)
++ A C/C++ compiler with >=`c99` & >=`c++17` support
++ llvm-13
+
+
 
 
 
@@ -71,10 +74,10 @@
 
 
 
-+ `cmake` command above finishes the task of compiling both frontend and backend separately into dynamic library. And `make` takes these two libraries and put them together into an executable. 
-  + Options `ALL`: When it is `ON`, cmake will build the frontend library. Our suggestion is to use `cmake ..` when you already had the dynamic library.
++ `cmake` command above finishes the task of compiling both frontend and backend separately into static library. And `make` takes these two libraries and put them together into an executable. 
+  + Options `ALL`: When it is `ON`, cmake will build the frontend library. Our suggestion is to use `cmake ..` when you already had the static library.
 
-
+  + Options `LIBC_DIR`: Specify libc path if you have multiple versions of libc on your system, otherwise, we will use the system libc which is discovered by cmake `find_library()`.
 
 ## Usage
 
