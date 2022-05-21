@@ -19,9 +19,9 @@
 + Simple variable / constant definition and use, both locally and globally
 + Multiple simple type: int, short, long, double, string, char
 + One-level pointer to a simple variable, and corresponding ref and deref operation
-
 + One-dimensional array, support using array name as a pointer
 + Function definition, declaration and call
++ Basic control flow (for, if, while, do-while)
 + Supported binary operators: `+, -, *, /, >, <, >=, <=, =, &&, ||, <<, >>, &, |, ^,` and all ops like `+=, -=,` ...
 + Supported unary operators: `+, -, *, &, (), ~, !`
 + Can distinguish `i++` and `++i`
