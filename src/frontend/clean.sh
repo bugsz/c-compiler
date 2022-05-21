@@ -1,2 +1,2 @@
-make clean
-rm -f include/config.h config.log config.status configure~ include/stamp-h1 Makefile
+test -e Makefile && make clean
+rm -rf include/config.h include/config.h.in src/parser.c src/tokenizer.c src/parser.h src/.deps src/.dirstamp config.log config.status configure configure~ aclocal.m4 Makefile.in include/stamp-h1 autom4te.cache Makefile

@@ -28,7 +28,7 @@ if ("${ALL}" STREQUAL "ON")
     message(STATUS "Building all")
     execute_process(COMMAND sh run-script.sh WORKING_DIRECTORY ../src/frontend)
     execute_process(COMMAND ./configure WORKING_DIRECTORY ../src/frontend)
-    execute_process(COMMAND make -j8 WORKING_DIRECTORY ../src/frontend)
+    execute_process(COMMAND make WORKING_DIRECTORY ../src/frontend)
 endif("${ALL}" STREQUAL "ON")
 
 
