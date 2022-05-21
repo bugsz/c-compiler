@@ -76,7 +76,7 @@
 
 
 
-### Usage
+## Usage
 
 ```
 ❯ ./c-compiler --help
