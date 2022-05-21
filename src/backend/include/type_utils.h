@@ -69,8 +69,6 @@ int getUnaryOpType(std::string unaryOp);
 
 bool isEqual(char *a, std::string b);
 
-int ptr2raw(int ptr);
-
 ASTNodeType getNodeType(std::string token);
 
 std::string filterString(std::string str);

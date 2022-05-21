@@ -49,8 +49,9 @@ extern int yycolno;
 };
 
 %token <str> IDENTIFIER
-%token <typeid> VOID CHAR SHORT INT LONG FLOAT DOUBLE STRING
+%token <typeid> VOID CHAR SHORT INT LONG FLOAT DOUBLE
 %token <typeid> VOID_PTR CHAR_PTR SHORT_PTR INT_PTR LONG_PTR FLOAT_PTR DOUBLE_PTR
+%token <typeid> VOID_PPTR CHAR_PPTR SHORT_PPTR INT_PPTR LONG_PPTR FLOAT_PPTR DOUBLE_PPTR STRING
 %token <str> CONSTANT
 %token LE GE EQ NE LAND LOR SHL SHR INC DEC
 %token ADD_ASSIGN SUB_ASSIGN MUL_ASSIGN DIV_ASSIGN MOD_ASSIGN AND_ASSIGN XOR_ASSIGN OR_ASSIGN SHL_ASSIGN SHR_ASSIGN
@@ -62,7 +63,7 @@ extern int yycolno;
 %type <node> PROG FN_DECL FN_DEF PARAM_LIST PARAM_LIST_RIGHT PARAM_DECL
 %type <node> GLOBAL_DECL DECL_LIST DECL_LIST_RIGHT DECL DECL_DECLARATOR ARRAY_DECL INIT_LIST INIT_LIST_RIGHT
 %type <node> STMT COMPOUND_STMT SELECT_STMT EXPR_STMT ITERATE_STMT JMP_STMT MIX_LIST
-%type <node> EXPR ARG_LIST ARG_LIST_RIGHT FOR_EXPR 
+%type <node> EXPR EXPR_NO_CONSTANT ARG_LIST ARG_LIST_RIGHT FOR_EXPR 
 %type <typeid> TYPE_SPEC
 
 %nonassoc OUTERELSE
@@ -181,7 +182,7 @@ PARAM_DECL :
         $$->pos = @2;
     }
     | TYPE_SPEC IDENTIFIER '[' ']' {
-        if($1 >= TYPEID_VOID_PTR)
+        if($1 >= TYPEID_VOID_PPTR)
             yyerror(n_errs, root, tmp_file, "multi-dimensional pointer is not supported");
         $$ = mknode("ParmVarDecl");
         $$->type_id = $1 + TYPEID_VOID_PTR - TYPEID_VOID;
@@ -227,13 +228,42 @@ DECL_DECLARATOR :
         $$->pos = @1;
         $$->type_id = TYPEID_VOID_PTR - TYPEID_VOID;
     }
+    | '*' '*' IDENTIFIER {
+        $$ = mknode("VarDecl");
+        strcpy($$->val, $3);
+        $$->pos = @1;
+        $$->type_id = TYPEID_VOID_PPTR - TYPEID_VOID;
+    }
+    | '*' '*' IDENTIFIER '=' EXPR {
+        $$ = mknode("VarDecl", $5);
+        strcpy($$->val, $3);
+        $$->pos = @1;
+        $$->type_id = TYPEID_VOID_PPTR - TYPEID_VOID;
+    }
     | IDENTIFIER ARRAY_DECL {
         ast_node_ptr arr_decl = $2, temp;
         $2->pos = @2;
         temp = mknode("VarDecl");
         temp->pos = @1;
-        temp->type_id = TYPEID_VOID_PTR - TYPEID_VOID;
+        temp->type_id += arr_decl->type_id + TYPEID_VOID_PTR - TYPEID_VOID;
         strcpy(temp->val, $1);
+        append_child(arr_decl, temp);
+        assert(arr_decl->n_child >= 1);
+        if(arr_decl->n_child >= 2) {
+            ast_node_ptr t = arr_decl->child[0];
+            arr_decl->child[0] = arr_decl->child[arr_decl->n_child-1];
+            arr_decl->child[arr_decl->n_child-1] = t;
+        }
+        $$ = arr_decl;
+    }
+    | '*' IDENTIFIER ARRAY_DECL {
+        ast_node_ptr arr_decl = $3, temp;
+        $3->pos = @3;
+        temp = mknode("VarDecl");
+        temp->pos = @2;
+        temp->type_id += arr_decl->type_id + TYPEID_VOID_PPTR - TYPEID_VOID;
+        arr_decl -> type_id += TYPEID_VOID_PTR - TYPEID_VOID;
+        strcpy(temp->val, $2);
         append_child(arr_decl, temp);
         assert(arr_decl->n_child == 2 || arr_decl->n_child == 1);
         if(arr_decl->n_child == 2) {
@@ -247,9 +277,12 @@ DECL_DECLARATOR :
 
 DECL :
     TYPE_SPEC DECL_LIST ';' {
-        if($2->n_child > 1 && $1 >= TYPEID_VOID_PTR) {
-            $2 -> child[0] -> type_id = $1;
-            transfer_type($2 -> child[1], $1 - TYPEID_VOID_PTR);
+        if(strcmp($2->token, "TO_BE_MERGED") == 0) {
+            transfer_type($2 -> child[0], $1);
+            while($1 >= TYPEID_VOID_PTR){
+                $1 -= TYPEID_VOID_PTR;
+            }
+            transfer_type($2 -> child[1], $1);
         }else{
             transfer_type($2, $1);
         }
@@ -261,7 +294,27 @@ ARRAY_DECL :
     '[' CONSTANT ']' {
         $$ = mknode("ArrayDecl");
         $$->pos = @1;
-        strcpy($$->val, $2);
+        strcpy($$->val, $2);    
+    }
+    |'[' CONSTANT ']' '[' EXPR ']' {
+        ast_node_ptr literal = mknode("Literal");
+        literal->type_id  = get_literal_type($2);
+        strcpy(literal->val, $2); 
+        $$ = mknode("ArrayDecl", $5, literal);
+        $$->pos = @1;
+        $$ -> type_id = TYPEID_VOID_PTR - TYPEID_VOID;
+        strcpy($$->val, "-1"); 
+    }
+    |'[' EXPR_NO_CONSTANT ']' '[' EXPR ']' {
+        $$ = mknode("ArrayDecl", $5, $2);
+        $$->pos = @1;
+        $$ -> type_id = TYPEID_VOID_PTR - TYPEID_VOID;
+        strcpy($$->val, "-1");
+    }
+    |'[' EXPR_NO_CONSTANT ']' {
+        $$ = mknode("ArrayDecl", $2);
+        $$->pos = @1;
+        strcpy($$->val, "-1");
     }
     | '[' CONSTANT ']' '=' '{' INIT_LIST '}' { 
         ast_node_ptr temp = mknode("InitializerList", $6);
@@ -361,7 +414,6 @@ TYPE_SPEC :
     | FLOAT {}
     | DOUBLE {}
     | VOID {}
-    | STRING {}
     | VOID_PTR {}
     | CHAR_PTR {}
     | SHORT_PTR {}
@@ -369,6 +421,14 @@ TYPE_SPEC :
     | LONG_PTR {}
     | FLOAT_PTR {}
     | DOUBLE_PTR {}
+    | VOID_PPTR {}
+    | CHAR_PPTR {}
+    | SHORT_PPTR {}
+    | INT_PPTR {}
+    | LONG_PPTR {}
+    | FLOAT_PPTR {}
+    | DOUBLE_PPTR {}
+    | STRING {}
     ;
 
 COMPOUND_STMT :
@@ -402,6 +462,19 @@ FOR_EXPR :
     | EXPR ';' { $$ = $1; }
 
 EXPR :
+    EXPR_NO_CONSTANT {
+        $$ = $1;
+    }
+    | CONSTANT { 
+        $$ = mknode("Literal");
+        $$->type_id = get_literal_type($1);
+        if($$->type_id < 0) yyerror(n_errs, root, tmp_file, "integer constant is too large for its type");
+        strcpy($$->val, $1);
+        $$->pos = @1;
+    }
+    ;
+
+EXPR_NO_CONSTANT :
     EXPR '<' EXPR    { 
         $$ = mknode("BinaryOperator", $1, $3);
         strcpy($$->val, "<");
@@ -613,11 +686,8 @@ EXPR :
         $$->type_id = $2;
         $$->pos = @1;
     }
-    | IDENTIFIER '[' EXPR ']' {
-        ast_node_ptr temp = mknode("DeclRefExpr");
-        strcpy(temp->val, $1);
-        temp->pos = @1;
-        $$ = mknode("ArraySubscriptExpr", temp, $3);
+    | EXPR '[' EXPR ']' {
+        $$ = mknode("ArraySubscriptExpr", $1, $3);
         $$->pos = @1;
     }
     | IDENTIFIER '(' ARG_LIST ')' { 
@@ -711,13 +781,6 @@ EXPR :
             }
             sprintf($$->val, "%.16lf", res);
         }
-    }
-    | CONSTANT { 
-        $$ = mknode("Literal");
-        $$->type_id = get_literal_type($1);
-        if($$->type_id < 0) yyerror(n_errs, root, tmp_file, "integer constant is too large for its type");
-        strcpy($$->val, $1);
-        $$->pos = @1;
     }
     | '(' EXPR ')' { 
         $$ = $2;

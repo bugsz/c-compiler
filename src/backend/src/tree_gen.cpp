@@ -102,15 +102,17 @@ std::unique_ptr<ExprAST> generateBackendASTNode(ast_node_ptr root) {
             auto node = generateBackendASTNode(root->child[0]);
             auto var = static_unique_pointer_cast<VarExprAST>(std::move(node));
             std::vector<std::unique_ptr<ExprAST>> init;
-            if (root->n_child > 1) {
+            if (arraySize >= 0 && root->n_child > 1) {
                 auto child = root->child[1];
-                for(int i=0;i<child->n_child;i++){
+                for(int i=0; i<root->child[1]->n_child; i++){
                     init.push_back(generateBackendASTNode(child->child[i]));
                 }
+            }else{
+                for(int i=1; i<root->n_child; i++){
+                    init.push_back(generateBackendASTNode(root->child[i]));
+                }
             }
-
-            auto array = std::make_unique<ArrayExprAST>(ptr2raw(var->getType()), var->getName(), arraySize, std::move(init));
-            
+            auto array = std::make_unique<ArrayExprAST>(root->type_id, var->getName(), arraySize, std::move(init));
             return array;
         }
 

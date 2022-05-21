@@ -95,6 +95,13 @@ int get_type_size(int type_id){
     case TYPEID_LONG_PTR:
     case TYPEID_FLOAT_PTR:
     case TYPEID_DOUBLE_PTR:
+    case TYPEID_VOID_PPTR:
+    case TYPEID_CHAR_PPTR:
+    case TYPEID_SHORT_PPTR:
+    case TYPEID_INT_PPTR:
+    case TYPEID_LONG_PPTR:
+    case TYPEID_FLOAT_PPTR:
+    case TYPEID_DOUBLE_PPTR:
         return sizeof(void*);
     default:
         return -1;
@@ -110,13 +117,13 @@ int get_type_alias(const char* name) {
 }
 
 static int ptr_deref_type(int type_id) {
-    assert(type_id >= TYPEID_VOID_PTR && type_id <= TYPEID_DOUBLE_PTR);
+    assert(type_id >= TYPEID_VOID_PTR && type_id <= TYPEID_DOUBLE_PPTR);
     int diff = TYPEID_VOID_PTR - TYPEID_VOID;
     return type_id - diff;
 }
 
 static int ptr_ref_type(int type_id) {
-    assert(type_id >= TYPEID_VOID && type_id <= TYPEID_DOUBLE);
+    assert(type_id >= TYPEID_VOID && type_id <= TYPEID_DOUBLE_PTR);
     int diff = TYPEID_VOID_PTR - TYPEID_VOID;
     return type_id + diff;
 }
@@ -139,13 +146,13 @@ static int expr_type_check(ast_node_ptr uni, ast_node_ptr op) {
         return -1;
     }
     if (string(op->val) == "*") {
-        if (uni->type_id < TYPEID_VOID_PTR || uni->type_id > TYPEID_DOUBLE_PTR
+        if (uni->type_id < TYPEID_VOID_PTR || uni->type_id > TYPEID_DOUBLE_PPTR
             || string(uni->token) == "Literal")
             return -1;
         return ptr_deref_type(uni->type_id);
     }
     if (string(op->val) == "&") {
-        if (uni->type_id <= TYPEID_VOID || uni->type_id > TYPEID_DOUBLE
+        if (uni->type_id <= TYPEID_VOID || uni->type_id > TYPEID_DOUBLE_PTR
             || string(uni->token) == "Literal")
             return -1;
         return ptr_ref_type(uni->type_id);
@@ -690,7 +697,7 @@ static void semantic_check_impl(int* n_errs, ast_node_ptr node) {
         } else {
             sym_tab.add(node->child[0]->val, node->child[0]->type_id);
         }
-        if (node->n_child == 2) {
+        if (string(node->child[node->n_child-1]->token) == "InitializerList") {
             int init_num = node->child[1]->n_child;
             if (string(node->val) == "length_tbd") {
                 sprintf(node->val, "%d", init_num);

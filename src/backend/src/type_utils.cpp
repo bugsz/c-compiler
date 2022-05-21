@@ -71,27 +71,6 @@ ASTNodeType getNodeType(std::string token) {
     return UNKNOWN;
 }
 
-int ptr2raw(int ptr) {
-    switch(ptr) {
-        case TYPEID_VOID_PTR:
-            return TYPEID_VOID;
-        case TYPEID_INT_PTR:
-            return TYPEID_INT;
-        case TYPEID_FLOAT_PTR:
-            return TYPEID_FLOAT;
-        case TYPEID_DOUBLE_PTR:
-            return TYPEID_DOUBLE;
-        case TYPEID_CHAR_PTR:
-            return TYPEID_CHAR;
-        case TYPEID_LONG_PTR:  
-            return TYPEID_LONG;
-        case TYPEID_SHORT_PTR:
-            return TYPEID_SHORT;
-        default:
-            return ptr;
-    }
-}
-
 std::string filterString(std::string str){
     std::string buffer(str.size()+1, 0);
     std::string cmd = "python3 -c 'print("+str+", end=\"\")'";

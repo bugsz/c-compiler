@@ -91,7 +91,7 @@ Value *IfExprAST::codegen(bool wantPtr) {
 
         Value *thenValue = then_case->codegen();
         if (!thenValue) return nullptr;
-        std::cout << "Return value of then value: " << getLLVMTypeStr(thenValue) << std::endl;
+        // std::cout << "Return value of then value: " << getLLVMTypeStr(thenValue) << std::endl;
         if(!llvmBuilder->GetInsertBlock()->getTerminator()){
             llvmBuilder->CreateBr(endifBlock);
         }
@@ -101,7 +101,7 @@ Value *IfExprAST::codegen(bool wantPtr) {
 }
 
 Value *WhileExprAST::codegen(bool wantPtr) {
-    print("Generate for while expr");
+    // print("Generate for while expr");
 
     Function *currFunction = llvmBuilder->GetInsertBlock()->getParent();
     BasicBlock *endBlock = BasicBlock::Create(*llvmContext, "while_loop_end", currFunction, retBlock);
@@ -136,7 +136,7 @@ Value *WhileExprAST::codegen(bool wantPtr) {
 }
 
 Value *DoExprAST::codegen(bool wantPtr) {
-    print("Generate do while expr");
+    // print("Generate do while expr");
     Function *currFunction = llvmBuilder->GetInsertBlock()->getParent();
     BasicBlock *endBlock = BasicBlock::Create(*llvmContext, "do_while_loop_end", currFunction, retBlock);
     BasicBlock *loopBlock = BasicBlock::Create(*llvmContext, "do_while_loop_body", currFunction, endBlock);
@@ -168,7 +168,7 @@ Value *DoExprAST::codegen(bool wantPtr) {
 }
 
 Value *BreakExprAST::codegen(bool wantPtr) {
-    print("Generate for break expr");
+    // print("Generate for break expr");
     if(BlockForBreak.empty()){
         return logErrorV("Break statement not in loop");
     }
@@ -176,7 +176,7 @@ Value *BreakExprAST::codegen(bool wantPtr) {
 }
 
 Value *ContinueExprAST::codegen(bool wantPtr) {
-    print("Generate for continue expr");
+    // print("Generate for continue expr");
     if(BlockForContinue.empty()){
         return logErrorV("Continue statement not in loop");
     }

@@ -36,7 +36,7 @@ Function *PrototypeAST::codegen(bool wantPtr) {
 }
 
 Function *FunctionDeclAST::codegen(bool wantPtr) {
-    std::cout << "FunctionDeclAST: " << prototype->getName() << std::endl;
+    // std::cout << "FunctionDeclAST: " << prototype->getName() << std::endl;
     retPtr = retBlock = nullptr;
     auto &p = *prototype;
     Function *currFunction = getFunction(p.getName());
@@ -99,7 +99,7 @@ Function *FunctionDeclAST::codegen(bool wantPtr) {
 }
 
 Value *CallExprAST::codegen(bool wantPtr) {
-    std::cout << "Call to: " + callee << std::endl;
+    // std::cout << "Call to: " + callee << std::endl;
     
     Function *calleeFunction = getFunction(callee);
     if (!calleeFunction) return logErrorV("Unknown function");
@@ -132,7 +132,7 @@ Value *ReturnStmtExprAST::codegen(bool wantPtr) {
     Value *retVal = body->codegen();
     retVal = createCast(retVal, currFunction->getReturnType());
     if (!retVal) return logErrorV("No ret val");
-    std::cout << "Get return value: " << getLLVMTypeStr(retVal) << std::endl;
+    // std::cout << "Get return value: " << getLLVMTypeStr(retVal) << std::endl;
     llvmBuilder->CreateStore(retVal, retPtr);
     
     llvmBuilder->CreateBr(retBlock);

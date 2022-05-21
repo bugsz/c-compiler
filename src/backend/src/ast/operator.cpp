@@ -13,7 +13,7 @@ using namespace llvm;
 
 
 Value *ArraySubExprAST::codegen(bool wantPtr) {
-    // std::cout<<"Array Sub"<<"Want Ptr:" << wantPtr<<std::endl;
+    // std::cout<<"Array Sub "<<"Want Ptr:" << wantPtr<<std::endl;
     static Value* zero = llvmBuilder->getInt64(0);
     auto index = sub->codegen();
     if (!index) return nullptr;
@@ -30,12 +30,19 @@ Value *ArraySubExprAST::codegen(bool wantPtr) {
             arrayPtr,
             castIndex
         );
-    }else{
+    }else if(varPtr->getType()->getPointerElementType()->isArrayTy()){
         // safeway
         elementPtr = llvmBuilder->CreateGEP(
-            ArrayType::get(elementType, varPtr->getType()->getPointerElementType()->getArrayNumElements()), 
+            ArrayType::get(varPtr->getType()->getPointerElementType()->getArrayElementType(), 
+                            varPtr->getType()->getPointerElementType()->getArrayNumElements()), 
             varPtr, 
             {zero, castIndex}
+        );
+    }else{
+        elementPtr = llvmBuilder->CreateGEP(
+            elementType,
+            varPtr,
+            castIndex
         );
     }
     if(wantPtr){
@@ -80,12 +87,17 @@ Value *UnaryExprAST::codegen(bool wantPtr) {
                 */
                 return right;
             }
-            if(!(right->getType()->getPointerElementType() == (wantPtr ? varType->getPointerTo() : varType))){
+            if(right->getType()->getPointerElementType()->isArrayTy()){
                 /* 
                     this indicates right is already a ptr to array, since it's meaning less to assign to an array
                     variable, we'd better run codegen() without want ptr flag
                 */
-                right = rhs->codegen();
+                right = llvmBuilder->CreateGEP(
+                    ArrayType::get(right->getType()->getPointerElementType()->getArrayElementType(), 
+                                right->getType()->getPointerElementType()->getArrayNumElements()), 
+                                right, 
+                                {llvmBuilder->getInt64(0), llvmBuilder->getInt64(0)}
+                );
                 return right;
             }
             auto V = llvmBuilder->CreateLoad(wantPtr ? varType->getPointerTo() : varType, right);

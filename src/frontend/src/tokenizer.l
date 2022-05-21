@@ -58,6 +58,14 @@ extern YYLTYPE yylloc;
 "float"[ \t\r\n]*\*  { set_col(); yylval.typeid = TYPEID_FLOAT_PTR; return FLOAT_PTR; }
 "double"[ \t\r\n]*\* { set_col(); yylval.typeid = TYPEID_DOUBLE_PTR; return DOUBLE_PTR; }
 
+"void"[ \t\r\n]*\*[ \t\r\n]*\*   { set_col(); yylval.typeid = TYPEID_VOID_PPTR; return VOID_PPTR; }
+"char"[ \t\r\n]*\*[ \t\r\n]*\*   { set_col(); yylval.typeid = TYPEID_CHAR_PPTR; return CHAR_PPTR; }
+"short"[ \t\r\n]*\*[ \t\r\n]*\*  { set_col(); yylval.typeid = TYPEID_SHORT_PPTR; return SHORT_PPTR; }
+"int"[ \t\r\n]*\*[ \t\r\n]*\*    { set_col(); yylval.typeid = TYPEID_INT_PPTR; return INT_PPTR; }
+"long"[ \t\r\n]*\*[ \t\r\n]*\*   { set_col(); yylval.typeid = TYPEID_LONG_PPTR; return LONG_PPTR; }
+"float"[ \t\r\n]*\*[ \t\r\n]*\*  { set_col(); yylval.typeid = TYPEID_FLOAT_PPTR; return FLOAT_PPTR; }
+"double"[ \t\r\n]*\*[ \t\r\n]*\* { set_col(); yylval.typeid = TYPEID_DOUBLE_PPTR; return DOUBLE_PPTR; }
+
 "if"        { set_col(); return IF; }
 "else"      { set_col(); return ELSE; }
 "while"     { set_col(); return WHILE; }
@@ -199,7 +207,6 @@ int check_type(){
             case TYPEID_LONG: return LONG;
             case TYPEID_FLOAT: return FLOAT;
             case TYPEID_DOUBLE: return DOUBLE;
-            case TYPEID_STR: return STRING;
             case TYPEID_VOID_PTR: return VOID_PTR;
             case TYPEID_CHAR_PTR: return CHAR_PTR;
             case TYPEID_SHORT_PTR: return SHORT_PTR;
@@ -207,6 +214,14 @@ int check_type(){
             case TYPEID_LONG_PTR: return LONG_PTR;
             case TYPEID_FLOAT_PTR: return FLOAT_PTR;
             case TYPEID_DOUBLE_PTR: return DOUBLE_PTR;
+            case TYPEID_VOID_PPTR: return VOID_PPTR;
+            case TYPEID_CHAR_PPTR: return CHAR_PPTR;
+            case TYPEID_SHORT_PPTR: return SHORT_PPTR;
+            case TYPEID_INT_PPTR: return INT_PPTR;
+            case TYPEID_LONG_PPTR: return LONG_PPTR;
+            case TYPEID_FLOAT_PPTR: return FLOAT_PPTR;
+            case TYPEID_DOUBLE_PPTR: return DOUBLE_PPTR;
+            case TYPEID_STR: return STRING;
             default: assert(0);
         }
     }

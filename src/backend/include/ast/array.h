@@ -36,23 +36,16 @@ class ArrayExprAST : public ExprAST {
     int type;
     std::string name;
     int size;
-
-
-public:
+    int rows;
+    int cols;
+public:    
     std::vector<std::unique_ptr<ExprAST>> init;
-
     const std::string &getName() const { return name; }
-
     const int getSize() const { return size; }
-
     const int getType() const { return type; }
-
-    ArrayExprAST(int type, const std::string &name, int size, std::vector<std::unique_ptr<ExprAST>> init) : type(type),
-                                                                                                            name(name),
-                                                                                                            size(size),
-                                                                                                            init(std::move(
-                                                                                                                    init)) {}
-
+    ArrayExprAST(int type, const std::string &name, int size,
+                std::vector<std::unique_ptr<ExprAST>> init) : 
+                type(type), name(name), size(size), init(std::move(init)) {}
     Value *codegen(bool wantPtr = false) override;
 };
 

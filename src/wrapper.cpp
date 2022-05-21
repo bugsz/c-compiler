@@ -3,27 +3,26 @@
  *  zy_pan@zju.edu.cn
  *  Mon Apr 25, 2022
  */
-
+#include <bits/stdc++.h>
 #include <string>
 #include <vector>
 #include <cstring>
 #include <unistd.h>
-#include <wait.h>
+#include <sys/wait.h>
+
 #include <iostream>
 
-// frontend header is here
 #include "frontend/frontend.h"
-
-// include backend header here in the future
-// ......
-void backend_entry(lib_frontend_ret ret);
+#include "backend/backend.h"
 
 using namespace std;
 
-#define GNU_LD  "/usr/bin/ld"
+#define GNU_LD  "/usr/bin/gcc"
 #define DEFAULT_LINKER  GNU_LD
-#define ZJUCC_CRT_DIR "./runtime"
-#define DEFAULT_LIBC_DIR ZJUCC_CRT_DIR
+#ifndef LIBC_DIR
+#define LIBC_DIR "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/lib"
+#endif
+#define DEFAULT_LIBC_DIR LIBC_DIR
 
 // Wrapper class for system linker
 class Linker {
@@ -46,7 +45,7 @@ public:
 
     void set_link_library(string link_dir = DEFAULT_LIBC_DIR, string lib_name = "c") {
         ld_args.push_back("-L" + link_dir);
-        ld_args.push_back("-l" + lib_name);
+        ld_args.push_back("-l" + lib_name); 
     }
     
     void exec() {
@@ -75,15 +74,13 @@ int main(int argc, const char** argv) {
     // frontend API call is here
     lib_frontend_ret ret = frontend_entry(argc, argv);
     // backend API call is here
-    // *TODO*: complete this part with backend public APIs in the future...
-    // ......
-    backend_entry(ret);
+    backend_entry(ret, "output.o");
 
     // wrapper is here
     Linker ld = Linker();
     ld.add_object("output.o"); // *TODO*: use filename from backend output in the future ...
     ld.set_target(ret.output_file); // *TODO*: use filename from frontend output in the future ...
-
     ld.exec();
+    unlink("output.o");
     return 0;
 }
