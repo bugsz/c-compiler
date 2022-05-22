@@ -27,6 +27,7 @@ char global_filename[256];
 lib_frontend_ret frontend_entry(int argc, const char** argv) {
     int* n_errs = new int;
     *n_errs = 0;
+    bool obj_only;
     string input_file, output_file;
     ast_node_ptr root = mknode("TranslationUnitDecl");
     char tmp_file[] = "tmp_XXXXXX";
@@ -35,6 +36,7 @@ lib_frontend_ret frontend_entry(int argc, const char** argv) {
         if (!args.is_used("-f") && !args.is_used("-stdin")) {
             throw runtime_error("-f or -stdin required.");
         }
+        obj_only = args.is_used("-c");
         string pp_filename, pp_res;
         output_file = args.get("-o");
         int fd = mkstemp(tmp_file);
@@ -84,5 +86,5 @@ lib_frontend_ret frontend_entry(int argc, const char** argv) {
         unlink(tmp_file);
         exit(1);
     }
-    return { *n_errs, input_file, output_file, root };
+    return { *n_errs, obj_only, input_file, output_file, root };
 }

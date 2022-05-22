@@ -9,6 +9,7 @@ typedef struct ast_yyltype ast_loc_t;
 
 struct lib_frontend_ret {
     int n_errs;
+    bool obj_only;
     std::string input_file;
     std::string output_file;
     ast_node_ptr root;

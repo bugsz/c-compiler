@@ -61,6 +61,7 @@ public:
             wait(NULL);
         }
     }
+
 private:
     string linker_path;
     vector<string> ld_args;
@@ -73,14 +74,17 @@ private:
 int main(int argc, const char** argv) {
     // frontend API call is here
     lib_frontend_ret ret = frontend_entry(argc, argv);
+    string obj_filename = ret.output_file + ".o";
     // backend API call is here
-    backend_entry(ret, "output.o");
+    backend_entry(ret, obj_filename);
 
     // wrapper is here
     Linker ld = Linker();
-    ld.add_object("output.o"); // *TODO*: use filename from backend output in the future ...
+    ld.add_object(obj_filename); // *TODO*: use filename from backend output in the future ...
     ld.set_target(ret.output_file); // *TODO*: use filename from frontend output in the future ...
-    ld.exec();
-    unlink("output.o");
+    if(!ret.obj_only){
+        ld.exec();
+        unlink(obj_filename.c_str());
+    }
     return 0;
 }

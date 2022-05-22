@@ -82,6 +82,7 @@ enum TYPEID {
 #include <string>
 struct lib_frontend_ret {
     int n_errs;
+    bool obj_only;
     std::string input_file;
     std::string output_file;
     ast_node_ptr root;
