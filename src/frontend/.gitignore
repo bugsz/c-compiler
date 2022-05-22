@@ -5,7 +5,9 @@ autom4te.cache
 config.log
 config.status
 Makefile
+Makefile.in
 configure
+aclocal.m4
 *~
 .vscode
 stamp-h1
@@ -14,5 +16,5 @@ src/parser.c
 src/tokenizer.c
 src/parser.h
 include/config.h
+include/config.h.in
 zjucc
-include/config.h
