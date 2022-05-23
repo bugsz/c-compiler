@@ -3,7 +3,6 @@
  *  zy_pan@zju.edu.cn
  *  Mon Apr 25, 2022
  */
-#include <bits/stdc++.h>
 #include <string>
 #include <vector>
 #include <cstring>
@@ -17,7 +16,7 @@
 
 using namespace std;
 
-#define GNU_LD  "/usr/bin/gcc"
+#define GNU_LD  "/usr/bin/ld"
 #define DEFAULT_LINKER  GNU_LD
 
 #ifndef LIBC_DIR
@@ -30,11 +29,21 @@ public:
     Linker(string __linker_path = DEFAULT_LINKER) :
         linker_path(__linker_path) {
         ld_args.push_back(linker_path);
+    #ifdef DYN_LINKER
+        ld_args.push_back("-dynamic-linker");
+        ld_args.push_back(DYN_LINKER);
+    #endif
     }
 
     ~Linker() = default;
 
     void add_object(string filename) {
+    #ifdef CRT1 
+        ld_args.push_back(CRT1);
+    #endif
+    #ifdef CRTI
+        ld_args.push_back(CRTI);
+    #endif
         ld_args.push_back(filename);
     }
 
@@ -44,12 +53,15 @@ public:
     }
 
     void set_link_library(string link_dir = LIBC_DIR, string lib_name = "c") {
+        #ifdef CRTN
+            ld_args.push_back(CRTN);
+        #endif
         ld_args.push_back("-L" + link_dir);
-        ld_args.push_back("-l" + lib_name); 
+        ld_args.push_back("-l" + lib_name);
     }
     
     void exec() {
-        set_link_library(); // link libc by default
+        set_link_library(); // add c run time and dynamic link to libc by default
         char** __argv = new char* [ld_args.size() + 1];
         for (int i = 0;i < ld_args.size() + 1;i++) {
             __argv[i] = (i == ld_args.size()) ? NULL : strdup(ld_args[i].c_str());
