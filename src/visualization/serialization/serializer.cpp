@@ -1,6 +1,6 @@
 #include <frontend.h>
 #include <fmt/core.h>
-#include <bits/stdc++.h>
+
 
 using namespace std;
 extern char* typeid_deref[];

@@ -1,4 +1,4 @@
-#include <bits/stdc++.h>
+
 #include "llvm_utils.h"
 #include "type_utils.h"
 #include "ast/base.h"

@@ -15,7 +15,7 @@
 #include "llvm/IR/Type.h"
 #include "llvm/IR/Verifier.h"
 
-#include <bits/stdc++.h>
+
 #include "ast/base.h"
 #include "ast/varref.h"
 #include "llvm_utils.h"

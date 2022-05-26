@@ -1,5 +1,4 @@
 #include "type_utils.h"
-#include<bits/stdc++.h>
 
 int getBinaryOpType(std::string binaryOp) {
     if(binaryOp == "+" ) return ADD;

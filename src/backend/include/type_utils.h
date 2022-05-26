@@ -1,7 +1,10 @@
 #pragma once
 
-#include<bits/stdc++.h>
 #include "frontend.h"
+#include <cassert>
+#include <iostream>
+#include <stack>
+#include <memory>
 
 enum BinaryOpType {
     ADD = 0,

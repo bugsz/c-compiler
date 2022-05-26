@@ -4,7 +4,7 @@
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Type.h"
 
-#include <bits/stdc++.h>
+
 #include "llvm_utils.h"
 #include "type_utils.h"
 #include "ast/operator.h"

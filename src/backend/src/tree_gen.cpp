@@ -10,7 +10,7 @@
 #include "ast/variable.h"
 #include "ast/varref.h"
 #include "frontend.h"
-#include <bits/stdc++.h>
+
 
 std::unique_ptr<ExprAST> generateBackendASTNode(ast_node_ptr root) {
     if (!root) return nullptr;
