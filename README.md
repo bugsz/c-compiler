@@ -64,11 +64,11 @@
 
 ### Build
 
-+ Execute the following command under the root of the project, then you should see `./c-compiler` in the folder.
++ Execute the following command under the root of the project, then you should see `./c-compiler` in the folder. If your system `cc` and `c++` is not clang/clang++, may cause issue, so set CC=clang CXX=clang++ to avoid trouble.
 
   ```shell
   mkdir build && cd build
-  cmake .. -DALL ON
+  CC=clang CXX=clang++ cmake .. -DALL ON
   make
   ```
 
