@@ -68,7 +68,7 @@
 
   ```shell
   mkdir build && cd build
-  CC=clang CXX=clang++ cmake .. -DALL ON
+  CC=clang CXX=clang++ cmake .. -DALL=ON
   make
   ```
 
